@@ -14,17 +14,17 @@
 {-# LANGUAGE DefaultSignatures #-}
 
 import qualified Control.Arrow as Arrow
-import Control.Applicative
+import qualified Control.Applicative as Applicative
 import Control.Category
-import Data.Bitraversable
 import Data.Functor.Identity
-import Data.Monoid hiding (Product, Sum)
 import Data.Traversable
-import Data.Type.Equality
 import Data.Typeable
 import Data.Void
 import Prelude hiding (map, id, (.), fst, snd)
 import qualified Prelude
+
+infixl 4 <$>
+infixl 4 <*>
 
 -- * Enriched Profunctors
 -- p : C^op x D -> E
@@ -37,9 +37,6 @@ class (Category c, Category d, Category e) => Profunctor (p :: x -> y -> z) (c :
   rmap :: d b b' -> e (p a b) (p a b')
   rmap = dimap id
 
-instance Profunctor (->) (->) (->) (->) where
-  dimap f g h = g . h . f
-
 type Iso c d s t a b = forall p. Profunctor p c d (->) => p a b -> p s t
 
 newtype Hom k a b = Hom { runHom :: k a b }
@@ -49,6 +46,9 @@ instance Category k => Profunctor (Hom k) k k (->) where
 
 _Hom :: Iso (->) (->) (Hom k a b) (Hom k' a' b') (k a b) (k' a' b')
 _Hom = dimap runHom Hom
+
+instance Profunctor (->) (->) (->) (->) where
+  dimap f g = from _Hom (dimap f g)
 
 -- * Viewing
 
@@ -88,7 +88,7 @@ instance Category Nat where
   Nat f . Nat g = Nat (f . g)
 
 instance Profunctor Nat Nat Nat (->) where
-  dimap (Nat f) (Nat g) (Nat h) = Nat (dimap f g h)
+  dimap f g = from _Hom (dimap f g)
 
 -- * Lifting bifunctors
 
@@ -143,6 +143,9 @@ _Down = dimap runDown Down
 
 class (Category c, Category d) => Functorial f c d | f c -> d, f d -> c where
   map :: c a b -> d (f a) (f b)
+
+(<$>) :: Functorial f c d => c a b -> d (f a) (f b)
+(<$>) = map
 
 instance Functor g => Functorial g (->) (->) where
   map = fmap
@@ -229,14 +232,6 @@ instance Tensor (+) Nat where
       R (R c) -> R c
   lambda = dimap (Nat $ \(R a) -> a) (Nat R)
   rho    = dimap (Nat $ \(L a) -> a) (Nat L)
-
-class (Functorial f k k, Tensor p k) => Monoidal f p k | f -> p k where
-  unit :: Id p `k` f (Id p)
-  mult :: p (f a) (f b) `k` f (p a b)
-
-instance Applicative f => Monoidal f (,) (->) where
-  unit = pure
-  mult = uncurry (liftA2 (,))
 
 class Tensor p k => Symmetric (p :: x -> x -> x) (k :: x -> x -> *) | p -> k where
   swap :: k (p a b) (p b a)
@@ -409,22 +404,6 @@ instance Functorial f d c => Representable (Up c f) c d where
   type Rep (Up c f) = f
   rep = _Up
 
-type Traversal k s t a b = forall p. (Strong p k, Representable p k k, Monoidal (Rep p) (Product k) k) => p a b -> p s t
-
-both :: Traversal (->) (a, a) (b, b) a b
-both pab = review rep $ \(a1, a2) -> let f = view rep pab in mult (f a1, f a2)
-
-newtype WrapMonoidal f a = WrapMonoidal { unwrapMonoidal :: f a }
-
-instance Monoidal f (,) (->) => Functor (WrapMonoidal f) where
-  fmap f = WrapMonoidal . map f . unwrapMonoidal
-instance Monoidal f (,) (->) => Applicative (WrapMonoidal f) where
-  pure a = WrapMonoidal $ const a `map` unit ()
-  WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ uncurry ($) `map` mult (ff, fa)
-
-traversing :: Traversable t => Traversal (->) (t a) (t b) a b
-traversing = view (from rep) . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
-
 class (Functorial (Corep p) c d, Profunctor p c d (->)) => Corepresentable (p :: x -> y -> *) (c :: x -> x -> *) (d :: y -> y -> *) | p -> c d where
   type Corep p :: x -> y
   corep :: Iso (->) (->) (p a b) (p a' b') (d (Corep p a) b) (d (Corep p a') b')
@@ -437,6 +416,66 @@ instance Functorial f c d => Corepresentable (Down d f) c d where
   type Corep (Down d f) = f
   corep = _Down
 
+-- A strong monoidal functor in a CCC, aka Applicative
+class (Functorial f k k, CCC k) => MonoidalCCC (f :: x -> x) (k :: x -> x -> *) | f -> k where
+  pure  :: a `k` f a
+  (<*>) :: f (Exp k a b) `k` Exp k (f a) (f b)
+
+type Traversal k s t a b = forall p. (Strong p k, Representable p k k, MonoidalCCC (Rep p) k) => p a b -> p s t
+
+both :: Traversal (->) (a, a) (b, b) a b
+both pab = review rep $ \(a1, a2) -> let f = view rep pab in (,) <$> f a1 <*> f a2
+
+newtype WrapMonoidal f a = WrapMonoidal { unwrapMonoidal :: f a }
+
+instance MonoidalCCC f (->) => Functor (WrapMonoidal f) where
+  fmap f = WrapMonoidal . map f . unwrapMonoidal
+instance MonoidalCCC f (->) => Applicative.Applicative (WrapMonoidal f) where
+  pure a = WrapMonoidal $ pure a
+  WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ ff <*> fa
+
+traversing :: Traversable t => Traversal (->) (t a) (t b) a b
+traversing = review rep . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
+
+apIx :: MonoidalCCC f Nat => f (Pow a b) i -> f a i -> f b i
+apIx = runPow . runNat (<*>)
+
+pureIx :: MonoidalCCC f Nat => a i -> f a i
+pureIx = runNat pure
+
+mapIx :: MonoidalCCC f Nat => (a i -> b i) -> f a i -> f b i
+mapIx f fa = pureIx (Pow f) `apIx` fa
+
+liftA2Ix :: MonoidalCCC f Nat => (a i -> b i -> c i) -> f a i -> f b i -> f c i
+liftA2Ix f fa fb = pureIx (Pow $ Pow . f) `apIx` fa `apIx` fb
+
+liftA3Ix :: MonoidalCCC f Nat => (a i -> b i -> c i -> d i) -> f a i -> f b i -> f c i -> f d i
+liftA3Ix f fa fb fc = pureIx (Pow $ (Pow .) $ (Pow .) . f) `apIx` fa `apIx` fb `apIx` fc
+
 data (||) :: * -> * -> Bool -> * where
   Fst :: a -> (a || b) False
   Snd :: b -> (a || b) True
+
+this :: Traversal Nat (a || b) (c || b) (K a) (K c)
+this pac = review rep $ Nat $ \s -> case s of
+  Fst a -> (\(K c) -> Fst c) `mapIx` runNat (view rep pac) (K a)
+  Snd b -> pureIx (Snd b)
+
+that :: Traversal Nat (a || b) (a || c) (K b) (K c)
+that pbc = review rep $ Nat $ \s -> case s of
+  Fst a -> pureIx (Fst a)
+  Snd b -> (\(K c) -> Snd c) `mapIx` runNat (view rep pbc) (K b)
+
+
+-- The following is for completeness
+
+class (Functorial f k k, Tensor p k) => Monoidal f p k | f -> p k where
+  unit :: Id p `k` f (Id p)
+  mult :: p (f a) (f b) `k` f (p a b)
+
+class (Monoidal f p k, Tensor p k) => Strength f p k | f -> p k where
+  strength :: p a (f b) `k` f (p a b)
+
+instance (Monoidal f (Product k) k, CCC k, Strength f (Product k) k) => MonoidalCCC f k where
+  pure = map (view rho) . strength . second unit . review rho
+  (<*>) = view curried (map apply . mult)
