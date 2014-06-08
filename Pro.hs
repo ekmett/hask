@@ -414,10 +414,16 @@ type Traversal k s t a b = forall p. (Strong p k, Representable p k k, Monoidal 
 both :: Traversal (->) (a, a) (b, b) a b
 both pab = review rep $ \(a1, a2) -> let f = view rep pab in mult (f a1, f a2)
 
-traversing :: Traversal (->) [a] [b] a b
-traversing pab = review rep f where
-  f [] = const [] `map` unit ()
-  f (a:as) = uncurry (:) `map` mult (view rep pab a, f as)
+newtype WrapMonoidal f a = WrapMonoidal { unwrapMonoidal :: f a }
+
+instance Monoidal f (,) (->) => Functor (WrapMonoidal f) where
+  fmap f = WrapMonoidal . map f . unwrapMonoidal
+instance Monoidal f (,) (->) => Applicative (WrapMonoidal f) where
+  pure a = WrapMonoidal $ const a `map` unit ()
+  WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ uncurry ($) `map` mult (ff, fa)
+
+traversing :: Traversable t => Traversal (->) (t a) (t b) a b
+traversing = view (from rep) . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
 
 class (Functorial (Corep p) c d, Profunctor p c d (->)) => Corepresentable (p :: x -> y -> *) (c :: x -> x -> *) (d :: y -> y -> *) | p -> c d where
   type Corep p :: x -> y
