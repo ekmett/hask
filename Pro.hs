@@ -28,7 +28,7 @@ import qualified Prelude
 
 -- * Enriched Profunctors
 -- p : C^op x D -> E
-class (Category c, Category d) => Profunctor (p :: x -> y -> z) (c :: x -> x -> *) (d :: y -> y -> *) (e :: z -> z -> *) | p -> c d e where
+class (Category c, Category d, Category e) => Profunctor (p :: x -> y -> z) (c :: x -> x -> *) (d :: y -> y -> *) (e :: z -> z -> *) | p -> c d e where
   dimap :: c a a' -> d b b' -> e (p a' b) (p a b')
 
   lmap :: c a a' -> e (p a' b) (p a b)
