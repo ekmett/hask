@@ -40,14 +40,14 @@ class (Category c, Category d, Category e) => Profunctor (p :: x -> y -> z) (c :
 instance Profunctor (->) (->) (->) (->) where
   dimap f g h = g . h . f
 
-type Iso c d s t a b = forall p. Profunctor p c d (->) => p a b -> p s t
+type Iso c s t a b = forall p. Profunctor p c c (->) => p a b -> p s t
 
 newtype Hom k a b = Hom { runHom :: k a b }
 
 instance Category k => Profunctor (Hom k) k k (->) where
   dimap f g h = Hom $ g . runHom h . f
 
-_Hom :: Iso (->) (->) (Hom k a b) (Hom k' a' b') (k a b) (k' a' b')
+_Hom :: Iso (->) (Hom k a b) (Hom k' a' b') (k a b) (k' a' b')
 _Hom = dimap runHom Hom
 
 -- * Viewing
@@ -57,7 +57,7 @@ newtype Forget c r a b = Forget { runForget :: c a r }
 instance Category k => Profunctor (Forget k r) k k (->) where
   dimap f _ (Forget ar) = Forget (ar . f)
 
-_Forget :: Iso (->) (->) (Forget c r a b) (Forget c' r' a' b') (c a r) (c' a' r')
+_Forget :: Iso (->) (Forget c r a b) (Forget c' r' a' b') (c a r) (c' a' r')
 _Forget = dimap runForget Forget
 
 view :: Category k => (Forget k a a a -> Forget k a s s) -> k s a
@@ -65,7 +65,7 @@ view l = runForget $ l (Forget id)
 
 newtype From p a b s t = From { runFrom :: p t s -> p b a }
 
-_From :: Iso (->) (->) (From p a b s t) (From p' a' b' s' t') (p t s -> p b a) (p' t' s' -> p' b' a')
+_From :: Iso (->) (From p a b s t) (From p' a' b' s' t') (p t s -> p b a) (p' t' s' -> p' b' a')
 _From = dimap runFrom From
 
 instance Profunctor p d c (->) => Profunctor (From p a b) c d (->) where
@@ -94,14 +94,14 @@ instance Profunctor Nat Nat Nat (->) where
 
 newtype Lift p f g a = Lift { lower :: p (f a) (g a) } -- could be used with Lift (,), Lift Either, Lift (->) to get corresponding entries for Nat
 
-_Lift :: Iso (->) (->) (Lift p f g a) (Lift p' f' g' a') (p (f a) (g a)) (p' (f' a') (g' a'))
+_Lift :: Iso (->) (Lift p f g a) (Lift p' f' g' a') (p (f a) (g a)) (p' (f' a') (g' a'))
 _Lift = dimap lower Lift
 
 data (*) f g a = Product (f a) (g a) deriving (Eq,Ord,Show,Read,Typeable)
 data (+) f g a = L (f a) | R (g a) deriving (Eq,Ord,Show,Read,Typeable)
 data Pow f g a = Pow { runPow :: f a -> g a } deriving Typeable
 
-_Pow :: Iso (->) (->) (Pow f g a) (Pow f' g' a') (f a -> g a) (f' a' -> g' a')
+_Pow :: Iso (->) (Pow f g a) (Pow f' g' a') (f a -> g a) (f' a' -> g' a')
 _Pow = dimap runPow Pow
 
 instance Functorial ((*) f) Nat Nat where
@@ -133,12 +133,12 @@ instance (Profunctor p c d (->), Profunctor q d e (->)) => Profunctor (Procompos
 
 newtype Up (c :: x -> x -> *) (f :: y -> x) (a :: x) (b :: y)  = Up { runUp :: c a (f b) }
 
-_Up :: Iso (->) (->) (Up c f a b) (Up c' f' a' b') (c a (f b)) (c' a' (f' b'))
+_Up :: Iso (->) (Up c f a b) (Up c' f' a' b') (c a (f b)) (c' a' (f' b'))
 _Up = dimap runUp Up
 
 newtype Down (d :: y -> y -> *) (f :: x -> y) (a :: x) (b :: y) = Down { runDown :: d (f a) b }
 
-_Down :: Iso (->) (->) (Down d f a b) (Down d' f' a' b') (d (f a) b) (d' (f' a') b')
+_Down :: Iso (->) (Down d f a b) (Down d' f' a' b') (d (f a) b) (d' (f' a') b')
 _Down = dimap runDown Down
 
 class (Category c, Category d) => Functorial f c d | f c -> d, f d -> c where
@@ -182,9 +182,9 @@ instance Bifunctor (+) Nat Nat Nat where
 
 class Bifunctor p k k k => Tensor (p :: x -> x -> x) (k :: x -> x -> *) | p -> k where
   type Id p :: x
-  associate :: Iso k k (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
-  lambda    :: Iso k k (p (Id p) a) (p (Id p) a') a a'
-  rho       :: Iso k k (p a (Id p)) (p a' (Id p)) a a'
+  associate :: Iso k (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
+  lambda    :: Iso k (p (Id p) a) (p (Id p) a') a a'
+  rho       :: Iso k (p a (Id p)) (p a' (Id p)) a a'
 
 instance Tensor (,) (->) where
   type Id (,) = ()
@@ -357,7 +357,7 @@ instance Choice Nat Nat where
 
 type Prism k s t a b = forall p. Choice p k => p a b -> p s t
 
-type AdjunctionIso f u c d = forall a b a' b'. Iso (->) (->) (c (f a) b) (c (f a') b') (d a (u b)) (d a' (u b'))
+type AdjunctionIso f u c d = forall a b a' b'. Iso (->) (c (f a) b) (c (f a') b') (d a (u b)) (d a' (u b'))
 
 class (Functorial f d c, Functorial u c d) => Adjunction (f :: y -> x) (u :: x -> y) (c :: x -> x -> *) (d :: y -> y -> *) | f -> u c d, u -> f c d where
   adjunction :: AdjunctionIso f u c d
@@ -370,7 +370,7 @@ class (Functorial f d c, Functorial u c d) => Adjunction (f :: y -> x) (u :: x -
 
 class (Profunctor (Exp k) k k k, Cartesian k) => CCC (k :: x -> x -> *) where
   type Exp k :: x -> x -> x
-  curried :: Iso (->) (->) (Product k a b `k` c) (Product k a' b' `k` c') (a `k` Exp k b c) (a' `k` Exp k b' c')
+  curried :: Iso (->) (Product k a b `k` c) (Product k a' b' `k` c') (a `k` Exp k b c) (a' `k` Exp k b' c')
 
 apply :: CCC k => Product k (Exp k b c) b `k` c
 apply = review curried id
@@ -399,7 +399,7 @@ instance Adjunction ((*) e) (Pow e) Nat Nat where
 
 class (Functorial (Rep p) d c, Profunctor p c d (->)) => Representable (p :: x -> y -> *) (c :: x -> x -> *) (d :: y -> y -> *) | p -> c d where
   type Rep p :: y -> x
-  rep :: Iso (->) (->) (p a b) (p a' b') (c a (Rep p b)) (c a' (Rep p b'))
+  rep :: Iso (->) (p a b) (p a' b') (c a (Rep p b)) (c a' (Rep p b'))
 
 instance Representable (->) (->) (->) where
   type Rep (->) = Identity
@@ -427,7 +427,7 @@ traversing = view (from rep) . (unwrapMonoidal .) . traverse . (WrapMonoidal .) 
 
 class (Functorial (Corep p) c d, Profunctor p c d (->)) => Corepresentable (p :: x -> y -> *) (c :: x -> x -> *) (d :: y -> y -> *) | p -> c d where
   type Corep p :: x -> y
-  corep :: Iso (->) (->) (p a b) (p a' b') (d (Corep p a) b) (d (Corep p a') b')
+  corep :: Iso (->) (p a b) (p a' b') (d (Corep p a) b) (d (Corep p a') b')
 
 instance Corepresentable (->) (->) (->) where
   type Corep (->) = Identity
