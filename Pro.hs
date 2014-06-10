@@ -392,7 +392,6 @@ instance Functorial f c d => Corepresentable (Down d f) c d where
   type Corep (Down d f) = f
   corep = _Down
 
-{-
 -- A strong monoidal functor in a CCC, aka Applicative
 class (Functorial f k k, CCC k) => MonoidalCCC (f :: x -> x) (k :: x -> x -> *) | f -> k where
   pure  :: a `k` f a
@@ -415,20 +414,20 @@ instance MonoidalCCC f (->) => Applicative.Applicative (WrapMonoidal f) where
 traversing :: Traversable t => Traversal (->) (t a) (t b) a b
 traversing = review rep . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
 
-apIx :: MonoidalCCC f Nat => f (Pow a b) i -> f a i -> f b i
-apIx = runPow . runNat (<*>)
+apIx :: MonoidalCCC f Nat => f (Lift (->) a b) i -> f a i -> f b i
+apIx = lower . runNat (<*>)
 
 pureIx :: MonoidalCCC f Nat => a i -> f a i
 pureIx = runNat pure
 
 mapIx :: MonoidalCCC f Nat => (a i -> b i) -> f a i -> f b i
-mapIx f fa = pureIx (Pow f) `apIx` fa
+mapIx f fa = pureIx (Lift f) `apIx` fa
 
 liftA2Ix :: MonoidalCCC f Nat => (a i -> b i -> c i) -> f a i -> f b i -> f c i
-liftA2Ix f fa fb = pureIx (Pow $ Pow . f) `apIx` fa `apIx` fb
+liftA2Ix f fa fb = pureIx (Lift $ Lift . f) `apIx` fa `apIx` fb
 
 liftA3Ix :: MonoidalCCC f Nat => (a i -> b i -> c i -> d i) -> f a i -> f b i -> f c i -> f d i
-liftA3Ix f fa fb fc = pureIx (Pow $ (Pow .) $ (Pow .) . f) `apIx` fa `apIx` fb `apIx` fc
+liftA3Ix f fa fb fc = pureIx (Lift $ (Lift .) $ (Lift .) . f) `apIx` fa `apIx` fb `apIx` fc
 
 data (||) :: * -> * -> Bool -> * where
   Fst :: a -> (a || b) False
@@ -456,4 +455,3 @@ class (Monoidal f p k, Tensor p k) => Strength f p k | f -> p k where
 instance (Monoidal f (Product k) k, CCC k, Strength f (Product k) k) => MonoidalCCC f k where
   pure = map (view rho) . strength . second unit . review rho
   (<*>) = view curried (map apply . mult)
--}
