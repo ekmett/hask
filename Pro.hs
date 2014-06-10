@@ -14,21 +14,27 @@
 {-# LANGUAGE DefaultSignatures #-}
 
 import qualified Control.Arrow as Arrow
-import Control.Applicative
+import qualified Control.Applicative as Applicative
 import Control.Category
-import Data.Bitraversable
 import Data.Functor.Identity
-import Data.Monoid hiding (Product, Sum)
 import Data.Traversable
-import Data.Type.Equality
 import Data.Typeable
 import Data.Void
 import Prelude hiding (map, id, (.), fst, snd)
 import qualified Prelude
 
+-- infixl 4 <$>
+-- infixl 4 <*>
+
 -- * Enriched Profunctors
 -- p : C^op x D -> E
-class (Category c, Category d, Category e) => Profunctor (p :: x -> y -> z) (c :: x -> x -> *) (d :: y -> y -> *) (e :: z -> z -> *) | p -> c d e where
+class (Category c, Category d, Category e) => Profunctor
+    (p :: x -> y -> z)
+    (c :: x -> x -> *)
+    (d :: y -> y -> *)
+    (e :: z -> z -> *)
+    | p -> c d e where
+
   dimap :: c a a' -> d b b' -> e (p a' b) (p a b')
 
   lmap :: c a a' -> e (p a' b) (p a b)
@@ -39,8 +45,17 @@ class (Category c, Category d, Category e) => Profunctor (p :: x -> y -> z) (c :
 
 instance Profunctor (->) (->) (->) (->) where
   dimap f g h = g . h . f
+  -- dimap f g = from _Hom (dimap f g)
 
+-- lens-style isomorphism families in an arbitrary category
 type Iso c s t a b = forall p. Profunctor p c c (->) => p a b -> p s t
+
+data Exchange c a b s t where
+  Exchange :: c s a -> c b t -> Exchange c a b s t
+
+mapping :: Functorial f c c => (Exchange c a b a b -> Exchange c a b s t) -> Iso c (f s) (f t) (f a) (f b)
+mapping l = case l (Exchange id id) of
+  Exchange csa dbt -> dimap (map csa) (map dbt)
 
 newtype Hom k a b = Hom { runHom :: k a b }
 
@@ -81,6 +96,7 @@ review = view.from
 
 -- newtype NAT (d :: y -> y -> *) (f :: x -> y) (g :: x -> y) = Nat { runNat :: forall a. d (f a) (g a) }
 
+-- Nat :: (* -> *) -> (* -> *) -> *
 newtype Nat x y = Nat { runNat :: forall i. x i -> y i }
 
 instance Category Nat where
@@ -88,7 +104,7 @@ instance Category Nat where
   Nat f . Nat g = Nat (f . g)
 
 instance Profunctor Nat Nat Nat (->) where
-  dimap (Nat f) (Nat g) (Nat h) = Nat (dimap f g h)
+  dimap f g = from _Hom (dimap f g)
 
 -- * Lifting bifunctors
 
@@ -97,33 +113,29 @@ newtype Lift p f g a = Lift { lower :: p (f a) (g a) } -- could be used with Lif
 _Lift :: Iso (->) (Lift p f g a) (Lift p' f' g' a') (p (f a) (g a)) (p' (f' a') (g' a'))
 _Lift = dimap lower Lift
 
-data (*) f g a = Product (f a) (g a) deriving (Eq,Ord,Show,Read,Typeable)
-data (+) f g a = L (f a) | R (g a) deriving (Eq,Ord,Show,Read,Typeable)
-data Pow f g a = Pow { runPow :: f a -> g a } deriving Typeable
+instance Profunctor p (->) (->) (->) => Profunctor (Lift p) Nat Nat Nat where
+  dimap (Nat f) (Nat g) = Nat $ _Lift $ dimap f g
 
-_Pow :: Iso (->) (Pow f g a) (Pow f' g' a') (f a -> g a) (f' a' -> g' a')
-_Pow = dimap runPow Pow
+class (Category c, Category d) => Functorial f c d | f c -> d, f d -> c where
+  map :: c a b -> d (f a) (f b)
 
-instance Functorial ((*) f) Nat Nat where
-  map = bimap id
+instance Functor g => Functorial g (->) (->) where
+  map = fmap
 
-instance Functorial ((+) f) Nat Nat where
-  map = bimap id
+instance Functorial (Lift (,) f) Nat Nat where
+  map = second
 
-instance Profunctor Pow Nat Nat Nat where
-  dimap (Nat f) (Nat h) = Nat $ \(Pow g) -> Pow (h . g . f)
+instance Functorial (Lift Either f) Nat Nat where
+  map = second
 
-instance Functorial (Pow f) Nat Nat where
+instance Functorial (Lift (->) f) Nat Nat where
   map = rmap
 
-data One a = One deriving (Eq,Ord,Show,Read,Typeable)
-newtype K b a = K b deriving (Eq,Ord,Show,Read,Typeable)
-newtype An f a = An (f a) deriving (Eq,Ord,Show,Read,Typeable)
+(<$>) :: Functorial f c (->) => c a b -> f a -> f b
+(<$>) = map
 
-data Zero a deriving Typeable
-instance Show (Zero a) where showsPrec _ x = seq x undefined
-instance Eq (Zero a) where a == b = seq a $ seq b True
-instance Ord (Zero a) where compare a b = seq a $ seq b EQ
+newtype K b a = K { runK :: b } deriving (Eq,Ord,Show,Read,Typeable)
+newtype An f a = An (f a) deriving (Eq,Ord,Show,Read,Typeable)
 
 data Procompose (p :: x -> y -> *) (q :: y -> z -> *) (d :: x) (c :: z) where
   Procompose :: p d a -> q a c -> Procompose p q d c
@@ -136,24 +148,24 @@ newtype Up (c :: x -> x -> *) (f :: y -> x) (a :: x) (b :: y)  = Up { runUp :: c
 _Up :: Iso (->) (Up c f a b) (Up c' f' a' b') (c a (f b)) (c' a' (f' b'))
 _Up = dimap runUp Up
 
+instance Functorial f d c => Profunctor (Up c f) c d (->) where
+  dimap f g h = Up $ map g . runUp h . f
+
 newtype Down (d :: y -> y -> *) (f :: x -> y) (a :: x) (b :: y) = Down { runDown :: d (f a) b }
 
 _Down :: Iso (->) (Down d f a b) (Down d' f' a' b') (d (f a) b) (d' (f' a') b')
 _Down = dimap runDown Down
 
-class (Category c, Category d) => Functorial f c d | f c -> d, f d -> c where
-  map :: c a b -> d (f a) (f b)
-
-instance Functor g => Functorial g (->) (->) where
-  map = fmap
-
-instance Functorial f d c => Profunctor (Up c f) c d (->) where
-  dimap f g (Up h) = Up $ map g . h . f
-
 instance Functorial f c d => Profunctor (Down d f) c d (->) where
-  dimap f g (Down h) = Down $ g . h . map f
+  dimap f g h = Down $ g . runDown h . map f
 
-class (Category c, Category d, Category e) => Bifunctor (p :: x -> y -> z) (c :: x -> x -> *) (d :: y -> y -> *) (e :: z -> z -> *) | p -> c d e where
+class (Category c, Category d, Category e) => Bifunctor
+    (p :: x -> y -> z)
+    (c :: x -> x -> *)
+    (d :: y -> y -> *)
+    (e :: z -> z -> *)
+    | p -> c d e where
+
   bimap  :: c a a' -> d b b' -> e (p a b) (p a' b')
   first  :: c a a' -> e (p a b) (p a' b)
   first f = bimap f id
@@ -170,15 +182,10 @@ instance Bifunctor Either (->) (->) (->) where
   first = Arrow.left
   second = Arrow.right
 
-instance Bifunctor (*) Nat Nat Nat where
-  bimap (Nat f) (Nat g) = Nat $ \(Product as bs) -> Product (f as) (g bs)
-  first (Nat f)  = Nat $ \(Product as bs) -> Product (f as) bs
-  second (Nat g) = Nat $ \(Product as bs) -> Product as (g bs)
-
-instance Bifunctor (+) Nat Nat Nat where
-  bimap (Nat f) (Nat g) = Nat $ \ xs -> case xs of
-    L a -> L (f a)
-    R b -> R (g b)
+instance Bifunctor p (->) (->) (->) => Bifunctor (Lift p) Nat Nat Nat where
+  bimap (Nat f) (Nat g) = Nat $ _Lift $ bimap f g
+  first (Nat f) = Nat $ _Lift $ first f
+  second (Nat f) = Nat $ _Lift $ second f
 
 class Bifunctor p k k k => Tensor (p :: x -> x -> x) (k :: x -> x -> *) | p -> k where
   type Id p :: x
@@ -192,18 +199,6 @@ instance Tensor (,) (->) where
   lambda    = dimap (\((),a) -> a) ((,)())
   rho       = dimap (\(a,()) -> a) (\a -> (a,()))
 
-instance Tensor (*) Nat where
-  type Id (*) = One
-  associate = dimap hither yon where
-    hither = Nat $ \(Product (Product as bs) cs) -> Product as (Product bs cs)
-    yon = Nat $ \(Product as (Product bs cs)) -> Product (Product as bs) cs
-  lambda = dimap hither yon where
-    hither = Nat $ \(Product One as) -> as
-    yon = Nat $ \as -> Product One as
-  rho = dimap hither yon where
-    hither = Nat $ \(Product as One) -> as
-    yon = Nat (\as -> Product as One)
-
 instance Tensor Either (->) where
   type Id Either = Void
   associate = dimap hither yon where
@@ -216,27 +211,14 @@ instance Tensor Either (->) where
   lambda = dimap (\(Right a) -> a) Right
   rho = dimap (\(Left a) -> a) Left
 
-instance Tensor (+) Nat where
-  type Id (+) = Zero
-  associate = dimap hither yon where
-    hither = Nat $ \xs -> case xs of
-      L (L a) -> L a
-      L (R b) -> R (L b)
-      R c     -> R (R c)
-    yon = Nat $ \xs -> case xs of
-      L a     -> L (L a)
-      R (L b) -> L (R b)
-      R (R c) -> R c
-  lambda = dimap (Nat $ \(R a) -> a) (Nat R)
-  rho    = dimap (Nat $ \(L a) -> a) (Nat L)
-
-class (Functorial f k k, Tensor p k) => Monoidal f p k | f -> p k where
-  unit :: Id p `k` f (Id p)
-  mult :: p (f a) (f b) `k` f (p a b)
-
-instance Applicative f => Monoidal f (,) (->) where
-  unit = pure
-  mult = uncurry (liftA2 (,))
+instance Tensor p (->) => Tensor (Lift p) Nat where
+  type Id (Lift p) = K (Id p)
+  associate = dimap (Nat $ _Lift $ second Lift . view associate . first lower)
+                    (Nat $ _Lift $ first Lift . review associate . second lower)
+  lambda = dimap (Nat $ view lambda . first runK . lower)
+                 (Nat $ Lift . first K . review lambda)
+  rho = dimap (Nat $ view rho . second runK . lower)
+              (Nat $ Lift . second K . review rho)
 
 class Tensor p k => Symmetric (p :: x -> x -> x) (k :: x -> x -> *) | p -> k where
   swap :: k (p a b) (p b a)
@@ -249,25 +231,20 @@ instance Symmetric (,) (->) where
 instance Symmetric Either (->) where
   swap = either Right Left
 
-instance Symmetric (*) Nat where
-  swap = Nat $ \ (Product as bs) -> Product bs as
+instance Symmetric p (->) => Symmetric (Lift p) Nat where
+  swap = Nat $ _Lift swap
 
-instance Symmetric (+) Nat where
-  swap = Nat $ \ xs -> case xs of
-    L a -> R a
-    R a -> L a
-
-class (Category k) => HasTerminal (k :: i -> i -> *) where
+class Category k => HasTerminal (k :: i -> i -> *) where
   type Terminal k :: i
   terminal :: k x (Terminal k)
 
 instance HasTerminal (->) where
   type Terminal (->) = ()
-  terminal = const ()
+  terminal _ = ()
 
 instance HasTerminal Nat where
-  type Terminal Nat = One
-  terminal = Nat (const One)
+  type Terminal Nat = K ()
+  terminal = Nat $ \_ -> K ()
 
 class (Symmetric (Product k) k, HasTerminal k, Terminal k ~ Id (Product k)) => Cartesian (k :: i -> i -> *) where
   type Product k :: i -> i -> i
@@ -282,10 +259,10 @@ instance Cartesian (->) where
   (&&&) = (Arrow.&&&)
 
 instance Cartesian Nat where
-  type Product Nat = (*)
-  fst = Nat $ \(Product as _) -> as
-  snd = Nat $ \(Product _ bs) -> bs
-  Nat f &&& Nat g = Nat $ \as -> Product (f as) (g as)
+  type Product Nat = Lift (,)
+  fst = Nat $ \(Lift (as, _)) -> as
+  snd = Nat $ \(Lift (_, bs)) -> bs
+  Nat f &&& Nat g = Nat $ Lift . (f &&& g)
 
 class (Profunctor p k k (->), Cartesian k) => Strong p k | p -> k where
   {-# MINIMAL _1 | _2 #-}
@@ -313,8 +290,8 @@ instance HasInitial (->) where
   initial = absurd
 
 instance HasInitial Nat where
-  type Initial Nat = Zero
-  initial = Nat $ \ xs -> xs `seq` undefined
+  type Initial Nat = K Void
+  initial = Nat $ absurd . runK
 
 class (Symmetric (Sum k) k, HasInitial k, Initial k ~ Id (Sum k)) => Cocartesian (k :: i -> i -> *) where
   type Sum k :: i -> i -> i
@@ -329,12 +306,10 @@ instance Cocartesian (->) where
   (|||) = either
 
 instance Cocartesian Nat where
-  type Sum Nat = (+)
-  inl = Nat L
-  inr = Nat R
-  Nat f ||| Nat g = Nat $ \xs -> case xs of
-    L a -> f a
-    R b -> g b
+  type Sum Nat = Lift Either
+  inl = Nat (Lift . Left)
+  inr = Nat (Lift . Right)
+  Nat f ||| Nat g = Nat $ either f g . lower
 
 class (Profunctor p k k (->), Cocartesian k) => Choice p k | p -> k where
   {-# MINIMAL _Left | _Right #-}
@@ -348,12 +323,8 @@ instance Choice (->) (->) where
   _Right = Arrow.right
 
 instance Choice Nat Nat where
-  _Left (Nat f) = Nat $ \xs -> case xs of
-    L a -> L (f a)
-    R b -> R b
-  _Right (Nat g) = Nat $ \xs -> case xs of
-    L a -> L a
-    R b -> R (g b)
+  _Left (Nat f) = Nat $ _Lift (_Left f)
+  _Right (Nat g) = Nat $ _Lift (_Right g)
 
 type Prism k s t a b = forall p. Choice p k => p a b -> p s t
 
@@ -389,12 +360,12 @@ instance Adjunction ((,) e) ((->) e) (->) (->) where
   adjunction = cccAdjunction
 
 instance CCC Nat where
-  type Exp Nat = Pow
+  type Exp Nat = Lift (->)
   curried = dimap hither yon where
-    hither (Nat f) = Nat $ \a -> Pow $ \b -> f (Product a b)
-    yon (Nat f) = Nat $ \(Product a b) -> case f a of Pow g -> g b
+    hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
+    yon (Nat f) = Nat $ \(Lift (a,b)) -> case f a of Lift g -> g b
 
-instance Adjunction ((*) e) (Pow e) Nat Nat where
+instance Adjunction (Lift (,) e) (Lift (->) e) Nat Nat where
   adjunction = cccAdjunction
 
 class (Functorial (Rep p) d c, Profunctor p c d (->)) => Representable (p :: x -> y -> *) (c :: x -> x -> *) (d :: y -> y -> *) | p -> c d where
@@ -409,22 +380,6 @@ instance Functorial f d c => Representable (Up c f) c d where
   type Rep (Up c f) = f
   rep = _Up
 
-type Traversal k s t a b = forall p. (Strong p k, Representable p k k, Monoidal (Rep p) (Product k) k) => p a b -> p s t
-
-both :: Traversal (->) (a, a) (b, b) a b
-both pab = review rep $ \(a1, a2) -> let f = view rep pab in mult (f a1, f a2)
-
-newtype WrapMonoidal f a = WrapMonoidal { unwrapMonoidal :: f a }
-
-instance Monoidal f (,) (->) => Functor (WrapMonoidal f) where
-  fmap f = WrapMonoidal . map f . unwrapMonoidal
-instance Monoidal f (,) (->) => Applicative (WrapMonoidal f) where
-  pure a = WrapMonoidal $ const a `map` unit ()
-  WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ uncurry ($) `map` mult (ff, fa)
-
-traversing :: Traversable t => Traversal (->) (t a) (t b) a b
-traversing = view (from rep) . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
-
 class (Functorial (Corep p) c d, Profunctor p c d (->)) => Corepresentable (p :: x -> y -> *) (c :: x -> x -> *) (d :: y -> y -> *) | p -> c d where
   type Corep p :: x -> y
   corep :: Iso (->) (p a b) (p a' b') (d (Corep p a) b) (d (Corep p a') b')
@@ -437,6 +392,68 @@ instance Functorial f c d => Corepresentable (Down d f) c d where
   type Corep (Down d f) = f
   corep = _Down
 
+{-
+-- A strong monoidal functor in a CCC, aka Applicative
+class (Functorial f k k, CCC k) => MonoidalCCC (f :: x -> x) (k :: x -> x -> *) | f -> k where
+  pure  :: a `k` f a
+  (<*>) :: f (Exp k a b) `k` Exp k (f a) (f b)
+
+type Traversal k s t a b = forall p. (Strong p k, Representable p k k, MonoidalCCC (Rep p) k) => p a b -> p s t
+
+both :: Traversal (->) (a, a) (b, b) a b
+both pab = review rep $ \(a1, a2) -> let f = view rep pab in (,) <$> f a1 <*> f a2
+
+newtype WrapMonoidal f a = WrapMonoidal { unwrapMonoidal :: f a }
+
+instance MonoidalCCC f (->) => Functor (WrapMonoidal f) where
+  fmap f = WrapMonoidal . map f . unwrapMonoidal
+
+instance MonoidalCCC f (->) => Applicative.Applicative (WrapMonoidal f) where
+  pure a = WrapMonoidal $ pure a
+  WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ ff <*> fa
+
+traversing :: Traversable t => Traversal (->) (t a) (t b) a b
+traversing = review rep . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
+
+apIx :: MonoidalCCC f Nat => f (Pow a b) i -> f a i -> f b i
+apIx = runPow . runNat (<*>)
+
+pureIx :: MonoidalCCC f Nat => a i -> f a i
+pureIx = runNat pure
+
+mapIx :: MonoidalCCC f Nat => (a i -> b i) -> f a i -> f b i
+mapIx f fa = pureIx (Pow f) `apIx` fa
+
+liftA2Ix :: MonoidalCCC f Nat => (a i -> b i -> c i) -> f a i -> f b i -> f c i
+liftA2Ix f fa fb = pureIx (Pow $ Pow . f) `apIx` fa `apIx` fb
+
+liftA3Ix :: MonoidalCCC f Nat => (a i -> b i -> c i -> d i) -> f a i -> f b i -> f c i -> f d i
+liftA3Ix f fa fb fc = pureIx (Pow $ (Pow .) $ (Pow .) . f) `apIx` fa `apIx` fb `apIx` fc
+
 data (||) :: * -> * -> Bool -> * where
   Fst :: a -> (a || b) False
   Snd :: b -> (a || b) True
+
+this :: Traversal Nat (a || b) (c || b) (K a) (K c)
+this pac = review rep $ Nat $ \s -> case s of
+  Fst a -> (\(K c) -> Fst c) `mapIx` runNat (view rep pac) (K a)
+  Snd b -> pureIx (Snd b)
+
+that :: Traversal Nat (a || b) (a || c) (K b) (K c)
+that pbc = review rep $ Nat $ \s -> case s of
+  Fst a -> pureIx (Fst a)
+  Snd b -> (\(K c) -> Snd c) `mapIx` runNat (view rep pbc) (K b)
+
+-- The following is for completeness
+
+class (Functorial f k k, Tensor p k) => Monoidal f p k | f -> p k where
+  unit :: Id p `k` f (Id p)
+  mult :: p (f a) (f b) `k` f (p a b)
+
+class (Monoidal f p k, Tensor p k) => Strength f p k | f -> p k where
+  strength :: p a (f b) `k` f (p a b)
+
+instance (Monoidal f (Product k) k, CCC k, Strength f (Product k) k) => MonoidalCCC f k where
+  pure = map (view rho) . strength . second unit . review rho
+  (<*>) = view curried (map apply . mult)
+-}
