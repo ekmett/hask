@@ -392,43 +392,42 @@ instance Functorial f c d => Corepresentable (Down d f) c d where
   type Corep (Down d f) = f
   corep = _Down
 
-{-
 -- A strong monoidal functor in a CCC, aka Applicative
-class (Functorial f k k, CCC k) => MonoidalCCC (f :: x -> x) (k :: x -> x -> *) | f -> k where
-  pure  :: a `k` f a
-  (<*>) :: f (Exp k a b) `k` Exp k (f a) (f b)
+class (Functorial f c d, CCC c, CCC d) => MonoidalCCC (f :: x -> y) (c :: x -> x -> *) (d :: y -> y -> *) | f -> c d where
+  pure  :: a `d` f a
+  (<*>) :: f (Exp c a b) `d` Exp d (f a) (f b)
 
-type Traversal k s t a b = forall p. (Strong p k, Representable p k k, MonoidalCCC (Rep p) k) => p a b -> p s t
+type Traversal k s t a b = forall p. (Strong p k, Representable p k k, MonoidalCCC (Rep p) k k) => p a b -> p s t
 
 both :: Traversal (->) (a, a) (b, b) a b
 both pab = review rep $ \(a1, a2) -> let f = view rep pab in (,) <$> f a1 <*> f a2
 
 newtype WrapMonoidal f a = WrapMonoidal { unwrapMonoidal :: f a }
 
-instance MonoidalCCC f (->) => Functor (WrapMonoidal f) where
+instance MonoidalCCC f (->) (->) => Functor (WrapMonoidal f) where
   fmap f = WrapMonoidal . map f . unwrapMonoidal
 
-instance MonoidalCCC f (->) => Applicative.Applicative (WrapMonoidal f) where
+instance MonoidalCCC f (->) (->) => Applicative.Applicative (WrapMonoidal f) where
   pure a = WrapMonoidal $ pure a
   WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ ff <*> fa
 
 traversing :: Traversable t => Traversal (->) (t a) (t b) a b
 traversing = review rep . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
 
-apIx :: MonoidalCCC f Nat => f (Pow a b) i -> f a i -> f b i
-apIx = runPow . runNat (<*>)
+apIx :: MonoidalCCC f Nat Nat => f (Lift (->) a b) i -> f a i -> f b i
+apIx = lower . runNat (<*>)
 
-pureIx :: MonoidalCCC f Nat => a i -> f a i
+pureIx :: MonoidalCCC f Nat Nat => a i -> f a i
 pureIx = runNat pure
 
-mapIx :: MonoidalCCC f Nat => (a i -> b i) -> f a i -> f b i
-mapIx f fa = pureIx (Pow f) `apIx` fa
+mapIx :: MonoidalCCC f Nat Nat => (a i -> b i) -> f a i -> f b i
+mapIx f fa = pureIx (Lift f) `apIx` fa
 
-liftA2Ix :: MonoidalCCC f Nat => (a i -> b i -> c i) -> f a i -> f b i -> f c i
-liftA2Ix f fa fb = pureIx (Pow $ Pow . f) `apIx` fa `apIx` fb
+liftA2Ix :: MonoidalCCC f Nat Nat => (a i -> b i -> c i) -> f a i -> f b i -> f c i
+liftA2Ix f fa fb = pureIx (Lift $ Lift . f) `apIx` fa `apIx` fb
 
-liftA3Ix :: MonoidalCCC f Nat => (a i -> b i -> c i -> d i) -> f a i -> f b i -> f c i -> f d i
-liftA3Ix f fa fb fc = pureIx (Pow $ (Pow .) $ (Pow .) . f) `apIx` fa `apIx` fb `apIx` fc
+liftA3Ix :: MonoidalCCC f Nat Nat => (a i -> b i -> c i -> d i) -> f a i -> f b i -> f c i -> f d i
+liftA3Ix f fa fb fc = pureIx (Lift $ (Lift .) $ (Lift .) . f) `apIx` fa `apIx` fb `apIx` fc
 
 data (||) :: * -> * -> Bool -> * where
   Fst :: a -> (a || b) False
@@ -446,14 +445,13 @@ that pbc = review rep $ Nat $ \s -> case s of
 
 -- The following is for completeness
 
-class (Functorial f k k, Tensor p k) => Monoidal f p k | f -> p k where
-  unit :: Id p `k` f (Id p)
-  mult :: p (f a) (f b) `k` f (p a b)
+class (Functorial f c d, Tensor p c, Tensor q d) => Monoidal f p q c d | f -> p q c d where
+  unit :: Id q `d` f (Id p)
+  mult :: q (f a) (f b) `d` f (p a b)
 
-class (Monoidal f p k, Tensor p k) => Strength f p k | f -> p k where
-  strength :: p a (f b) `k` f (p a b)
+class (Monoidal f p q c d, Tensor p c, Tensor q d) => Strength f p q c d | f -> p q c d where
+  strength :: q a (f b) `d` f (p a b)
 
-instance (Monoidal f (Product k) k, CCC k, Strength f (Product k) k) => MonoidalCCC f k where
+instance (CCC c, Monoidal f (Product c) (Product c) c c, Strength f (Product c) (Product c) c c) => MonoidalCCC f c c where
   pure = map (view rho) . strength . second unit . review rho
   (<*>) = view curried (map apply . mult)
--}
