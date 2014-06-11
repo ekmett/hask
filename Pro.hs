@@ -108,10 +108,17 @@ instance Profunctor Nat Nat Nat (->) where
 
 -- * Lifting bifunctors
 
-newtype Lift p f g a = Lift { lower :: p (f a) (g a) } -- could be used with Lift (,), Lift Either, Lift (->) to get corresponding entries for Nat
+newtype Lift p f g a = Lift { runLift :: p (f a) (g a) } -- could be used with Lift (,), Lift Either, Lift (->) to get corresponding entries for Nat
 
-_Lift :: Iso (->) (Lift p f g a) (Lift p' f' g' a') (p (f a) (g a)) (p' (f' a') (g' a'))
-_Lift = dimap lower Lift
+class Liftable k where
+  _Lift :: Iso k (Lift p f g a) (Lift p' f' g' a') (p (f a) (g a)) (p' (f' a') (g' a'))
+
+instance Liftable (->) where
+  _Lift = dimap lower Lift
+
+lift = review _Lift
+lower = view _Lift
+
 
 instance Profunctor p (->) (->) (->) => Profunctor (Lift p) Nat Nat Nat where
   dimap (Nat f) (Nat g) = Nat $ _Lift $ dimap f g
@@ -213,12 +220,12 @@ instance Tensor Either (->) where
 
 instance Tensor p (->) => Tensor (Lift p) Nat where
   type Id (Lift p) = K (Id p)
-  associate = dimap (Nat $ _Lift $ second Lift . view associate . first lower)
-                    (Nat $ _Lift $ first Lift . review associate . second lower)
+  associate = dimap (Nat $ _Lift $ second lift . view associate . first lower)
+                    (Nat $ _Lift $ first lift . review associate . second lower)
   lambda = dimap (Nat $ view lambda . first runK . lower)
-                 (Nat $ Lift . first K . review lambda)
+                 (Nat $ lift . first K . review lambda)
   rho = dimap (Nat $ view rho . second runK . lower)
-              (Nat $ Lift . second K . review rho)
+              (Nat $ lift . second K . review rho)
 
 class Tensor p k => Symmetric (p :: x -> x -> x) (k :: x -> x -> *) | p -> k where
   swap :: k (p a b) (p b a)
@@ -260,9 +267,9 @@ instance Cartesian (->) where
 
 instance Cartesian Nat where
   type Product Nat = Lift (,)
-  fst = Nat $ \(Lift (as, _)) -> as
-  snd = Nat $ \(Lift (_, bs)) -> bs
-  Nat f &&& Nat g = Nat $ Lift . (f &&& g)
+  fst = Nat $ fst . lower
+  snd = Nat $ snd . lower
+  Nat f &&& Nat g = Nat $ lift . (f &&& g)
 
 class (Profunctor p k k (->), Cartesian k) => Strong p k | p -> k where
   {-# MINIMAL _1 | _2 #-}
@@ -307,8 +314,8 @@ instance Cocartesian (->) where
 
 instance Cocartesian Nat where
   type Sum Nat = Lift Either
-  inl = Nat (Lift . Left)
-  inr = Nat (Lift . Right)
+  inl = Nat (lift . Left)
+  inr = Nat (lift . Right)
   Nat f ||| Nat g = Nat $ either f g . lower
 
 class (Profunctor p k k (->), Cocartesian k) => Choice p k | p -> k where
@@ -362,8 +369,8 @@ instance Adjunction ((,) e) ((->) e) (->) (->) where
 instance CCC Nat where
   type Exp Nat = Lift (->)
   curried = dimap hither yon where
-    hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
-    yon (Nat f) = Nat $ \(Lift (a,b)) -> case f a of Lift g -> g b
+    hither (Nat f) = Nat $ \a -> lift $ \b -> f (lift (a, b))
+    yon (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
 
 instance Adjunction (Lift (,) e) (Lift (->) e) Nat Nat where
   adjunction = cccAdjunction
@@ -421,13 +428,13 @@ pureIx :: MonoidalCCC f Nat Nat => a i -> f a i
 pureIx = runNat pure
 
 mapIx :: MonoidalCCC f Nat Nat => (a i -> b i) -> f a i -> f b i
-mapIx f fa = pureIx (Lift f) `apIx` fa
+mapIx f fa = pureIx (lift f) `apIx` fa
 
 liftA2Ix :: MonoidalCCC f Nat Nat => (a i -> b i -> c i) -> f a i -> f b i -> f c i
-liftA2Ix f fa fb = pureIx (Lift $ Lift . f) `apIx` fa `apIx` fb
+liftA2Ix f fa fb = pureIx (lift $ lift . f) `apIx` fa `apIx` fb
 
 liftA3Ix :: MonoidalCCC f Nat Nat => (a i -> b i -> c i -> d i) -> f a i -> f b i -> f c i -> f d i
-liftA3Ix f fa fb fc = pureIx (Lift $ (Lift .) $ (Lift .) . f) `apIx` fa `apIx` fb `apIx` fc
+liftA3Ix f fa fb fc = pureIx (lift $ (lift .) $ (lift .) . f) `apIx` fa `apIx` fb `apIx` fc
 
 data (||) :: * -> * -> Bool -> * where
   Fst :: a -> (a || b) False
