@@ -110,15 +110,17 @@ instance Profunctor Nat Nat Nat (->) where
 
 newtype Lift p f g a = Lift { runLift :: p (f a) (g a) } -- could be used with Lift (,), Lift Either, Lift (->) to get corresponding entries for Nat
 
-class Liftable k where
+class Category k => Liftable k where
   _Lift :: Iso k (Lift p f g a) (Lift p' f' g' a') (p (f a) (g a)) (p' (f' a') (g' a'))
 
 instance Liftable (->) where
   _Lift = dimap lower Lift
 
+lift :: Liftable k => k (p (f a) (g a)) (Lift p f g a)
 lift = review _Lift
-lower = view _Lift
 
+lower :: Liftable k => k (Lift p f g a) (p (f a) (g a))
+lower = view _Lift
 
 instance Profunctor p (->) (->) (->) => Profunctor (Lift p) Nat Nat Nat where
   dimap (Nat f) (Nat g) = Nat $ _Lift $ dimap f g
