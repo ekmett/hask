@@ -28,6 +28,15 @@ import qualified Prelude
 
 -- * Enriched Profunctors
 -- p : C^op x D -> E
+
+-- |
+-- The signature
+--
+-- @
+-- class (Category c, Category d, Cartesian e) => Profunctor
+-- @
+--
+-- would need GHC trac issue #9200 to be fixed.
 class (Category c, Category d, Category e) => Profunctor
     (p :: x -> y -> z)
     (c :: x -> x -> *)
