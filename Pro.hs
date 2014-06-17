@@ -23,8 +23,7 @@ import Data.Void
 import Prelude hiding (map, id, (.), fst, snd)
 import qualified Prelude
 
--- infixl 4 <$>
--- infixl 4 <*>
+infixl 4 `map`, `ap`
 
 -- * Enriched Profunctors
 -- p : C^op x D -> E
@@ -436,13 +435,13 @@ instance Functorial f c d => Corepresentable (Down d f) c d where
 
 -- A strong monoidal functor in a CCC, aka Applicative
 class (Functorial f c c, CCC c) => MonoidalCCC (f :: x -> x) (c :: x -> x -> *) | f -> c where
-  pure  :: a `c` f a
-  (<*>) :: f (Exp c a b) `c` Exp c (f a) (f b)
+  point :: a `c` f a
+  ap   :: f (Exp c a b) `c` Exp c (f a) (f b)
 
 type Traversal k s t a b = forall p. (Strong p k, Representable p k k, MonoidalCCC (Rep p) k) => p a b -> p s t
 
 both :: Traversal (->) (a, a) (b, b) a b
-both pab = review rep $ \(a1, a2) -> let f = view rep pab in (,) <$> f a1 <*> f a2
+both pab = review rep $ \(a1, a2) -> let f = view rep pab in (,) `map` f a1 `ap` f a2
 
 newtype WrapMonoidal f a = WrapMonoidal { unwrapMonoidal :: f a }
 
@@ -450,8 +449,8 @@ instance MonoidalCCC f (->) => Functor (WrapMonoidal f) where
   fmap f = WrapMonoidal . map f . unwrapMonoidal
 
 instance MonoidalCCC f (->) => Applicative.Applicative (WrapMonoidal f) where
-  pure a = WrapMonoidal $ pure a
-  WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ ff <*> fa
+  pure a = WrapMonoidal $ point a
+  WrapMonoidal ff <*> WrapMonoidal fa = WrapMonoidal $ ap ff fa
 
 traversing :: Traversable t => Traversal (->) (t a) (t b) a b
 traversing = review rep . (unwrapMonoidal .) . traverse . (WrapMonoidal .) . view rep
@@ -487,20 +486,22 @@ instance Tensor p (->) => Tensor (Unnatural i p) (Evil i (->)) where
   rho = dimap (Evil $ view rho . second runK . view _Unnatural)
               (Evil $ review _Unnatural . second K . review rho)
 
-apIx :: MonoidalCCC f Nat => f (Natural (->) a b) i -> f a i -> f b i
-apIx = view _Natural . runNat (<*>)
+-- apE :: MonoidalCCC f (Evil i (->)) => Evil i (->) (f (Unnatural i (->) a b)) (Unnatural i (->) (f a) (f b))
 
-pureIx :: MonoidalCCC f Nat => a i -> f a i
-pureIx = runNat pure
+apIx :: MonoidalCCC f Nat => f (Natural (->) a b) i -> f a i -> f b i
+apIx = view _Natural . runNat ap
+
+pointIx :: MonoidalCCC f Nat => a i -> f a i
+pointIx = runNat point
 
 mapIx :: MonoidalCCC f Nat => (a i -> b i) -> f a i -> f b i
-mapIx f fa = pureIx (review _Natural f) `apIx` fa
+mapIx f fa = pointIx (review _Natural f) `apIx` fa
 
 liftA2Ix :: MonoidalCCC f Nat => (a i -> b i -> c i) -> f a i -> f b i -> f c i
-liftA2Ix f fa fb = pureIx (review _Natural $ review _Natural . f) `apIx` fa `apIx` fb
+liftA2Ix f fa fb = pointIx (review _Natural $ review _Natural . f) `apIx` fa `apIx` fb
 
 liftA3Ix :: MonoidalCCC f Nat => (a i -> b i -> c i -> d i) -> f a i -> f b i -> f c i -> f d i
-liftA3Ix f fa fb fc = pureIx (review _Natural $ (review _Natural .) $ (review _Natural .) . f) `apIx` fa `apIx` fb `apIx` fc
+liftA3Ix f fa fb fc = pointIx (review _Natural $ (review _Natural .) $ (review _Natural .) . f) `apIx` fa `apIx` fb `apIx` fc
 
 data (||) :: * -> * -> Bool -> * where
   Fst :: a -> (a || b) False
@@ -517,11 +518,11 @@ poly l = undefined
 this :: Traversal Nat (a || b) (c || b) (K a) (K c)
 this pac = review rep $ Nat $ \s -> case s of
   Fst a -> (\(K c) -> Fst c) `mapIx` runNat (view rep pac) (K a)
-  Snd b -> pureIx (Snd b)
+  Snd b -> pointIx (Snd b)
 
 that :: Traversal Nat (a || b) (a || c) (K b) (K c)
 that pbc = review rep $ Nat $ \s -> case s of
-  Fst a -> pureIx (Fst a)
+  Fst a -> pointIx (Fst a)
   Snd b -> (\(K c) -> Snd c) `mapIx` runNat (view rep pbc) (K b)
 
 -- The following is for completeness
@@ -535,5 +536,5 @@ class (Monoidal f p q c d, Tensor p c, Tensor q d) => Strength f p q c d | f -> 
 
 -- messy
 instance (CCC c, Monoidal f (Product c) (Product c) c c, Strength f (Product c) (Product c) c c) => MonoidalCCC f c where
-  pure = map (view rho) . strength . second unit . review rho
-  (<*>) = view curried (map apply . mult)
+  point = map (view rho) . strength . second unit . review rho
+  ap    = view curried (map apply . mult)
