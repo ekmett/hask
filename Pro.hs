@@ -53,12 +53,16 @@ class (Category c, Category d, Category e) => Profunctor
   rmap :: d b b' -> e (p a b) (p a b')
   rmap = dimap id
 
+  {-# MINIMAL dimap | (lmap, rmap) #-}
+
+
 instance Profunctor (->) (->) (->) (->) where
   dimap f g h = g . h . f
   -- dimap f g = from _Hom (dimap f g)
 
 -- lens-style isomorphism families in an arbitrary category
-type Iso (c :: i -> i -> *) (s :: i) (t :: i) (a :: i) (b :: i) = forall (p :: i -> i -> *). Profunctor p c c (->) => p a b -> p s t
+type Iso (c :: i -> i -> *) (s :: i) (t :: i) (a :: i) (b :: i) =
+  forall (p :: i -> i -> *). Profunctor p c c (->) => p a b -> p s t
 
 data Exchange c a b s t where
   Exchange :: c s a -> c b t -> Exchange c a b s t
@@ -103,8 +107,6 @@ review :: Category k => (From (Forget k a) s s s s -> From (Forget k a) s s a a)
 review = view.from
 
 -- * Natural transformations
-
--- newtype NAT (d :: y -> y -> *) (f :: x -> y) (g :: x -> y) = Nat { runNat :: forall a. d (f a) (g a) }
 
 -- Nat :: (* -> *) -> (* -> *) -> *
 newtype Nat (x :: i -> *) (y :: i -> *) = Nat { runNat :: forall (a :: i). x a -> y a }
@@ -244,9 +246,9 @@ class Tensor p k => Braided (p :: x -> x -> x) (k :: x -> x -> *) | p -> k where
   default braid :: Symmetric p k => Iso k (p a b) (p a' b') (p b a) (p b' a')
   braid = dimap swap swap
 
--- this should be Braided as well, but we can't nicely model that with p -> k!
+-- | This should be Braided as well, but we can't nicely model that with p -> k!
 class Category k => Balanced (k :: x -> x -> *) where
-  -- @twist = braid . (twist &&& twist) . braid@
+  -- | @twist = braid . (twist &&& twist) . braid@
   twist :: k a a
 
 class Braided p k => Symmetric (p :: x -> x -> x) (k :: x -> x -> *) | p -> k where
@@ -300,8 +302,8 @@ instance Cartesian (->) where
 
 instance Cartesian Nat where
   type Product Nat = Natural (,)
-  fst = Nat $ fst . (view _Natural)
-  snd = Nat $ snd . (view _Natural)
+  fst = Nat $ fst . view _Natural
+  snd = Nat $ snd . view _Natural
   Nat f &&& Nat g = Nat $ review _Natural . (f &&& g)
 
 class (Profunctor p k k (->), Cartesian k) => Strong p k | p -> k where
