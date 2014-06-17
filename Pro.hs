@@ -45,6 +45,7 @@ class (Category c, Category d, Category e) => Profunctor
     | p -> c d e where
 
   dimap :: c a a' -> d b b' -> e (p a' b) (p a b')
+  dimap f g = lmap f . rmap g
 
   lmap :: c a a' -> e (p a' b) (p a b)
   lmap f = dimap f id
@@ -180,12 +181,15 @@ class (Category c, Category d, Category e) => Bifunctor
     | p -> c d e where
 
   bimap  :: c a a' -> d b b' -> e (p a b) (p a' b')
+  bimap f g = first f . second g
 
   first  :: c a a' -> e (p a b) (p a' b)
   first f = bimap f id
 
   second :: d b b' -> e (p a b) (p a b')
   second = bimap id
+
+  {-# MINIMAL bimap | (first, second) #-}
 
 instance Bifunctor (,) (->) (->) (->) where
   bimap  = (Arrow.***)
