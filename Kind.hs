@@ -10,8 +10,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Kind where
 
+import qualified Data.Constraint as Constraint
+import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Control.Applicative as Applicative
 import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
@@ -24,7 +27,8 @@ import Data.Tagged
 import qualified Data.Traversable as Traversable
 import Data.Void
 import qualified Prelude
-import Prelude (Either(..), ($), either)
+import Prelude (Either(..), ($), either, Bool)
+import GHC.Exts (Constraint)
 
 -- * A kind-indexed family of categories
 
@@ -32,6 +36,10 @@ infixr 0 ~>
 type family (~>) :: i -> i -> *
 type instance (~>) = (->)
 type instance (~>) = Nat
+type instance (~>) = (:-)
+
+class (p, q) => p & q
+instance (p, q) => p & q
 
 -- * Natural transformations form a category, using parametricity as a proxy for naturality
 
@@ -88,6 +96,7 @@ instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) wher
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
 _At = dimap getAt At
 
+-- Dict :: Constraint -> * switches categories from the category of constraints to Hask
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
@@ -105,14 +114,28 @@ _Tagged = dimap unTagged Tagged
 instance Functor Proxy where
   fmap _ Proxy = Proxy
 
+-- * Dictionaries
+
+instance Functor Dict where
+  fmap p Dict = Dict \\ p
+
 newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
 _Lift = dimap lower Lift
 
 instance PFunctor (,) where
   first = Arrow.first
 
+instance PFunctor (&) where
+  first f = Sub $ Dict \\ f
+
 instance PFunctor Either where
   first = Arrow.left
+
+instance QFunctor (:-) where
+  second = dimap Hom runHom . second
+
+instance PContravariant (:-) where
+  lmap = dimap Hom runHom . lmap
 
 instance PFunctor p => PFunctor (Lift p) where
   first (Nat f) = Nat (_Lift $ first f)
@@ -128,6 +151,9 @@ instance QFunctor (->) where
 
 instance QFunctor ((~>) :: j -> j -> *) => QFunctor (Nat :: (i -> j) -> (i -> j) -> *) where
   second (Nat ab) (Nat ca) = Nat (second ab ca)
+
+instance QFunctor (&) where
+  second p = Sub $ Dict \\ p
 
 instance QFunctor (,) where
   second = Arrow.second
@@ -325,12 +351,21 @@ instance Tensor p => Tensor (Lift p) where
   lambda    = Nat $ lmap (first getConst . lower) lambda
   rho       = Nat $ rmap (Lift . second Const) rho
 
+instance Tensor (&) where
+  type Id (&) = (() :: Constraint)
+  associate = Sub Dict
+  lambda = Sub Dict
+  rho = Sub Dict
+
 -- symmetric monoidal category
 class Bifunctor p => Symmetric p where
   swap :: p a b ~> p b a
 
 instance Symmetric (,) where
   swap (a,b) = (b, a)
+
+instance Symmetric (&) where
+  swap = Sub Dict
 
 instance Symmetric Either where
   swap = either Right Left
@@ -364,6 +399,10 @@ instance Terminal (Const ()) where
   type One = Const ()
   terminal = Nat (Const . terminal)
 
+instance Terminal (() :: Constraint) where
+  type One = (() :: Constraint)
+  terminal = Constraint.top
+
 class Zero ~ t => Initial (t :: i) | i -> t where
   type Zero :: i
   initial :: t ~> a
@@ -377,6 +416,10 @@ instance Initial (Const Void) where
   type Zero = Const Void
   initial = Nat $ initial . getConst
 
+instance Initial (() ~ Bool) where
+  type Zero = () ~ Bool
+  initial = Constraint.bottom
+
 infixl 7 *
 class (h ~ (~>), Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
   type (*) :: i -> i -> i
@@ -389,6 +432,12 @@ instance Cartesian (->) where
   fst   = Prelude.fst
   snd   = Prelude.snd
   (&&&) = (Arrow.&&&)
+
+instance Cartesian (:-) where
+  type (*) = (&)
+  fst = Sub Dict
+  snd = Sub Dict
+  p &&& q = Sub $ Dict \\ p \\ q
 
 instance Cartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (*) = Lift (,)
@@ -571,8 +620,28 @@ instance Monoid.Monoid m => Monoid m where
   one () = Monoid.mempty
   mult = uncurry Monoid.mappend
 
+instance Monoid (Const ()) where
+  one = id
+  mult = lambda
+
+instance Monoid (() :: Constraint) where
+  one = id
+  mult = lambda
+
 mappend :: forall (m :: i). (CCC ((~>) :: i -> i -> *), Monoid m) => m ~> m^m
 mappend = curry mult
+
+class Cocartesian ((~>) :: i -> i -> *) => Comonoid (m :: i) where
+  zero   :: m ~> Zero
+  comult :: m ~> m + m
+
+instance Comonoid Void where
+  zero = id
+  comult = absurd
+
+instance Comonoid (Const Void) where
+  zero = id
+  comult = Nat $ absurd . getConst
 
 class Functor f => Strength (f :: x -> x) where
   strength :: a * f b ~> f (a * b)
