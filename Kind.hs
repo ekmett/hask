@@ -12,16 +12,17 @@
 {-# LANGUAGE PolyKinds #-}
 module Kind where
 
-import Data.Tagged
-import Data.Proxy
-import Data.Void
-import qualified Data.Monoid as Monoid
-import qualified Data.Traversable as Traversable
-import Data.Functor.Identity
 import qualified Control.Applicative as Applicative
-import qualified Data.Functor.Contravariant as Contravariant
-import Control.Category (Category(..))
 import qualified Control.Arrow as Arrow
+import Control.Category (Category(..))
+import qualified Control.Monad as Monad
+import qualified Data.Functor.Contravariant as Contravariant
+import Data.Functor.Identity
+import qualified Data.Monoid as Monoid
+import Data.Proxy
+import Data.Tagged
+import qualified Data.Traversable as Traversable
+import Data.Void
 import qualified Prelude
 import Prelude (Either(..), ($), either)
 
@@ -512,11 +513,15 @@ instance Applicative.Applicative f => Monoidal f where
   ap1 = Applicative.pure
   ap2 = uncurry $ Applicative.liftA2 (,)
 
+-- * Monads over our kind-indexed categories
+
 class Monoidal (m :: x -> x) => Monad (m :: x -> x) where
   join :: m (m a) ~> m a
 
 instance (Applicative.Applicative m, Prelude.Monad m) => Monad m where
-  join m = m Prelude.>>= id
+  join = Monad.join
+
+-- * Opmonoidal functors between cocartesian categories
 
 class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Functor f) => Opmonoidal (f :: x -> y) where
   op1 :: f Zero ~> Zero
