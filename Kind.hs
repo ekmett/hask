@@ -11,6 +11,7 @@
 {-# LANGUAGE PolyKinds #-}
 module Group where
 
+import Data.Tagged
 import Data.Void
 import qualified Data.Functor.Contravariant as Contra
 import Control.Category (Category(..))
@@ -45,6 +46,7 @@ instance Functor (At x) where
 
 newtype Const (b :: *) (a :: i) = Const { getConst :: b }
 _Const = dimap getConst Const
+_Tagged = dimap unTagged Tagged
 
 instance Functor Const where
   fmap f = Nat (_Const f)
@@ -65,6 +67,7 @@ instance PFunctor (,) where first = Arrow.first
 instance PFunctor Either where first = Arrow.left
 instance PFunctor p => PFunctor (Lift p) where
   first (Nat f) = Nat (_Lift $ first f)
+instance PFunctor Tagged where first _ = _Tagged id
 
 class QFunctor (p :: x -> y -> z) where
   second :: Hom a b -> Hom (p c a) (p c b)
@@ -78,6 +81,7 @@ instance QFunctor p => QFunctor (Lift p) where
   second (Nat f) = Nat (_Lift $ second f)
 instance QFunctor At where
   second (Nat f) = _At f
+instance QFunctor Tagged where second = Prelude.fmap
 
 class PContravariant (p :: x -> y -> z) where
   lmap :: Hom a b -> Hom (p b c) (p a c)
@@ -85,6 +89,7 @@ class PContravariant (p :: x -> y -> z) where
 instance PContravariant (->) where lmap f g = g . f
 instance PContravariant (~>) where lmap f g = g . f
 instance PContravariant p => PContravariant (Lift p) where lmap (Nat f) = Nat $ _Lift (lmap f)
+instance PContravariant Tagged where lmap _ = _Tagged id
 
 class QContravariant (p :: x -> y -> z) where
   qmap :: Hom a b -> Hom (p c b) (p c a)
@@ -117,15 +122,25 @@ type Getter s a = forall p. Bicontravariant p => p a a -> p s s
 to :: Hom s a -> Getter s a
 to f = bicontramap f f
 
-newtype Forget r a b = Forget { runForget :: Hom a r }
-_Forget = dimap runForget Forget
+newtype Viewing r a b = Viewing { runViewing :: Hom a r }
+_Viewing = dimap runViewing Viewing
 
-instance Category (Hom :: i -> i -> *) => PContravariant (Forget (r :: i)) where lmap f = _Forget (. f)
-instance QContravariant (Forget r) where qmap _ = _Forget id
-instance QFunctor (Forget r) where second _ = _Forget id
+instance Category (Hom :: i -> i -> *) => PContravariant (Viewing (r :: i)) where lmap f = _Viewing (. f)
+instance QContravariant (Viewing r) where qmap _ = _Viewing id
+instance QFunctor (Viewing r) where second _ = _Viewing id
 
-view :: forall (s::i) (a::i). Category (Hom :: i -> i -> *) => (Forget a a a -> Forget a s s) -> Hom s a
-view l = runForget $ l (Forget id)
+view :: forall (s::i) (a::i). Category (Hom :: i -> i -> *) => (Viewing a a a -> Viewing a s s) -> Hom s a
+view l = runViewing $ l (Viewing id)
+
+review :: forall (t::i) (b::i). Category (Hom :: i -> i -> *) => (Reviewing b b b -> Reviewing b t t) -> Hom b t
+review l = runReviewing $ l (Reviewing id)
+
+newtype Reviewing r a b = Reviewing { runReviewing :: Hom r b }
+_Reviewing = dimap runReviewing Reviewing
+
+instance PFunctor (Reviewing r) where first _ = _Reviewing id
+instance PContravariant (Reviewing r) where lmap _ = _Reviewing id
+instance Category (Hom :: i -> i -> *) => QFunctor (Reviewing (r :: i)) where second f = _Reviewing (f .)
 
 class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
@@ -246,8 +261,8 @@ instance Strong (~>) where
   _1 = first
   _2 = second
 
-instance Cartesian (Hom :: i -> i -> *) => Strong (Forget (r :: i)) where
-  _1 = _Forget (. fst)
+instance Cartesian (Hom :: i -> i -> *) => Strong (Viewing (r :: i)) where
+  _1 = _Viewing (. fst)
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
@@ -283,5 +298,13 @@ instance Choice (->) where
 instance Choice (~>) where
   _Left (Nat f) = Nat $ _Lift (_Left f)
   _Right (Nat g) = Nat $ _Lift (_Right g)
+
+instance Choice Tagged where
+  _Left  = bimap inl inl
+  _Right = bimap inr inr
+
+instance Cocartesian (Hom :: i -> i -> *) => Choice (Reviewing (r :: i)) where
+  _Left = bimap inl inl
+  _Right = bimap inr inr
 
 type Prism s t a b = forall p. Choice p => p a b -> p s t
