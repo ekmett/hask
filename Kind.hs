@@ -12,6 +12,7 @@
 module Group where
 
 import Data.Void
+import qualified Data.Functor.Contravariant as Contra
 import Control.Category (Category(..))
 import qualified Control.Arrow as Arrow
 import qualified Prelude
@@ -51,6 +52,12 @@ instance Functor Const where
 newtype Lift (p :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) = Lift { lower :: p (f a) (g a) }
 _Lift = dimap lower Lift
 
+class Contravariant (f :: x -> y) where
+  contramap :: Hom b a -> Hom (f a) (f b)
+
+instance Contra.Contravariant f => Contravariant f where
+  contramap = Contra.contramap
+
 class PFunctor (p :: x -> y -> z) where
   first :: Hom a b -> Hom (p a c) (p b c)
 
@@ -77,11 +84,14 @@ class PContravariant (p :: x -> y -> z) where
 
 instance PContravariant (->) where lmap f g = g . f
 instance PContravariant (~>) where lmap f g = g . f
+instance PContravariant p => PContravariant (Lift p) where lmap (Nat f) = Nat $ _Lift (lmap f)
 
 class QContravariant (p :: x -> y -> z) where
   qmap :: Hom a b -> Hom (p c b) (p c a)
 
 instance QContravariant (Const :: * -> i -> *) where qmap _ = _Const id
+instance QContravariant p => QContravariant (Lift p) where qmap (Nat f) = Nat $ _Lift (qmap f)
+instance Contravariant (Const k :: i -> *) where contramap _ = _Const id
 
 class (PFunctor p, QFunctor p) => Bifunctor (p :: x -> y -> z)
 instance (PFunctor p, QFunctor p) => Bifunctor (p :: x -> y -> z)
