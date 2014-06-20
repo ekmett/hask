@@ -41,6 +41,13 @@ type instance (~>) = (:-) -- Constraint -> Constraint -> *
 class (p, q) => p & q
 instance (p, q) => p & q
 
+-- Trivial :: i -> Constraint
+class Trivial a
+instance Trivial a
+
+class r (p a) (q a) => LiftConstraint (r :: j -> k -> Constraint) (p :: i -> j) (q :: i -> k) (a :: i)
+instance r (p a) (q a) => LiftConstraint r p q a
+
 -- * Natural transformations form a category, using parametricity as a proxy for naturality
 
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
@@ -102,10 +109,20 @@ instance Functor (At x) where
 
 -- .. and back
 newtype Const (b :: *) (a :: i) = Const { getConst :: b }
+
+_Const :: Iso (Const b a) (Const b' a') b b'
 _Const = dimap getConst Const
+_ConstConstraint :: Iso (ConstConstraint b a) (ConstConstraint b' a') b b'
+_ConstConstraint = dimap (Sub Dict) (Sub Dict)
+
+class b => ConstConstraint b a
+instance b => ConstConstraint b a
 
 instance Functor Const where
   fmap f = Nat (_Const f)
+
+instance Functor ConstConstraint where
+  fmap f = Nat (_ConstConstraint f)
 
 -- * Support for Tagged and Proxy
 
@@ -115,12 +132,24 @@ instance Functor Proxy where
   fmap _ Proxy = Proxy
 
 -- * Dictionaries
+--
+instance Functor Trivial where
+  fmap _ = Sub Dict
+
+instance Contravariant Trivial where
+  contramap _ = Sub Dict
 
 instance Functor Dict where
   fmap p Dict = Dict \\ p
 
 newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
+_Lift :: Iso (Lift q f g a)  (Lift r f1 g1 a1)
+             (q (f a) (g a)) (r (f1 a1) (g1 a1))
 _Lift = dimap lower Lift
+
+_LiftConstraint :: Iso (LiftConstraint q f g a) (LiftConstraint r f1 g1 a1)
+                       (q (f a) (g a))          (r (f1 a1) (g1 a1))
+_LiftConstraint = dimap (Sub Dict) (Sub Dict)
 
 instance PFunctor (,) where
   first = Arrow.first
@@ -139,6 +168,9 @@ instance PContravariant (:-) where
 
 instance PFunctor p => PFunctor (Lift p) where
   first (Nat f) = Nat (_Lift $ first f)
+
+instance PFunctor p => PFunctor (LiftConstraint p) where
+  first (Nat f) = Nat (_LiftConstraint $ first f)
 
 instance PFunctor Tagged where
   first _ = _Tagged id
@@ -167,8 +199,14 @@ instance QFunctor (Const :: * -> i -> *) where
 instance QFunctor p => QFunctor (Lift p) where
   second (Nat f) = Nat (_Lift $ second f)
 
+instance QFunctor p => QFunctor (LiftConstraint p) where
+  second (Nat f) = Nat (_LiftConstraint $ second f)
+
 instance QFunctor p => Functor (Lift p e) where
   fmap (Nat f) = Nat (_Lift $ second f)
+
+instance QFunctor p => Functor (LiftConstraint p e) where
+  fmap (Nat f) = Nat (_LiftConstraint $ second f)
 
 instance QFunctor At where
   second (Nat f) = _At f
@@ -224,6 +262,9 @@ instance PContravariant ((~>)::j->j-> *) => PContravariant (Nat::(i->j)->(i->j)-
 instance PContravariant p => PContravariant (Lift p) where
   lmap (Nat f) = Nat $ _Lift (lmap f)
 
+instance PContravariant p => PContravariant (LiftConstraint p) where
+  lmap (Nat f) = Nat $ _LiftConstraint (lmap f)
+
 instance PContravariant Tagged where
   lmap _ = _Tagged id
 
@@ -232,6 +273,9 @@ instance QContravariant (Const :: * -> i -> *) where
 
 instance QContravariant p => QContravariant (Lift p) where
   qmap (Nat f) = Nat $ _Lift (qmap f)
+
+instance QContravariant p => QContravariant (LiftConstraint p) where
+  qmap (Nat f) = Nat $ _LiftConstraint (qmap f)
 
 instance Contravariant (Const k :: i -> *) where
   contramap _ = _Const id
@@ -328,7 +372,7 @@ dimap f g = lmap f . rmap g
 class Bifunctor p => Tensor (p :: x -> x -> x) where
   type Id p :: x
   associate :: p (p a b) c ~> p a (p b c)
-  lambda    :: p (Id p) a ~>  a
+  lambda    :: p (Id p) a ~> a
   rho       :: a ~> p a (Id p)
 
 instance Tensor (,) where
@@ -351,6 +395,12 @@ instance Tensor p => Tensor (Lift p) where
   lambda    = Nat $ lmap (first getConst . lower) lambda
   rho       = Nat $ rmap (Lift . second Const) rho
 
+instance Tensor p => Tensor (LiftConstraint p) where
+  type Id (LiftConstraint p) = ConstConstraint (Id p)
+  associate = Nat $ _LiftConstraint $ second (unget _LiftConstraint) . associate . first (get _LiftConstraint)
+  lambda    = Nat $ lmap (first (get _ConstConstraint) . get _LiftConstraint) lambda
+  rho       = Nat $ rmap (unget _LiftConstraint . second (unget _ConstConstraint)) rho
+
 instance Tensor (&) where
   type Id (&) = (() :: Constraint)
   associate = Sub Dict
@@ -372,6 +422,9 @@ instance Symmetric Either where
 
 instance Symmetric p => Symmetric (Lift p) where
   swap = Nat $ _Lift swap
+
+instance Symmetric p => Symmetric (LiftConstraint p) where
+  swap = Nat $ _LiftConstraint swap
 
 -- profunctor composition forms a weak category.
 data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
@@ -403,6 +456,10 @@ instance Terminal (() :: Constraint) where
   type One = (() :: Constraint)
   terminal = Constraint.top
 
+instance Terminal (ConstConstraint ()) where
+  type One = ConstConstraint ()
+  terminal = Nat (unget _ConstConstraint . terminal)
+
 class Zero ~ t => Initial (t :: i) | i -> t where
   type Zero :: i
   initial :: t ~> a
@@ -419,6 +476,10 @@ instance Initial (Const Void) where
 instance Initial (() ~ Bool) where
   type Zero = () ~ Bool
   initial = Constraint.bottom
+
+instance Initial (ConstConstraint (() ~ Bool)) where
+  type Zero = ConstConstraint (() ~ Bool)
+  initial = Nat $ initial . get _ConstConstraint
 
 infixl 7 *
 class (h ~ (~>), Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
@@ -445,6 +506,12 @@ instance Cartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   snd = Nat $ snd . lower
   Nat f &&& Nat g = Nat $ Lift . (f &&& g)
 
+instance Cartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
+  type (*) = LiftConstraint (&)
+  fst = Nat $ fst . get _LiftConstraint
+  snd = Nat $ snd . get _LiftConstraint
+  Nat f &&& Nat g = Nat $ unget _LiftConstraint . (f &&& g)
+
 class (Cartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where
   {-# MINIMAL _1 | _2 #-}
   _1 :: p a b -> p (a * c) (b * c)
@@ -456,7 +523,15 @@ instance Strong (->) where
   _1 = first
   _2 = second
 
+instance Strong (:-) where
+  _1 = first
+  _2 = second
+
 instance Strong (Nat::(i-> *)->(i-> *)-> *) where
+  _1 = first
+  _2 = second
+
+instance Strong (Nat::(i-> Constraint)->(i-> Constraint)-> *) where
   _1 = first
   _2 = second
 
