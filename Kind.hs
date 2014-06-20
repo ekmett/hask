@@ -537,10 +537,10 @@ newtype An (f :: i -> *) (a :: i) = An { runAn :: f a }
 _An = dimap runAn An
 
 instance Functor f => Functor (An f) where
-  fmap f = _An (fmap f)
+  fmap = _An . fmap
 
 instance Contravariant f => Contravariant (An f) where
-  contramap f = _An (contramap f)
+  contramap = _An . contramap
 
 instance Functor An where
   fmap (Nat f) = Nat $ _An f
@@ -561,6 +561,9 @@ class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
 instance Monoid.Monoid m => Monoid m where
   one () = Monoid.mempty
   mult = uncurry Monoid.mappend
+
+mappend :: forall (m :: i). (CCC ((~>) :: i -> i -> *), Monoid m) => m ~> m^m
+mappend = curry mult
 
 class Functor f => Strength (f :: x -> x) where
   strength :: a * f b ~> f (a * b)
