@@ -13,6 +13,7 @@ module Group where
 
 import Data.Tagged
 import Data.Void
+import qualified Data.Monoid as Monoid
 import Data.Functor.Identity
 import qualified Control.Applicative as Applicative
 import qualified Data.Functor.Contravariant as Contravariant
@@ -24,9 +25,12 @@ import Prelude (Either(..), ($), either)
 type family (~>) :: i -> i -> *
 type instance (~>) = (->)
 type instance (~>) = Nat
+type a ^ b = Exp b a
+
 infixr 0 ~>
 infixl 6 +
 infixl 7 *
+infixr 8 ^
 
 newtype Nat f g = Nat { runNat :: forall a. f a -> g a }
 
@@ -56,6 +60,7 @@ _Tagged = dimap unTagged Tagged
 instance Functor Const where
   fmap f = Nat (_Const f)
 
+-- newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
 newtype Lift (p :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) = Lift { lower :: p (f a) (g a) }
 _Lift = dimap lower Lift
 
@@ -322,7 +327,7 @@ type Prism s t a b = forall p. Choice p => p a b -> p s t
 
 class (Profunctor (Exp :: x -> x -> x), Cartesian k) => CCC (k :: x -> x -> *) | x -> k where
   type Exp :: x -> x -> x
-  curried :: forall (a :: x) (b :: x) (c :: x) (a' :: x) (b' :: x) (c' :: x). Iso (a * b ~> c) (a' * b' ~> c') (a ~> Exp b c) (a' ~> Exp b' c')
+  curried :: forall (a :: x) (b :: x) (c :: x) (a' :: x) (b' :: x) (c' :: x). Iso (a * b ~> c) (a' * b' ~> c') (a ~> c^b) (a' ~> c'^b')
 
 instance CCC (->) where
   type Exp = (->)
@@ -334,19 +339,19 @@ instance CCC Nat where
     hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
     yon (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
 
-curry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => ((a * b) ~> c) -> a ~> Exp b c
+curry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => ((a * b) ~> c) -> a ~> c^b
 curry = get curried
 
-uncurry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => (a ~> Exp b c) -> (a * b) ~> c
+uncurry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => (a ~> c^b) -> (a * b) ~> c
 uncurry = unget curried
 
-apply :: forall (a :: i) (b :: i). CCC ((~>)::i -> i -> *) => Exp a b * a ~> b
+apply :: forall (a :: i) (b :: i). CCC ((~>)::i -> i -> *) => b^a * a ~> b
 apply = uncurry id
 
-unapply :: forall (a :: i) (b :: i). CCC ((~>) :: i -> i -> *) => a ~> Exp b (a * b)
+unapply :: forall (a :: i) (b :: i). CCC ((~>) :: i -> i -> *) => a ~> (a * b)^b
 unapply = curry id
 
-type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~>  b) (f a' ~> b') (a ~> u b) (a' ~> u b')
+type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
 
 class (Functor f, Functor u, Category ((~>) :: x -> x -> *), Category ((~>) :: y -> y -> *)) => (f :: y -> x) -| (u :: x -> y) | f -> u, u -> f where
   adj :: f -: u
@@ -377,9 +382,27 @@ instance Opmonoidal Identity where
   op1 = runIdentity
   op2 = bimap Identity Identity . runIdentity
 
-{-
-class (CCC ((~>) :: x -> x -> *), Monoidal f) => MonoidalCCC (f :: x -> x) where
-  point :: a ~> f a
-  ap :: f (Exp a b) ~> Exp (f a) (f b)
--}
+-- a monoid object in a cartesian category
+class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
+  one  :: One ~> m
+  mult :: m * m ~> m
 
+instance Monoid.Monoid m => Monoid m where
+  one () = Monoid.mempty
+  mult = uncurry Monoid.mappend
+
+class Functor f => Strength (f :: x -> y) where
+
+ap :: forall (f :: x -> y) (a :: x) (b :: x).
+      (Monoidal f, CCC ((~>) :: x -> x -> *), CCC ((~>) :: y -> y -> *))
+   => f (b ^ a) ~> f b ^ f a
+ap = curry (fmap apply . ap2)
+
+-- point :: forall (f :: x -> x) (a :: x). Monoidal f, CCC ((~>) :: x -> x -> *)
+--      => a ~> f a
+
+-- a monoidal endofunctor on a cartesian closed category
+-- class (CCC ((~>) :: x -> x -> *), Monoidal f) => MonoidalCCC (f :: x -> x) where
+--   point :: a ~> f a
+
+-- put :: Lens s t a b -> s ~> Exp b t
