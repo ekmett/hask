@@ -587,3 +587,21 @@ ap = curry (fmap apply . ap2)
 return :: forall (f :: x -> x) (a :: x). (Monoidal f, Strength f, CCC ((~>) :: x -> x -> *))
       => a ~> f a
 return = fmap (lambda . swap) . strength . second ap1 . rho
+
+class (Functor f, Category ((~>) :: x -> x -> *)) => Comonad (f :: x -> x) where
+  {-# MINIMAL extract, (duplicate | extend) #-}
+  duplicate :: f a ~> f (f a)
+  duplicate = extend id
+  extend :: (f a ~> b) -> f a ~> f b
+  extend f = fmap f . duplicate
+  extract   :: f a ~> a
+
+-- indexed store
+data Store (s :: x -> *) (a :: x -> *) (i :: x) = Store (s ~> a) (s i)
+
+instance Functor (Store s) where
+  fmap f = Nat $ \(Store g s) -> Store (f . g) s
+
+instance Comonad (Store s) where
+  extract = Nat $ \(Store f s) -> runNat f s
+  duplicate = Nat $ \(Store f s) -> Store (Nat $ Store f) s
