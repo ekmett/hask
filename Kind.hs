@@ -9,7 +9,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
-module Group where
+module Kind where
 
 import Data.Tagged
 import Data.Void
@@ -22,15 +22,10 @@ import qualified Control.Arrow as Arrow
 import qualified Prelude
 import Prelude (Either(..), ($), either)
 
+infixr 0 ~>
 type family (~>) :: i -> i -> *
 type instance (~>) = (->)
 type instance (~>) = Nat
-type a ^ b = Exp b a
-
-infixr 0 ~>
-infixl 6 +
-infixl 7 *
-infixr 8 ^
 
 newtype Nat f g = Nat { runNat :: forall a. f a -> g a }
 
@@ -244,6 +239,7 @@ instance Initial (Const Void) where
   type Zero = Const Void
   initial = Nat $ absurd . getConst
 
+infixl 7 *
 class (h ~ (~>), Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
   type (*) :: i -> i -> i
   fst   :: forall (a :: i) (b :: i). a * b ~> a
@@ -282,6 +278,7 @@ instance Cartesian ((~>) :: i -> i -> *) => Strong (Get (r :: i)) where
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
+infixl 6 +
 class (h ~ (~>), Symmetric ((+)::i->i->i), Tensor ((+)::i->i->i),Initial (Id ((+)::i->i->i))) => Cocartesian (h :: i -> i -> *) | i -> h where
   type (+) :: i -> i -> i
   inl    :: forall (a :: i) (b :: i). a ~> a + b
@@ -324,6 +321,9 @@ instance Cocartesian ((~>) :: i -> i -> *) => Choice (Unget (r :: i)) where
   _Right = bimap inr inr
 
 type Prism s t a b = forall p. Choice p => p a b -> p s t
+
+type a ^ b = Exp b a
+infixr 8 ^
 
 class (Profunctor (Exp :: x -> x -> x), Cartesian k) => CCC (k :: x -> x -> *) | x -> k where
   type Exp :: x -> x -> x
