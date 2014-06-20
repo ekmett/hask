@@ -93,13 +93,29 @@ instance QContravariant (Const :: * -> i -> *) where qmap _ = _Const id
 instance QContravariant p => QContravariant (Lift p) where qmap (Nat f) = Nat $ _Lift (qmap f)
 instance Contravariant (Const k :: i -> *) where contramap _ = _Const id
 
-class (PFunctor p, QFunctor p) => Bifunctor (p :: x -> y -> z)
-instance (PFunctor p, QFunctor p) => Bifunctor (p :: x -> y -> z)
+class (PFunctor p, QFunctor p, Category (Hom :: z -> z -> *)) => Bifunctor (p :: x -> y -> z)
+instance (PFunctor p, QFunctor p, Category (Hom :: z -> z -> *)) => Bifunctor (p :: x -> y -> z)
 
-class (PContravariant p, QFunctor p) => Profunctor (p :: x -> y -> z)
-instance (PContravariant p, QFunctor p) => Profunctor (p :: x -> y -> z)
+type Review t b = forall p. Bifunctor p => p b b -> p t t
+
+unto :: Hom b t -> Review t b
+unto f = bimap f f
+
+class (PContravariant p, QFunctor p, Category (Hom :: z -> z -> *)) => Profunctor (p :: x -> y -> z)
+instance (PContravariant p, QFunctor p, Category (Hom :: z -> z -> *)) => Profunctor (p :: x -> y -> z)
 
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
+
+class (PContravariant p, QContravariant p, Category (Hom :: z -> z -> *)) => Bicontravariant (p :: x -> y -> z)
+instance (PContravariant p, QContravariant p, Category (Hom :: z -> z -> *)) => Bicontravariant (p :: x -> y -> z)
+
+bicontramap :: Bicontravariant p => Hom a b -> Hom c d -> Hom (p b d) (p a c)
+bicontramap f g = lmap f . qmap g
+
+type Getter s a = forall p. Bicontravariant p => p a a -> p s s
+
+to :: Hom s a -> Getter s a
+to f = bicontramap f f
 
 class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
@@ -117,7 +133,7 @@ dimap :: (Category (Hom :: z -> z -> *), Profunctor (p :: x -> y -> z)) => Hom a
 dimap f g = lmap f . rmap g
 
 -- tensor for a skew monoidal category
-class (Bifunctor p, Category (Hom :: x -> x -> *)) => Tensor (p :: x -> x -> x) where
+class Bifunctor p => Tensor (p :: x -> x -> x) where
   type Id p :: x
   associate :: Hom (p (p a b) c) (p a (p b c))
   lambda    :: Hom (p (Id p) a) a
