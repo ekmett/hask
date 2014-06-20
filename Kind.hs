@@ -99,23 +99,25 @@ instance (PFunctor p, QFunctor p) => Bifunctor (p :: x -> y -> z)
 class (PContravariant p, QFunctor p) => Profunctor (p :: x -> y -> z)
 instance (PContravariant p, QFunctor p) => Profunctor (p :: x -> y -> z)
 
+type Iso s t a b = forall p. Profunctor p => p a b -> p s t
+
 class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 
 class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
 instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
 
+rmap :: QFunctor p => Hom a b -> Hom (p c a) (p c b)
+rmap = second
+
 bimap :: (Category (Hom :: z -> z -> *), Bifunctor (p :: x -> y -> z)) => Hom a b -> Hom c d -> Hom (p a c) (p b d)
 bimap f g = first f . second g
 
 dimap :: (Category (Hom :: z -> z -> *), Profunctor (p :: x -> y -> z)) => Hom a b -> Hom c d -> Hom (p b c) (p a d)
-dimap f g = lmap f . second g
-
-rmap :: QFunctor p => Hom a b -> Hom (p c a) (p c b)
-rmap = second
+dimap f g = lmap f . rmap g
 
 -- tensor for a skew monoidal category
-class Bifunctor p => Tensor (p :: x -> x -> x) where
+class (Bifunctor p, Category (Hom :: x -> x -> *)) => Tensor (p :: x -> x -> x) where
   type Id p :: x
   associate :: Hom (p (p a b) c) (p a (p b c))
   lambda    :: Hom (p (Id p) a) a
@@ -166,3 +168,91 @@ lambdaProf (Prof h p) = rmap h p
 
 rhoProf :: forall (p :: i -> k -> *) (a :: i) (b :: k). Category (Hom :: i -> i -> *) => p a b -> Prof p Hom a b
 rhoProf p = Prof p id
+
+class Terminal t where
+  terminal :: Hom a t
+
+instance Terminal () where
+  terminal _ = ()
+
+instance Terminal (Const ()) where
+  terminal = Nat $ \_ -> Const ()
+
+class Initial t where
+  initial :: Hom t a
+
+instance Initial Void where
+  initial = absurd
+
+instance Initial (Const Void) where
+  initial = Nat $ absurd . getConst
+
+class (h ~ Hom, Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
+  type (*) :: i -> i -> i
+  fst   :: forall (a :: i) (b :: i). Hom (a * b) a
+  snd   :: forall (a :: i) (b :: i). Hom (a * b) b
+  (&&&) :: forall (a :: i) (b :: i) (c :: i). Hom a b -> Hom a c -> Hom a (b * c)
+
+instance Cartesian (->) where
+  type (*) = (,)
+  fst   = Prelude.fst
+  snd   = Prelude.snd
+  (&&&) = (Arrow.&&&)
+
+instance Cartesian (~>) where
+  type (*) = Lift (,)
+  fst = Nat $ fst . lower
+  snd = Nat $ snd . lower
+  Nat f &&& Nat g = Nat $ Lift . (f &&& g)
+
+class (Cartesian (Hom :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where
+  {-# MINIMAL _1 | _2 #-}
+  _1 :: p a b -> p (a * c) (b * c)
+  _1 = dimap swap swap . _2
+  _2 :: p a b -> p (c * a) (c * b)
+  _2 = dimap swap swap . _1
+
+instance Strong (->) where
+  _1 = first
+  _2 = second
+
+instance Strong (~>) where
+  _1 = first
+  _2 = second
+
+type Lens s t a b = forall p. Strong p => p a b -> p s t
+
+class (h ~ Hom, Symmetric ((+)::i->i->i), Tensor ((+)::i->i->i),Initial (Id ((+)::i->i->i))) => Cocartesian (h :: i -> i -> *) | i -> h where
+  type (+) :: i -> i -> i
+  inl    :: forall (a :: i) (b :: i). Hom a (a + b)
+  inr    :: forall (a :: i) (b :: i). Hom b (a + b)
+  (|||)  :: forall (a :: i) (b :: i) (c :: i). Hom a c -> Hom b c -> Hom (a + b) c
+
+instance Cocartesian (->) where
+  type (+) = Either
+  inl = Left
+  inr = Right
+  (|||) = either
+
+instance Cocartesian (~>) where
+  type (+) = Lift Either
+  inl = Nat (Lift . Left)
+  inr = Nat (Lift . Right)
+  Nat f ||| Nat g = Nat $ either f g . lower
+
+class (Cocartesian (Hom :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
+  {-# MINIMAL _Left | _Right #-}
+  _Left  :: p a b -> p (a + c) (b + c)
+  _Left = dimap swap swap . _Right
+  _Right :: p a b -> p (c + a) (c + b)
+  _Right = dimap swap swap . _Left
+
+instance Choice (->) where
+  _Left = Arrow.left
+  _Right = Arrow.right
+
+instance Choice (~>) where
+  _Left (Nat f) = Nat $ _Lift (_Left f)
+  _Right (Nat g) = Nat $ _Lift (_Right g)
+
+type Prism s t a b = forall p. Choice p => p a b -> p s t
