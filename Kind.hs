@@ -614,3 +614,13 @@ instance Functor (Store s) where
 instance Comonad (Store s) where
   extract = Nat $ \(Store f s) -> runNat f s
   duplicate = Nat $ \(Store f s) -> Store (Nat $ Store f) s
+
+-- Coat i :: Hask -> Nat
+-- Coat :: x -> * -> x -> *
+newtype Coat i a j = Coat { runCoat :: (i ~ j) => a }
+
+instance Functor (Coat i) where
+  fmap f = Nat $ \xs -> Coat $ f (runCoat xs)
+
+instance PFunctor (Coat i) where
+  first f xs = Coat $ f (runCoat xs)
