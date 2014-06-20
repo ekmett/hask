@@ -13,12 +13,12 @@
 {-# LANGUAGE ConstraintKinds #-}
 module Kind where
 
-import qualified Data.Constraint as Constraint
-import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Control.Applicative as Applicative
 import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
 import qualified Control.Monad as Monad
+import qualified Data.Constraint as Constraint
+import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Data.Functor.Contravariant as Contravariant
 import Data.Functor.Identity
 import qualified Data.Monoid as Monoid
@@ -34,9 +34,9 @@ import GHC.Exts (Constraint)
 
 infixr 0 ~>
 type family (~>) :: i -> i -> *
-type instance (~>) = (->)
-type instance (~>) = Nat
-type instance (~>) = (:-)
+type instance (~>) = (->) -- * -> * -> *
+type instance (~>) = Nat  -- (i -> j) -> (i -> j) -> *
+type instance (~>) = (:-) -- Constraint -> Constraint -> *
 
 class (p, q) => p & q
 instance (p, q) => p & q
