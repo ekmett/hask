@@ -16,6 +16,7 @@ import Data.Tagged
 import Data.Proxy
 import Data.Void
 import qualified Data.Monoid as Monoid
+import qualified Data.Traversable as Traversable
 import Data.Functor.Identity
 import qualified Control.Applicative as Applicative
 import qualified Data.Functor.Contravariant as Contravariant
@@ -59,7 +60,20 @@ class PContravariant (p :: x -> y -> z) where
 class QContravariant (p :: x -> y -> z) where
   qmap :: (a ~> b) -> p c b ~> p c a
 
--- Lift Prelude instances of Functor without overlap
+-- * common aliases
+--
+class (PFunctor p, QFunctor p, Category ((~>)::z->z-> *)) => Bifunctor (p :: x -> y -> z)
+instance (PFunctor p, QFunctor p, Category ((~>)::z->z -> *)) => Bifunctor (p :: x -> y -> z)
+
+class (PContravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
+instance (PContravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
+
+-- enriched profuncors C^op * D -> E
+class (PContravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+instance (PContravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+
+-- Lift Prelude instances of Functor without overlap, using the kind index to say
+-- these are all the instances of kind * -> *
 instance Prelude.Functor f => Functor f where
   fmap = Prelude.fmap
 
@@ -75,10 +89,6 @@ _At = dimap getAt At
 
 instance Functor (At x) where
   fmap (Nat f) = _At f
-
--- type family K (b :: *) :: i
--- type instance K b = b
--- type instance K b = Const b
 
 -- .. and back
 newtype Const (b :: *) (a :: i) = Const { getConst :: b }
@@ -136,6 +146,39 @@ instance QFunctor At where
 instance QFunctor Tagged where
   second = Prelude.fmap
 
+data Via (a :: x) (b :: x) (s :: x) (t :: x) where
+  Via :: (s ~> a) -> (b ~> t) -> Via a b s t
+
+instance PContravariant ((~>) :: x -> x -> *) => PContravariant (Via a b :: x -> x -> *) where
+  lmap f (Via g h) = Via (lmap f g) h
+
+instance PFunctor ((~>) :: x -> x -> *) => PFunctor (Via a b :: x -> x -> *) where
+  first f (Via g h) = Via (first f g) h
+
+instance QContravariant ((~>) :: x -> x -> *) => QContravariant (Via a b :: x -> x -> *) where
+  qmap f (Via g h) = Via g (qmap f h)
+
+instance QFunctor ((~>) :: x -> x -> *) => QFunctor (Via a b :: x -> x -> *) where
+  second f (Via g h) = Via g (second f h)
+
+-- |
+-- @
+-- get   = via _Get
+-- unget = via _Unget
+-- un    = via _Un
+-- @
+via :: forall (a :: *) (b :: *) (r :: *) (p :: x -> x -> *) (c :: x) (t :: *) (u :: *).
+     Category p => (Via a b a b -> Via r (p c c) u t) -> (t -> u) -> r
+via l m = case l (Via id id) of
+  Via csa dbt -> csa $ m (dbt id)
+
+mapping
+   :: forall (f :: x -> y) (a :: x) (b :: x) (s :: x) (t :: x).
+      (Category ((~>) :: x -> x -> *), Functor f)
+   => (Via a b a b -> Via a b s t) -> Iso (f s) (f t) (f a) (f b)
+mapping l = case l (Via id id) of
+  Via csa dbt -> dimap (fmap csa) (fmap dbt)
+
 newtype Hom a b = Hom { runHom :: a ~> b }
 _Hom = dimap runHom Hom
 
@@ -163,27 +206,17 @@ instance QContravariant p => QContravariant (Lift p) where
 instance Contravariant (Const k :: i -> *) where
   contramap _ = _Const id
 
-class (PFunctor p, QFunctor p, Category ((~>)::z->z-> *)) => Bifunctor (p :: x -> y -> z)
-instance (PFunctor p, QFunctor p, Category ((~>)::z->z -> *)) => Bifunctor (p :: x -> y -> z)
-
-type Ungetter t b = forall p. Bifunctor p => p b b -> p t t
+type Ungetter t b = forall p. (Choice p, PFunctor p) => p b b -> p t t
 
 unto :: (b ~> t) -> Ungetter t b
 unto f = bimap f f
 
--- enriched profuncors C^op * D -> E
-class (PContravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
-instance (PContravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
-
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
-
-class (PContravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
-instance (PContravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
 
 bicontramap :: Bicontravariant p => (a ~> b) -> (c ~> d) -> p b d ~> p a c
 bicontramap f g = lmap f . qmap g
 
-type Getter s a = forall p. Bicontravariant p => p a a -> p s s
+type Getter s a = forall p. (Strong p, QContravariant p) => p a a -> p s s
 
 to :: (s ~> a) -> Getter s a
 to f = bicontramap f f
@@ -202,6 +235,7 @@ instance QFunctor (Get r) where
 
 get :: forall (s::i) (a::i). Category ((~>)::i->i-> *) => (Get a a a -> Get a s s) -> s ~> a
 get l = runGet $ l (Get id)
+-- get = via _Get
 
 -- * Unget
 
@@ -219,6 +253,10 @@ instance Category ((~>) :: i -> i -> *) => QFunctor (Unget (r :: i)) where
 
 unget :: forall (t::i) (b::i). Category ((~>)::i->i-> *) => (Unget b b b -> Unget b t t) -> b ~> t
 unget l = runUnget $ l (Unget id)
+-- unget = via _Unget
+
+(#) :: (Unget b b b -> Unget b t t) -> b -> t
+(#) = unget
 
 -- * Un
 
@@ -239,9 +277,10 @@ instance (Category ((~>)::j->j-> *), PFunctor p) => QContravariant (Un (p::i->i-
 
 un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
 un l = runUn $ l (Un id)
+-- un = via _Un
 
--- class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
--- instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
+class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
+instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 
 -- class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
 -- instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
@@ -523,6 +562,14 @@ class Functor f => Strength (f :: x -> x) where
 
 instance Prelude.Functor f => Strength f where
   strength (a,fb) = fmap ((,) a) fb
+
+-- what is usually called 'costrength' is more like a 'left strength' or a 'right strength'
+-- repurposing this term for a real 'co'-strength
+class Functor f => Costrength (f :: x -> x) where
+  costrength :: f (a + b) ~> a + f b
+
+instance Traversable.Traversable f => Costrength f where
+  costrength = Traversable.sequence
 
 ap :: forall (f :: x -> y) (a :: x) (b :: x).
       (Monoidal f, CCC ((~>) :: x -> x -> *), CCC ((~>) :: y -> y -> *))
