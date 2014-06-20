@@ -12,28 +12,22 @@
 module Group where
 
 import Data.Void
+import Control.Category (Category(..))
 import qualified Control.Arrow as Arrow
 import qualified Prelude
 import Prelude (Either(..), ($), either)
 
-class Hom ~ h => Category (h :: i -> i -> *) | i -> h where
-  type Hom :: i -> i -> *
-  id  :: forall (a :: i). Hom a a
-  (.) :: forall (a :: i) (b :: i) (c :: i). Hom b c -> Hom a b -> Hom a c
-
-instance Category (->) where
-  type Hom = (->)
-  id x = x
-  (.) f g x = f (g x)
+type family Hom :: i -> i -> *
+type instance Hom = (->)
+type instance Hom = (~>)
 
 newtype f ~> g = Nat { runNat :: forall a. f a -> g a }
 
 instance Category (~>) where
-  type Hom = (~>)
   id = Nat id
   Nat f . Nat g = Nat (f . g)
 
-class (Category (Hom :: x -> x -> *), Category (Hom :: y -> y -> *)) => Functor (f :: x -> y) where
+class Functor (f :: x -> y) where
   fmap :: Hom a b -> Hom (f a) (f b)
 
 instance Prelude.Functor f => Functor f where
@@ -57,7 +51,7 @@ instance Functor Const where
 newtype Lift (p :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) = Lift { lower :: p (f a) (g a) }
 _Lift = dimap lower Lift
 
-class (Category (Hom :: x -> x -> *), Category (Hom :: z -> z -> *)) => PFunctor (p :: x -> y -> z) where
+class PFunctor (p :: x -> y -> z) where
   first :: Hom a b -> Hom (p a c) (p b c)
 
 instance PFunctor (,) where first = Arrow.first
@@ -65,29 +59,29 @@ instance PFunctor Either where first = Arrow.left
 instance PFunctor p => PFunctor (Lift p) where
   first (Nat f) = Nat (_Lift $ first f)
 
-class (Category (Hom :: y -> y -> *), Category (Hom :: z -> z -> *)) => QFunctor (p :: x -> y -> z) where
+class QFunctor (p :: x -> y -> z) where
   second :: Hom a b -> Hom (p c a) (p c b)
 
 instance QFunctor (->) where second = (.)
 instance QFunctor (~>) where second = (.)
 instance QFunctor (,) where second = Arrow.second
 instance QFunctor Either where second = Arrow.right
-instance Category (Hom :: i -> i -> *) => QFunctor (Const :: * -> i -> *) where second _ = _Const id
+instance QFunctor (Const :: * -> i -> *) where second _ = _Const id
 instance QFunctor p => QFunctor (Lift p) where
   second (Nat f) = Nat (_Lift $ second f)
 instance QFunctor At where
   second (Nat f) = _At f
 
-class (Category (Hom :: x -> x -> *), Category (Hom :: z -> z -> *)) => PContravariant (p :: x -> y -> z) where
+class PContravariant (p :: x -> y -> z) where
   lmap :: Hom a b -> Hom (p b c) (p a c)
 
 instance PContravariant (->) where lmap f g = g . f
 instance PContravariant (~>) where lmap f g = g . f
 
-class (Category (Hom :: y -> y -> *), Category (Hom :: z -> z -> *)) => QContravariant (p :: x -> y -> z) where
+class QContravariant (p :: x -> y -> z) where
   qmap :: Hom a b -> Hom (p c b) (p c a)
 
-instance Category (Hom :: i -> i -> *) => QContravariant (Const :: * -> i -> *) where qmap _ = _Const id
+instance QContravariant (Const :: * -> i -> *) where qmap _ = _Const id
 
 class (PFunctor p, QFunctor p) => Bifunctor (p :: x -> y -> z)
 instance (PFunctor p, QFunctor p) => Bifunctor (p :: x -> y -> z)
@@ -101,10 +95,10 @@ instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
 instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
 
-bimap :: Bifunctor p => Hom a b -> Hom c d -> Hom (p a c) (p b d)
+bimap :: (Category (Hom :: z -> z -> *), Bifunctor (p :: x -> y -> z)) => Hom a b -> Hom c d -> Hom (p a c) (p b d)
 bimap f g = first f . second g
 
-dimap :: Profunctor p => Hom a b -> Hom c d -> Hom (p b c) (p a d)
+dimap :: (Category (Hom :: z -> z -> *), Profunctor (p :: x -> y -> z)) => Hom a b -> Hom c d -> Hom (p b c) (p a d)
 dimap f g = lmap f . second g
 
 rmap :: QFunctor p => Hom a b -> Hom (p c a) (p c b)
