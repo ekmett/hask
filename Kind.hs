@@ -141,6 +141,9 @@ instance QFunctor (Const :: * -> i -> *) where
 instance QFunctor p => QFunctor (Lift p) where
   second (Nat f) = Nat (_Lift $ second f)
 
+instance QFunctor p => Functor (Lift p e) where
+  fmap (Nat f) = Nat (_Lift $ second f)
+
 instance QFunctor At where
   second (Nat f) = _At f
 
@@ -503,6 +506,12 @@ unitAdj = get adj id
 
 counitAdj :: (f -| u) => f (u b) ~> b
 counitAdj = unget adj id
+
+instance (,) e -| (->) e where
+  adj = cccAdj
+
+instance Lift (,) e -| Lift (->) e where
+  adj = cccAdj
 
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
   ap1 :: One ~> f One
