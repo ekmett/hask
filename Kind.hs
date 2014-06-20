@@ -13,6 +13,7 @@
 module Kind where
 
 import Data.Tagged
+import Data.Proxy
 import Data.Void
 import qualified Data.Monoid as Monoid
 import Data.Functor.Identity
@@ -23,10 +24,14 @@ import qualified Control.Arrow as Arrow
 import qualified Prelude
 import Prelude (Either(..), ($), either)
 
+-- * A kind-indexed family of categories
+
 infixr 0 ~>
 type family (~>) :: i -> i -> *
 type instance (~>) = (->)
 type instance (~>) = Nat
+
+-- * Natural transformations form a category, using parametricity as a proxy for naturality
 
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
 
@@ -34,57 +39,78 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
   id = Nat id
   Nat f . Nat g = Nat (f . g)
 
+-- * Functors between these kind-indexed categories
+
 class Functor (f :: x -> y) where
   fmap :: (a ~> b) -> f a ~> f b
 
+class Contravariant (f :: x -> y) where
+  contramap :: (b ~> a) -> f a ~> f b
+
+class PFunctor (p :: x -> y -> z) where
+  first :: (a ~> b) -> p a c ~> p b c
+
+class QFunctor (p :: x -> y -> z) where
+  second :: (a ~> b) -> p c a ~> p c b
+
+class PContravariant (p :: x -> y -> z) where
+  lmap :: (a ~> b) -> p b c ~> p a c
+
+class QContravariant (p :: x -> y -> z) where
+  qmap :: (a ~> b) -> p c b ~> p c a
+
+-- Lift Prelude instances of Functor without overlap
 instance Prelude.Functor f => Functor f where
   fmap = Prelude.fmap
+
+instance Contravariant.Contravariant f => Contravariant f where
+  contramap = Contravariant.contramap
 
 instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where
   fmap = (.)
 
+-- We can defne a functor from the category of natural transformations to Hask
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
 _At = dimap getAt At
 
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
-type family Konst (b :: *) :: i
-type instance Konst b = b
-type instance Konst b = Const b
+-- type family K (b :: *) :: i
+-- type instance K b = b
+-- type instance K b = Const b
 
+-- .. and back
 newtype Const (b :: *) (a :: i) = Const { getConst :: b }
 _Const = dimap getConst Const
-_Tagged = dimap unTagged Tagged
 
 instance Functor Const where
   fmap f = Nat (_Const f)
 
--- newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
+-- * Support for Tagged and Proxy
+
+_Tagged = dimap unTagged Tagged
+
+instance Functor Proxy where
+  fmap _ Proxy = Proxy
+
 newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
 _Lift = dimap lower Lift
 
-class Contravariant (f :: x -> y) where
-  contramap :: (b ~> a) -> f a ~> f b
+instance PFunctor (,) where
+  first = Arrow.first
 
-instance Contravariant.Contravariant f => Contravariant f where
-  contramap = Contravariant.contramap
+instance PFunctor Either where
+  first = Arrow.left
 
-class PFunctor (p :: x -> y -> z) where
-  first :: (a ~> b) -> p a c ~> p b c
-
-instance PFunctor (,) where first = Arrow.first
-instance PFunctor Either where first = Arrow.left
 instance PFunctor p => PFunctor (Lift p) where
   first (Nat f) = Nat (_Lift $ first f)
-instance PFunctor Tagged where first _ = _Tagged id
 
-class QFunctor (p :: x -> y -> z) where
-  second :: (a ~> b) -> p c a ~> p c b
+instance PFunctor Tagged where
+  first _ = _Tagged id
 
 instance Category ((~>) :: x -> x -> *) => QFunctor (Hom :: x -> x -> *) where
   second g (Hom h) = Hom (g . h)
-
 
 instance QFunctor (->) where
   second = (.)
@@ -113,9 +139,6 @@ instance QFunctor Tagged where
 newtype Hom a b = Hom { runHom :: a ~> b }
 _Hom = dimap runHom Hom
 
-class PContravariant (p :: x -> y -> z) where
-  lmap :: (a ~> b) -> p b c ~> p a c
-
 instance PContravariant (->) where
   lmap f g = g . f
 
@@ -131,28 +154,30 @@ instance PContravariant p => PContravariant (Lift p) where
 instance PContravariant Tagged where
   lmap _ = _Tagged id
 
-class QContravariant (p :: x -> y -> z) where
-  qmap :: (a ~> b) -> p c b ~> p c a
+instance QContravariant (Const :: * -> i -> *) where
+  qmap _ = _Const id
 
-instance QContravariant (Const :: * -> i -> *) where qmap _ = _Const id
-instance QContravariant p => QContravariant (Lift p) where qmap (Nat f) = Nat $ _Lift (qmap f)
-instance Contravariant (Const k :: i -> *) where contramap _ = _Const id
+instance QContravariant p => QContravariant (Lift p) where
+  qmap (Nat f) = Nat $ _Lift (qmap f)
 
-class (PFunctor p, QFunctor p, Category ((~>):: z -> z -> *)) => Bifunctor (p :: x -> y -> z)
-instance (PFunctor p, QFunctor p, Category ((~>):: z -> z -> *)) => Bifunctor (p :: x -> y -> z)
+instance Contravariant (Const k :: i -> *) where
+  contramap _ = _Const id
+
+class (PFunctor p, QFunctor p, Category ((~>)::z->z-> *)) => Bifunctor (p :: x -> y -> z)
+instance (PFunctor p, QFunctor p, Category ((~>)::z->z -> *)) => Bifunctor (p :: x -> y -> z)
 
 type Ungetter t b = forall p. Bifunctor p => p b b -> p t t
 
 unto :: (b ~> t) -> Ungetter t b
 unto f = bimap f f
 
-class (PContravariant p, QFunctor p, Category ((~>) :: z -> z -> *)) => Profunctor (p :: x -> y -> z)
-instance (PContravariant p, QFunctor p, Category ((~>) :: z -> z -> *)) => Profunctor (p :: x -> y -> z)
+class (PContravariant p, QFunctor p, Category ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+instance (PContravariant p, QFunctor p, Category ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
 
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
-class (PContravariant p, QContravariant p, Category ((~>) :: z -> z -> *)) => Bicontravariant (p :: x -> y -> z)
-instance (PContravariant p, QContravariant p, Category ((~>) :: z -> z -> *)) => Bicontravariant (p :: x -> y -> z)
+class (PContravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
+instance (PContravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
 
 bicontramap :: Bicontravariant p => (a ~> b) -> (c ~> d) -> p b d ~> p a c
 bicontramap f g = lmap f . qmap g
@@ -165,7 +190,7 @@ to f = bicontramap f f
 newtype Get r a b = Get { runGet :: a ~> r }
 _Get = dimap runGet Get
 
-instance Category ((~>) :: i -> i -> *) => PContravariant (Get (r :: i)) where
+instance Category ((~>)::i->i-> *) => PContravariant (Get (r :: i)) where
   lmap f = _Get (. f)
 
 instance QContravariant (Get r) where
