@@ -171,8 +171,9 @@ type Ungetter t b = forall p. Bifunctor p => p b b -> p t t
 unto :: (b ~> t) -> Ungetter t b
 unto f = bimap f f
 
-class (PContravariant p, QFunctor p, Category ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
-instance (PContravariant p, QFunctor p, Category ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+-- enriched profuncors C^op * D -> E
+class (PContravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+instance (PContravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
 
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
@@ -202,11 +203,24 @@ instance QFunctor (Get r) where
 get :: forall (s::i) (a::i). Category ((~>)::i->i-> *) => (Get a a a -> Get a s s) -> s ~> a
 get l = runGet $ l (Get id)
 
-unget :: forall (t::i) (b::i). Category ((~>)::i->i-> *) => (Unget b b b -> Unget b t t) -> b ~> t
-unget l = runUnget $ l (Unget id)
+-- * Unget
 
 newtype Unget r a b = Unget { runUnget :: r ~> b }
 _Unget = dimap runUnget Unget
+
+instance PFunctor (Unget r) where
+  first _ = _Unget id
+
+instance PContravariant (Unget r) where
+  lmap _ = _Unget id
+
+instance Category ((~>) :: i -> i -> *) => QFunctor (Unget (r :: i)) where
+  second f = _Unget (f .)
+
+unget :: forall (t::i) (b::i). Category ((~>)::i->i-> *) => (Unget b b b -> Unget b t t) -> b ~> t
+unget l = runUnget $ l (Unget id)
+
+-- * Un
 
 newtype Un (p::i->i->j) (a::i) (b::i) (s::i) (t::i) = Un { runUn :: p t s ~> p b a }
 _Un = dimap runUn Un
@@ -226,25 +240,20 @@ instance (Category ((~>)::j->j-> *), PFunctor p) => QContravariant (Un (p::i->i-
 un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
 un l = runUn $ l (Un id)
 
-instance PFunctor (Unget r) where first _ = _Unget id
-instance PContravariant (Unget r) where lmap _ = _Unget id
-instance Category ((~>) :: i -> i -> *) => QFunctor (Unget (r :: i)) where second f = _Unget (f .)
+-- class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
+-- instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 
-class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
-instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
-
-class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
-instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
+-- class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
+-- instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
 
 rmap :: QFunctor p => (a ~> b) -> p c a ~> p c b
 rmap = second
 
-bimap :: (Category ((~>) :: z -> z -> *), Bifunctor (p :: x -> y -> z)) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
+bimap :: (Category ((~>)::z->z-> *), Bifunctor (p::x->y->z)) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
 bimap f g = first f . second g
 
-dimap :: (Category ((~>) :: z -> z -> *), Profunctor (p :: x -> y -> z)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
+dimap :: (Category ((~>)::z->z-> *), Profunctor (p::x->y->z)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . rmap g
-
 
 -- tensor for a skew monoidal category
 class Bifunctor p => Tensor (p :: x -> x -> x) where
@@ -286,7 +295,7 @@ instance Symmetric Either where
 instance Symmetric p => Symmetric (Lift p) where
   swap = Nat $ _Lift swap
 
--- profunctor composition
+-- profunctor composition forms a weak category.
 data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
   Prof :: forall (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: j) (c :: k). p b c -> q a b -> Prof p q a c
 
@@ -437,9 +446,13 @@ apply = uncurry id
 unapply :: forall (a :: i) (b :: i). CCC ((~>) :: i -> i -> *) => a ~> (a * b)^b
 unapply = curry id
 
+-- | the isomorphism that witnesses f -| u
 type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
 
-class (Functor f, Functor u, Category ((~>) :: x -> x -> *), Category ((~>) :: y -> y -> *)) => (f :: y -> x) -| (u :: x -> y) | f -> u, u -> f where
+-- |
+-- @f -| u@ indicates f is left adjoint to u
+class (Functor f, Functor u, Category ((~>) :: x -> x -> *), Category ((~>) :: y -> y -> *))
+   => (f::y->x) -| (u::x->y) | f -> u, u -> f where
   adj :: f -: u
 
 cccAdj :: forall (e :: i). CCC ((~>) :: i -> i -> *) => (*) e -: Exp e
@@ -455,18 +468,46 @@ class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor
   ap1 :: One ~> f One
   ap2 :: f a * f b ~> f (a * b)
 
-class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Functor f) => Opmonoidal (f :: x -> y) where
-  op1 :: f Zero ~> Zero
-  op2 :: f (a + b) ~> f a + f b
-
 -- lift applicatives for Hask
 instance Applicative.Applicative f => Monoidal f where
   ap1 = Applicative.pure
   ap2 = uncurry $ Applicative.liftA2 (,)
 
+class Monoidal (m :: x -> x) => Monad (m :: x -> x) where
+  join :: m (m a) ~> m a
+
+instance (Applicative.Applicative m, Prelude.Monad m) => Monad m where
+  join m = m Prelude.>>= id
+
+class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Functor f) => Opmonoidal (f :: x -> y) where
+  op1 :: f Zero ~> Zero
+  op2 :: f (a + b) ~> f a + f b
+
 instance Opmonoidal Identity where
   op1 = runIdentity
   op2 = bimap Identity Identity . runIdentity
+
+-- * An
+
+newtype An (f :: i -> *) (a :: i) = An { runAn :: f a }
+_An = dimap runAn An
+
+instance Functor f => Functor (An f) where
+  fmap f = _An (fmap f)
+
+instance Contravariant f => Contravariant (An f) where
+  contramap f = _An (contramap f)
+
+instance Functor An where
+  fmap (Nat f) = Nat $ _An f
+
+instance Monoidal f => Monoidal (An f) where
+  ap1 = An . ap1
+  ap2 = An . ap2 . bimap runAn runAn
+
+instance Opmonoidal f => Opmonoidal (An f) where
+  op1 = op1 . runAn
+  op2 = bimap An An . op2 . runAn
 
 -- a monoid object in a cartesian category
 class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
@@ -477,12 +518,17 @@ instance Monoid.Monoid m => Monoid m where
   one () = Monoid.mempty
   mult = uncurry Monoid.mappend
 
-class Functor f => Strength (f :: x -> y) where
+class Functor f => Strength (f :: x -> x) where
+  strength :: a * f b ~> f (a * b)
+
+instance Prelude.Functor f => Strength f where
+  strength (a,fb) = fmap ((,) a) fb
 
 ap :: forall (f :: x -> y) (a :: x) (b :: x).
       (Monoidal f, CCC ((~>) :: x -> x -> *), CCC ((~>) :: y -> y -> *))
    => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
--- point :: forall (f :: x -> x) (a :: x). Monoidal f, CCC ((~>) :: x -> x -> *)
---      => a ~> f a
+return :: forall (f :: x -> x) (a :: x). (Monoidal f, Strength f, CCC ((~>) :: x -> x -> *))
+      => a ~> f a
+return = fmap (lambda . swap) . strength . second ap1 . rho
