@@ -308,3 +308,17 @@ instance Cocartesian (Hom :: i -> i -> *) => Choice (Reviewing (r :: i)) where
   _Right = bimap inr inr
 
 type Prism s t a b = forall p. Choice p => p a b -> p s t
+
+class (Profunctor (Exp :: x -> x -> x), Cartesian k) => CCC (k :: x -> x -> *) | x -> k where
+  type Exp :: x -> x -> x
+  curried :: forall (a :: x) (b :: x) (c :: x) (a' :: x) (b' :: x) (c' :: x). Iso (Hom (a * b) c) (Hom (a' * b') c') (Hom a (Exp b c)) (Hom a' (Exp b' c'))
+
+instance CCC (->) where
+  type Exp = (->)
+  curried = dimap Prelude.curry Prelude.uncurry
+
+instance CCC (~>) where
+  type Exp = Lift (->)
+  curried = dimap hither yon where
+    hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
+    yon (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
