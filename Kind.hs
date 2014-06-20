@@ -4,6 +4,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -27,9 +28,9 @@ type family (~>) :: i -> i -> *
 type instance (~>) = (->)
 type instance (~>) = Nat
 
-newtype Nat f g = Nat { runNat :: forall a. f a -> g a }
+newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
 
-instance Category Nat where
+instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j) -> *) where
   id = Nat id
   Nat f . Nat g = Nat (f . g)
 
@@ -39,7 +40,7 @@ class Functor (f :: x -> y) where
 instance Prelude.Functor f => Functor f where
   fmap = Prelude.fmap
 
-instance Functor (Nat f) where
+instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where
   fmap = (.)
 
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
@@ -47,6 +48,10 @@ _At = dimap getAt At
 
 instance Functor (At x) where
   fmap (Nat f) = _At f
+
+type family Konst (b :: *) :: i
+type instance Konst b = b
+type instance Konst b = Const b
 
 newtype Const (b :: *) (a :: i) = Const { getConst :: b }
 _Const = dimap getConst Const
@@ -56,7 +61,7 @@ instance Functor Const where
   fmap f = Nat (_Const f)
 
 -- newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
-newtype Lift (p :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) = Lift { lower :: p (f a) (g a) }
+newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
 _Lift = dimap lower Lift
 
 class Contravariant (f :: x -> y) where
@@ -77,24 +82,54 @@ instance PFunctor Tagged where first _ = _Tagged id
 class QFunctor (p :: x -> y -> z) where
   second :: (a ~> b) -> p c a ~> p c b
 
-instance QFunctor (->) where second = (.)
-instance QFunctor Nat where second = (.)
-instance QFunctor (,) where second = Arrow.second
-instance QFunctor Either where second = Arrow.right
-instance QFunctor (Const :: * -> i -> *) where second _ = _Const id
+instance Category ((~>) :: x -> x -> *) => QFunctor (Hom :: x -> x -> *) where
+  second g (Hom h) = Hom (g . h)
+
+
+instance QFunctor (->) where
+  second = (.)
+
+instance QFunctor ((~>) :: j -> j -> *) => QFunctor (Nat :: (i -> j) -> (i -> j) -> *) where
+  second (Nat ab) (Nat ca) = Nat (second ab ca)
+
+instance QFunctor (,) where
+  second = Arrow.second
+
+instance QFunctor Either where
+  second = Arrow.right
+
+instance QFunctor (Const :: * -> i -> *) where
+  second _ = _Const id
+
 instance QFunctor p => QFunctor (Lift p) where
   second (Nat f) = Nat (_Lift $ second f)
+
 instance QFunctor At where
   second (Nat f) = _At f
-instance QFunctor Tagged where second = Prelude.fmap
+
+instance QFunctor Tagged where
+  second = Prelude.fmap
+
+newtype Hom a b = Hom { runHom :: a ~> b }
+_Hom = dimap runHom Hom
 
 class PContravariant (p :: x -> y -> z) where
   lmap :: (a ~> b) -> p b c ~> p a c
 
-instance PContravariant (->) where lmap f g = g . f
-instance PContravariant Nat where lmap f g = g . f
-instance PContravariant p => PContravariant (Lift p) where lmap (Nat f) = Nat $ _Lift (lmap f)
-instance PContravariant Tagged where lmap _ = _Tagged id
+instance PContravariant (->) where
+  lmap f g = g . f
+
+instance Category ((~>) :: x -> x -> *) => PContravariant (Hom :: x -> x -> *) where
+  lmap f = _Hom (.f)
+
+instance PContravariant ((~>)::j->j-> *) => PContravariant (Nat::(i->j)->(i->j)-> *) where
+  lmap (Nat ab) (Nat bc) = Nat (lmap ab bc)
+
+instance PContravariant p => PContravariant (Lift p) where
+  lmap (Nat f) = Nat $ _Lift (lmap f)
+
+instance PContravariant Tagged where
+  lmap _ = _Tagged id
 
 class QContravariant (p :: x -> y -> z) where
   qmap :: (a ~> b) -> p c b ~> p c a
@@ -130,18 +165,41 @@ to f = bicontramap f f
 newtype Get r a b = Get { runGet :: a ~> r }
 _Get = dimap runGet Get
 
-instance Category ((~>) :: i -> i -> *) => PContravariant (Get (r :: i)) where lmap f = _Get (. f)
-instance QContravariant (Get r) where qmap _ = _Get id
-instance QFunctor (Get r) where second _ = _Get id
+instance Category ((~>) :: i -> i -> *) => PContravariant (Get (r :: i)) where
+  lmap f = _Get (. f)
 
-get :: forall (s::i) (a::i). Category ((~>) :: i -> i -> *) => (Get a a a -> Get a s s) -> s ~> a
+instance QContravariant (Get r) where
+  qmap _ = _Get id
+
+instance QFunctor (Get r) where
+  second _ = _Get id
+
+get :: forall (s::i) (a::i). Category ((~>)::i->i-> *) => (Get a a a -> Get a s s) -> s ~> a
 get l = runGet $ l (Get id)
 
-unget :: forall (t::i) (b::i). Category ((~>) :: i -> i -> *) => (Unget b b b -> Unget b t t) -> b ~> t
+unget :: forall (t::i) (b::i). Category ((~>)::i->i-> *) => (Unget b b b -> Unget b t t) -> b ~> t
 unget l = runUnget $ l (Unget id)
 
 newtype Unget r a b = Unget { runUnget :: r ~> b }
 _Unget = dimap runUnget Unget
+
+newtype Un (p::i->i->j) (a::i) (b::i) (s::i) (t::i) = Un { runUn :: p t s ~> p b a }
+_Un = dimap runUn Un
+
+instance (Category ((~>)::j->j-> *), QFunctor p) => PContravariant (Un (p::i->i->j) a b) where
+  lmap f = _Un $ dimap Hom runHom $ lmap (second f)
+
+instance (Category ((~>)::j->j-> *), QContravariant p) => PFunctor (Un (p::i->i->j) a b) where
+  first f = _Un $ dimap Hom runHom $ lmap (qmap f)
+
+instance (Category ((~>)::j->j-> *), PContravariant p) => QFunctor (Un (p::i->i->j) a b) where
+  second g = _Un $ dimap Hom runHom $ lmap (lmap g)
+
+instance (Category ((~>)::j->j-> *), PFunctor p) => QContravariant (Un (p::i->i->j) a b) where
+  qmap f = _Un $ dimap Hom runHom $ lmap (first f)
+
+un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
+un l = runUn $ l (Un id)
 
 instance PFunctor (Unget r) where first _ = _Unget id
 instance PContravariant (Unget r) where lmap _ = _Unget id
@@ -161,6 +219,7 @@ bimap f g = first f . second g
 
 dimap :: (Category ((~>) :: z -> z -> *), Profunctor (p :: x -> y -> z)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . rmap g
+
 
 -- tensor for a skew monoidal category
 class Bifunctor p => Tensor (p :: x -> x -> x) where
@@ -223,9 +282,10 @@ instance Terminal () where
   type One = ()
   terminal _ = ()
 
+-- we can only offer the terminal object for Nat :: (i -> *), not Nat :: (i -> j)
 instance Terminal (Const ()) where
   type One = Const ()
-  terminal = Nat $ \_ -> Const ()
+  terminal = Nat (Const . terminal)
 
 class Zero ~ t => Initial (t :: i) | i -> t where
   type Zero :: i
@@ -235,16 +295,17 @@ instance Initial Void where
   type Zero = Void
   initial = absurd
 
+-- we can only offer the initial object for Nat :: (i -> *), not Nat :: (i -> j)
 instance Initial (Const Void) where
   type Zero = Const Void
-  initial = Nat $ absurd . getConst
+  initial = Nat $ initial . getConst
 
 infixl 7 *
 class (h ~ (~>), Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
   type (*) :: i -> i -> i
-  fst   :: forall (a :: i) (b :: i). a * b ~> a
-  snd   :: forall (a :: i) (b :: i). a * b ~> b
-  (&&&) :: forall (a :: i) (b :: i) (c :: i). (a ~> b) -> (a ~> c) -> a ~> b * c
+  fst   :: forall (a::i) (b::i). a * b ~> a
+  snd   :: forall (a::i) (b::i). a * b ~> b
+  (&&&) :: forall (a::i) (b::i) (c::i). (a ~> b) -> (a ~> c) -> a ~> b * c
 
 instance Cartesian (->) where
   type (*) = (,)
@@ -252,7 +313,7 @@ instance Cartesian (->) where
   snd   = Prelude.snd
   (&&&) = (Arrow.&&&)
 
-instance Cartesian Nat where
+instance Cartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (*) = Lift (,)
   fst = Nat $ fst . lower
   snd = Nat $ snd . lower
@@ -269,11 +330,11 @@ instance Strong (->) where
   _1 = first
   _2 = second
 
-instance Strong Nat where
+instance Strong (Nat::(i-> *)->(i-> *)-> *) where
   _1 = first
   _2 = second
 
-instance Cartesian ((~>) :: i -> i -> *) => Strong (Get (r :: i)) where
+instance Cartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
   _1 = _Get (. fst)
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
@@ -291,7 +352,7 @@ instance Cocartesian (->) where
   inr = Right
   (|||) = either
 
-instance Cocartesian Nat where
+instance Cocartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (+) = Lift Either
   inl = Nat (Lift . Left)
   inr = Nat (Lift . Right)
@@ -308,7 +369,7 @@ instance Choice (->) where
   _Left = Arrow.left
   _Right = Arrow.right
 
-instance Choice Nat where
+instance Choice (Nat :: (i -> *) -> (i -> *) -> *) where
   _Left (Nat f) = Nat $ _Lift (_Left f)
   _Right (Nat g) = Nat $ _Lift (_Right g)
 
@@ -333,7 +394,7 @@ instance CCC (->) where
   type Exp = (->)
   curried = dimap Prelude.curry Prelude.uncurry
 
-instance CCC Nat where
+instance CCC (Nat :: (i -> *) -> (i -> *) -> *) where
   type Exp = Lift (->)
   curried = dimap hither yon where
     hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
@@ -400,9 +461,3 @@ ap = curry (fmap apply . ap2)
 
 -- point :: forall (f :: x -> x) (a :: x). Monoidal f, CCC ((~>) :: x -> x -> *)
 --      => a ~> f a
-
--- a monoidal endofunctor on a cartesian closed category
--- class (CCC ((~>) :: x -> x -> *), Monoidal f) => MonoidalCCC (f :: x -> x) where
---   point :: a ~> f a
-
--- put :: Lens s t a b -> s ~> Exp b t

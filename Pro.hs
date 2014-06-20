@@ -98,6 +98,8 @@ _From = dimap runFrom From
 
 instance Profunctor p d c (->) => Profunctor (From p a b) c d (->) where
   dimap f g = _From $ lmap (dimap g f)
+  lmap f = _From $ lmap (rmap f)
+  rmap g = _From $ lmap (lmap g)
 
 from :: (From p a b a b -> From p a b s t) -> p t s -> p b a
 from l = runFrom $ l $ From id
