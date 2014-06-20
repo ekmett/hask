@@ -117,6 +117,16 @@ type Getter s a = forall p. Bicontravariant p => p a a -> p s s
 to :: Hom s a -> Getter s a
 to f = bicontramap f f
 
+newtype Forget r a b = Forget { runForget :: Hom a r }
+_Forget = dimap runForget Forget
+
+instance Category (Hom :: i -> i -> *) => PContravariant (Forget (r :: i)) where lmap f = _Forget (. f)
+instance QContravariant (Forget r) where qmap _ = _Forget id
+instance QFunctor (Forget r) where second _ = _Forget id
+
+view :: forall (s::i) (a::i). Category (Hom :: i -> i -> *) => (Forget a a a -> Forget a s s) -> Hom s a
+view l = runForget $ l (Forget id)
+
 class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 
@@ -235,6 +245,9 @@ instance Strong (->) where
 instance Strong (~>) where
   _1 = first
   _2 = second
+
+instance Cartesian (Hom :: i -> i -> *) => Strong (Forget (r :: i)) where
+  _1 = _Forget (. fst)
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
