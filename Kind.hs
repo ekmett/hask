@@ -21,11 +21,11 @@ import Prelude (Either(..), ($), either)
 
 type family Hom :: i -> i -> *
 type instance Hom = (->)
-type instance Hom = (~>)
+type instance Hom = Nat
 
-newtype f ~> g = Nat { runNat :: forall a. f a -> g a }
+newtype Nat f g = Nat { runNat :: forall a. f a -> g a }
 
-instance Category (~>) where
+instance Category Nat where
   id = Nat id
   Nat f . Nat g = Nat (f . g)
 
@@ -35,7 +35,7 @@ class Functor (f :: x -> y) where
 instance Prelude.Functor f => Functor f where
   fmap = Prelude.fmap
 
-instance Functor ((~>) f) where
+instance Functor (Nat f) where
   fmap = (.)
 
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
@@ -73,7 +73,7 @@ class QFunctor (p :: x -> y -> z) where
   second :: Hom a b -> Hom (p c a) (p c b)
 
 instance QFunctor (->) where second = (.)
-instance QFunctor (~>) where second = (.)
+instance QFunctor Nat where second = (.)
 instance QFunctor (,) where second = Arrow.second
 instance QFunctor Either where second = Arrow.right
 instance QFunctor (Const :: * -> i -> *) where second _ = _Const id
@@ -87,7 +87,7 @@ class PContravariant (p :: x -> y -> z) where
   lmap :: Hom a b -> Hom (p b c) (p a c)
 
 instance PContravariant (->) where lmap f g = g . f
-instance PContravariant (~>) where lmap f g = g . f
+instance PContravariant Nat where lmap f g = g . f
 instance PContravariant p => PContravariant (Lift p) where lmap (Nat f) = Nat $ _Lift (lmap f)
 instance PContravariant Tagged where lmap _ = _Tagged id
 
@@ -240,7 +240,7 @@ instance Cartesian (->) where
   snd   = Prelude.snd
   (&&&) = (Arrow.&&&)
 
-instance Cartesian (~>) where
+instance Cartesian Nat where
   type (*) = Lift (,)
   fst = Nat $ fst . lower
   snd = Nat $ snd . lower
@@ -257,7 +257,7 @@ instance Strong (->) where
   _1 = first
   _2 = second
 
-instance Strong (~>) where
+instance Strong Nat where
   _1 = first
   _2 = second
 
@@ -278,7 +278,7 @@ instance Cocartesian (->) where
   inr = Right
   (|||) = either
 
-instance Cocartesian (~>) where
+instance Cocartesian Nat where
   type (+) = Lift Either
   inl = Nat (Lift . Left)
   inr = Nat (Lift . Right)
@@ -295,7 +295,7 @@ instance Choice (->) where
   _Left = Arrow.left
   _Right = Arrow.right
 
-instance Choice (~>) where
+instance Choice Nat where
   _Left (Nat f) = Nat $ _Lift (_Left f)
   _Right (Nat g) = Nat $ _Lift (_Right g)
 
@@ -317,7 +317,7 @@ instance CCC (->) where
   type Exp = (->)
   curried = dimap Prelude.curry Prelude.uncurry
 
-instance CCC (~>) where
+instance CCC Nat where
   type Exp = Lift (->)
   curried = dimap hither yon where
     hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
