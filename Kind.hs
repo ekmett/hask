@@ -13,7 +13,9 @@ module Group where
 
 import Data.Tagged
 import Data.Void
-import qualified Data.Functor.Contravariant as Contra
+import Data.Functor.Identity
+import qualified Control.Applicative as Applicative
+import qualified Data.Functor.Contravariant as Contravariant
 import Control.Category (Category(..))
 import qualified Control.Arrow as Arrow
 import qualified Prelude
@@ -60,8 +62,8 @@ _Lift = dimap lower Lift
 class Contravariant (f :: x -> y) where
   contramap :: (b ~> a) -> f a ~> f b
 
-instance Contra.Contravariant f => Contravariant f where
-  contramap = Contra.contramap
+instance Contravariant.Contravariant f => Contravariant f where
+  contramap = Contravariant.contramap
 
 class PFunctor (p :: x -> y -> z) where
   first :: (a ~> b) -> p a c ~> p b c
@@ -104,9 +106,9 @@ instance Contravariant (Const k :: i -> *) where contramap _ = _Const id
 class (PFunctor p, QFunctor p, Category ((~>):: z -> z -> *)) => Bifunctor (p :: x -> y -> z)
 instance (PFunctor p, QFunctor p, Category ((~>):: z -> z -> *)) => Bifunctor (p :: x -> y -> z)
 
-type Review t b = forall p. Bifunctor p => p b b -> p t t
+type Ungetter t b = forall p. Bifunctor p => p b b -> p t t
 
-unto :: (b ~> t) -> Review t b
+unto :: (b ~> t) -> Ungetter t b
 unto f = bimap f f
 
 class (PContravariant p, QFunctor p, Category ((~>) :: z -> z -> *)) => Profunctor (p :: x -> y -> z)
@@ -125,25 +127,25 @@ type Getter s a = forall p. Bicontravariant p => p a a -> p s s
 to :: (s ~> a) -> Getter s a
 to f = bicontramap f f
 
-newtype Viewing r a b = Viewing { runViewing :: a ~> r }
-_Viewing = dimap runViewing Viewing
+newtype Get r a b = Get { runGet :: a ~> r }
+_Get = dimap runGet Get
 
-instance Category ((~>) :: i -> i -> *) => PContravariant (Viewing (r :: i)) where lmap f = _Viewing (. f)
-instance QContravariant (Viewing r) where qmap _ = _Viewing id
-instance QFunctor (Viewing r) where second _ = _Viewing id
+instance Category ((~>) :: i -> i -> *) => PContravariant (Get (r :: i)) where lmap f = _Get (. f)
+instance QContravariant (Get r) where qmap _ = _Get id
+instance QFunctor (Get r) where second _ = _Get id
 
-view :: forall (s::i) (a::i). Category ((~>) :: i -> i -> *) => (Viewing a a a -> Viewing a s s) -> s ~> a
-view l = runViewing $ l (Viewing id)
+get :: forall (s::i) (a::i). Category ((~>) :: i -> i -> *) => (Get a a a -> Get a s s) -> s ~> a
+get l = runGet $ l (Get id)
 
-review :: forall (t::i) (b::i). Category ((~>) :: i -> i -> *) => (Reviewing b b b -> Reviewing b t t) -> b ~> t
-review l = runReviewing $ l (Reviewing id)
+unget :: forall (t::i) (b::i). Category ((~>) :: i -> i -> *) => (Unget b b b -> Unget b t t) -> b ~> t
+unget l = runUnget $ l (Unget id)
 
-newtype Reviewing r a b = Reviewing { runReviewing :: r ~> b }
-_Reviewing = dimap runReviewing Reviewing
+newtype Unget r a b = Unget { runUnget :: r ~> b }
+_Unget = dimap runUnget Unget
 
-instance PFunctor (Reviewing r) where first _ = _Reviewing id
-instance PContravariant (Reviewing r) where lmap _ = _Reviewing id
-instance Category ((~>) :: i -> i -> *) => QFunctor (Reviewing (r :: i)) where second f = _Reviewing (f .)
+instance PFunctor (Unget r) where first _ = _Unget id
+instance PContravariant (Unget r) where lmap _ = _Unget id
+instance Category ((~>) :: i -> i -> *) => QFunctor (Unget (r :: i)) where second f = _Unget (f .)
 
 class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
@@ -213,22 +215,28 @@ lambdaProf (Prof h p) = rmap h p
 rhoProf :: forall (p :: i -> k -> *) (a :: i) (b :: k). Category ((~>) :: i -> i -> *) => p a b -> Prof p (~>) a b
 rhoProf p = Prof p id
 
-class Terminal t where
+class One ~ t => Terminal (t :: i) | i -> t where
+  type One :: i
   terminal :: a ~> t
 
 instance Terminal () where
+  type One = ()
   terminal _ = ()
 
 instance Terminal (Const ()) where
+  type One = Const ()
   terminal = Nat $ \_ -> Const ()
 
-class Initial t where
+class Zero ~ t => Initial (t :: i) | i -> t where
+  type Zero :: i
   initial :: t ~> a
 
 instance Initial Void where
+  type Zero = Void
   initial = absurd
 
 instance Initial (Const Void) where
+  type Zero = Const Void
   initial = Nat $ absurd . getConst
 
 class (h ~ (~>), Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
@@ -264,8 +272,8 @@ instance Strong Nat where
   _1 = first
   _2 = second
 
-instance Cartesian ((~>) :: i -> i -> *) => Strong (Viewing (r :: i)) where
-  _1 = _Viewing (. fst)
+instance Cartesian ((~>) :: i -> i -> *) => Strong (Get (r :: i)) where
+  _1 = _Get (. fst)
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
@@ -306,7 +314,7 @@ instance Choice Tagged where
   _Left  = bimap inl inl
   _Right = bimap inr inr
 
-instance Cocartesian ((~>) :: i -> i -> *) => Choice (Reviewing (r :: i)) where
+instance Cocartesian ((~>) :: i -> i -> *) => Choice (Unget (r :: i)) where
   _Left = bimap inl inl
   _Right = bimap inr inr
 
@@ -325,3 +333,53 @@ instance CCC Nat where
   curried = dimap hither yon where
     hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
     yon (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
+
+curry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => ((a * b) ~> c) -> a ~> Exp b c
+curry = get curried
+
+uncurry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => (a ~> Exp b c) -> (a * b) ~> c
+uncurry = unget curried
+
+apply :: forall (a :: i) (b :: i). CCC ((~>)::i -> i -> *) => Exp a b * a ~> b
+apply = uncurry id
+
+unapply :: forall (a :: i) (b :: i). CCC ((~>) :: i -> i -> *) => a ~> Exp b (a * b)
+unapply = curry id
+
+type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~>  b) (f a' ~> b') (a ~> u b) (a' ~> u b')
+
+class (Functor f, Functor u, Category ((~>) :: x -> x -> *), Category ((~>) :: y -> y -> *)) => (f :: y -> x) -| (u :: x -> y) | f -> u, u -> f where
+  adj :: f -: u
+
+cccAdj :: forall (e :: i). CCC ((~>) :: i -> i -> *) => (*) e -: Exp e
+cccAdj = dimap (. swap) (. swap) . curried
+
+unitAdj :: (f -| u) => a ~> u (f a)
+unitAdj = get adj id
+
+counitAdj :: (f -| u) => f (u b) ~> b
+counitAdj = unget adj id
+
+class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
+  ap1 :: One ~> f One
+  ap2 :: f a * f b ~> f (a * b)
+
+class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Functor f) => Opmonoidal (f :: x -> y) where
+  op1 :: f Zero ~> Zero
+  op2 :: f (a + b) ~> f a + f b
+
+-- lift applicatives for Hask
+instance Applicative.Applicative f => Monoidal f where
+  ap1 = Applicative.pure
+  ap2 = uncurry $ Applicative.liftA2 (,)
+
+instance Opmonoidal Identity where
+  op1 = runIdentity
+  op2 = bimap Identity Identity . runIdentity
+
+{-
+class (CCC ((~>) :: x -> x -> *), Monoidal f) => MonoidalCCC (f :: x -> x) where
+  point :: a ~> f a
+  ap :: f (Exp a b) ~> Exp (f a) (f b)
+-}
+
