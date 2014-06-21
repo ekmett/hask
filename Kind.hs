@@ -1101,22 +1101,26 @@ infixr 9 |-
 class p |- q where
   implies :: p :- q
 
--- these are going to be hard
-instance Contravariant (|-) where -- TODO
-instance Functor1 (|-) where -- TODO
+-- convert to and from the internal representation of dictionaries
+
+_Sub :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict p -> Dict q) (Dict p' -> Dict q')
+_Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
+
+_Implies :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
+_Implies = dimap (undefined :: (p :- q) -> Dict (p |- q)) (\Dict -> implies) -- TODO
+
+instance Contravariant (|-) where 
+  contramap f = Nat $ unget _Sub $ un _Implies (. f)
+instance Functor1 (|-) where
+  fmap1 f = unget _Sub $ un _Implies (f .)
 instance Functor ((|-) p) where
   fmap = fmap1
 
 applyConstraint :: forall p q. (p |- q & p) :- q
 applyConstraint = Sub $ Dict \\ (implies :: p :- q)
 
--- convert to and fron the internal representation of dictionaries
-
-_Sub :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict p -> Dict q) (Dict p' -> Dict q')
-_Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
-
 unapplyConstraint :: p :- q |- (p & q)
-unapplyConstraint = undefined -- TODO
+unapplyConstraint = Sub $ get _Implies (Sub Dict)
 
 instance (&) p -| (|-) p where
   adj = cccAdj
