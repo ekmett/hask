@@ -38,12 +38,9 @@ type instance (~>) = (->) -- * -> * -> *
 type instance (~>) = Nat  -- (i -> j) -> (i -> j) -> *
 type instance (~>) = (:-) -- Constraint -> Constraint -> *
 
+-- needed because we can't partially apply (,) in the world of constraints
 class (p, q) => p & q
 instance (p, q) => p & q
-
--- Trivial :: i -> Constraint
-class Trivial a
-instance Trivial a
 
 -- * Natural transformations form a category, using parametricity as a proxy for naturality
 
@@ -136,12 +133,6 @@ instance Functor Proxy where
   fmap _ Proxy = Proxy
 
 -- * Dictionaries
-
-instance Functor Trivial where
-  fmap _ = Sub Dict
-
-instance Contravariant Trivial where
-  contramap _ = Sub Dict
 
 -- Dict :: Constraint -> * switches categories from the category of constraints to Hask
 instance Functor Dict where
