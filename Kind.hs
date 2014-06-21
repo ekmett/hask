@@ -1128,3 +1128,26 @@ instance (&) p -| (|-) p where
 instance CCC (:-) where
   type Exp = (|-)
   curried = dimap (\q -> fmap q . unapplyConstraint) (\p -> applyConstraint . first p)
+
+
+
+data Unit (a :: ()) (b :: ()) = Unit
+type instance (~>) = Unit
+instance Category Unit where
+  id = Unit
+  Unit . Unit = Unit
+
+instance Terminal '() where
+  type One = '()
+  terminal = Unit
+
+instance Initial '() where
+  type Zero = '()
+  initial = Unit
+
+
+data Empty (a :: Void) (b :: Void) = Empty (Empty a b)
+type instance (~>) = Empty
+instance Category Empty where
+  id = Empty id
+  (.) f = f `Prelude.seq` spin f where spin (Empty f) = spin f
