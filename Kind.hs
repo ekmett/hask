@@ -68,11 +68,11 @@ first = runNat . fmap
 lmap :: Contravariant p => (a ~> b) -> p b c ~> p a c
 lmap = runNat . contramap
 
-class QFunctor (p :: x -> y -> z) where
-  second :: (a ~> b) -> p c a ~> p c b
+class Functor1 (p :: x -> y -> z) where
+  fmap1 :: (a ~> b) -> p c a ~> p c b
 
-class QContravariant (p :: x -> y -> z) where
-  qmap :: (a ~> b) -> p c b ~> p c a
+class Contravariant1 (p :: x -> y -> z) where
+  contramap1 :: (a ~> b) -> p c b ~> p c a
 
 -- | the isomorphism that witnesses f -| u
 type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
@@ -93,15 +93,15 @@ counitAdj = unget adj id
 
 -- * common aliases
 --
-class (Functor p, QFunctor p, Category ((~>)::z->z-> *)) => Bifunctor (p :: x -> y -> z)
-instance (Functor p, QFunctor p, Category ((~>)::z->z -> *)) => Bifunctor (p :: x -> y -> z)
+class (Functor p, Functor1 p, Category ((~>)::z->z-> *)) => Bifunctor (p :: x -> y -> z)
+instance (Functor p, Functor1 p, Category ((~>)::z->z -> *)) => Bifunctor (p :: x -> y -> z)
 
-class (Contravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
-instance (Contravariant p, QContravariant p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
+class (Contravariant p, Contravariant1 p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
+instance (Contravariant p, Contravariant1 p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
 
 -- enriched profuncors C^op * D -> E
-class (Contravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
-instance (Contravariant p, QFunctor p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+class (Contravariant p, Functor1 p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+instance (Contravariant p, Functor1 p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
 
 -- Lift Prelude instances of Functor without overlap, using the kind index to say
 -- these are all the instances of kind * -> *
@@ -111,14 +111,11 @@ instance Prelude.Functor f => Functor f where
 instance Contravariant.Contravariant f => Contravariant f where
   contramap = Contravariant.contramap
 
-instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Functor (Prod p :: (i, j) -> *) where
-  fmap = (.)
-
 instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where
   fmap = (.)
 
 instance Functor ((:-) f) where
-  fmap = second
+  fmap = fmap1
 
 -- We can defne a functor from the category of natural transformations to Hask
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
@@ -278,13 +275,13 @@ instance Functor p => Functor (LiftValue p) where
 instance Contravariant p => Contravariant (LiftValue p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance QFunctor p => QFunctor (LiftValue p) where
-  second (Nat f) = Nat (_Lift $ second f)
+instance Functor1 p => Functor1 (LiftValue p) where
+  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance QFunctor p => Functor (LiftValue p f) where
-  fmap (Nat f) = Nat (_Lift $ second f)
+instance Functor1 p => Functor (LiftValue p f) where
+  fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance (Functor p, QFunctor p, Functor f, Functor g) => Functor (LiftValue p f g) where
+instance (Functor p, Functor1 p, Functor f, Functor g) => Functor (LiftValue p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
 
 class r (p a) (q a) => LiftConstraint (r :: j -> k -> Constraint) (p :: i -> j) (q :: i -> k) (a :: i)
@@ -296,11 +293,11 @@ instance Functor p => Functor (LiftConstraint p) where
 instance Contravariant p => Contravariant (LiftConstraint p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance QFunctor p => Functor (LiftConstraint p e) where
-  fmap (Nat f) = Nat (_Lift $ second f)
+instance Functor1 p => Functor (LiftConstraint p e) where
+  fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance QContravariant p => Contravariant (LiftConstraint p e) where
-  contramap (Nat f) = Nat (_Lift $ qmap f)
+instance Contravariant1 p => Contravariant (LiftConstraint p e) where
+  contramap (Nat f) = Nat (_Lift $ contramap1 f)
 
 instance Lifted LiftConstraint where
   type Lift = LiftConstraint
@@ -321,11 +318,11 @@ instance Functor p => Functor (LiftValue2 p) where
 instance Contravariant p => Contravariant (LiftValue2 p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance QFunctor p => Functor (LiftValue2 p f) where
-  fmap (Nat f) = Nat (_Lift $ second f)
+instance Functor1 p => Functor (LiftValue2 p f) where
+  fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance QFunctor p => QFunctor (LiftValue2 p) where
-  second (Nat f) = Nat (_Lift $ second f)
+instance Functor1 p => Functor1 (LiftValue2 p) where
+  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
 instance Functor (,) where
   fmap f = Nat (Arrow.first f)
@@ -336,8 +333,8 @@ instance Functor (&) where
 instance Functor Either where
   fmap f = Nat (Arrow.left f)
 
-instance QFunctor (:-) where
-  second = dimap Hom runHom . second
+instance Functor1 (:-) where
+  fmap1 = dimap Hom runHom . fmap1
 
 instance Contravariant (:-) where
   contramap f = Nat $ dimap Hom runHom (lmap f)
@@ -345,50 +342,47 @@ instance Contravariant (:-) where
 instance Functor Tagged where
   fmap _ = Nat (_Tagged id)
 
-instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => QFunctor (Prod :: (i, j) -> (i, j) -> *) where
-  second = (.)
+instance Category ((~>) :: x -> x -> *) => Functor1 (Hom :: x -> x -> *) where
+  fmap1 g (Hom h) = Hom (g . h)
 
-instance Category ((~>) :: x -> x -> *) => QFunctor (Hom :: x -> x -> *) where
-  second g (Hom h) = Hom (g . h)
+instance Functor1 (->) where
+  fmap1 = (.)
 
-instance QFunctor (->) where
-  second = (.)
+instance Functor1 ((~>) :: j -> j -> *) => Functor1 (Nat :: (i -> j) -> (i -> j) -> *) where
+  fmap1 (Nat ab) (Nat ca) = Nat (fmap1 ab ca)
 
-instance QFunctor ((~>) :: j -> j -> *) => QFunctor (Nat :: (i -> j) -> (i -> j) -> *) where
-  second (Nat ab) (Nat ca) = Nat (second ab ca)
+instance Functor1 (&) where
+  fmap1 p = Sub $ Dict \\ p
 
-instance QFunctor (&) where
-  second p = Sub $ Dict \\ p
+instance Functor1 (,) where
+  fmap1 = Arrow.second
 
-instance QFunctor (,) where
-  second = Arrow.second
+instance Functor1 Either where
+  fmap1 = Arrow.right
 
-instance QFunctor Either where
-  second = Arrow.right
+instance Functor1 ConstValue where
+  fmap1 _ = _Const id
 
-instance QFunctor ConstValue where
-  second _ = _Const id
+instance Functor1 ConstValue2 where
+  fmap1 _ = _Const id
 
-instance QFunctor ConstValue2 where
-  second _ = _Const id
+instance Functor1 p => Functor1 (LiftConstraint p) where
+  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance QFunctor p => QFunctor (LiftConstraint p) where
-  second (Nat f) = Nat (_Lift $ second f)
+instance Functor1 At where
+  fmap1 (Nat f) = _At f
 
-instance QFunctor At where
-  second (Nat f) = _At f
-
-instance QFunctor Tagged where
-  second = Prelude.fmap
+instance Functor1 Tagged where
+  fmap1 = Prelude.fmap
 
 data Via (a :: x) (b :: x) (s :: x) (t :: x) where
   Via :: (s ~> a) -> (b ~> t) -> Via a b s t
 
-instance QFunctor ((~>) :: x -> x -> *) => Functor (Via :: x -> x -> x -> x -> *) where
-  fmap f = Nat $ Nat $ Nat $ \(Via sa bt) -> Via (second f sa) bt
+instance Functor1 ((~>) :: x -> x -> *) => Functor (Via :: x -> x -> x -> x -> *) where
+  fmap f = Nat $ Nat $ Nat $ \(Via sa bt) -> Via (fmap1 f sa) bt
 
-instance QContravariant ((~>) :: x -> x -> *) => Contravariant (Via :: x -> x -> x -> x -> *) where
-  contramap f = Nat $ Nat $ Nat $ \(Via sa bt) -> Via (qmap f sa) bt
+instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant (Via :: x -> x -> x -> x -> *) where
+  contramap f = Nat $ Nat $ Nat $ \(Via sa bt) -> Via (contramap1 f sa) bt
 
 instance Functor ((~>) :: x -> x -> *) => Functor (Via a :: x -> x -> x -> *) where
   fmap f = Nat $ Nat $ \(Via sa bt) -> Via sa (first f bt)
@@ -402,17 +396,17 @@ instance Functor ((~>) :: x -> x -> *) => Functor (Via a b :: x -> x -> *) where
 instance Contravariant ((~>) :: x -> x -> *) => Contravariant (Via a b :: x -> x -> *) where
   contramap f = Nat $ \(Via sa bt) -> Via (lmap f sa) bt
 
-instance QFunctor ((~>) :: x -> x -> *) => Functor (Via a b s :: x -> *) where
-  fmap f (Via sa bt) = Via sa (second f bt)
+instance Functor1 ((~>) :: x -> x -> *) => Functor (Via a b s :: x -> *) where
+  fmap f (Via sa bt) = Via sa (fmap1 f bt)
 
-instance QContravariant ((~>) :: x -> x -> *) => Contravariant (Via a b s :: x -> *) where
-  contramap f (Via sa bt) = Via sa (qmap f bt)
+instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant (Via a b s :: x -> *) where
+  contramap f (Via sa bt) = Via sa (contramap1 f bt)
 
-instance QFunctor ((~>) :: x -> x -> *) => QFunctor (Via a b :: x -> x -> *) where
-  second f (Via g h) = Via g (second f h)
+instance Functor1 ((~>) :: x -> x -> *) => Functor1 (Via a b :: x -> x -> *) where
+  fmap1 f (Via g h) = Via g (fmap1 f h)
 
-instance QContravariant ((~>) :: x -> x -> *) => QContravariant (Via a b :: x -> x -> *) where
-  qmap f (Via g h) = Via g (qmap f h)
+instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant1 (Via a b :: x -> x -> *) where
+  contramap1 f (Via g h) = Via g (contramap1 f h)
 
 -- |
 -- @
@@ -441,38 +435,26 @@ instance Contravariant (->) where
 instance Category ((~>) :: x -> x -> *) => Contravariant (Hom :: x -> x -> *) where
   contramap f = Nat (_Hom (.f))
 
-{-
-
-instance (Contravariant ((~>) :: i -> i -> *), Contravariant ((~>) :: j -> j -> *)) => Contravariant (Prod :: (i, j) -> (i, j) -> *) where
-  lmap (Have f f') (Have g g') = Have (lmap f g) (lmap f' g')
-  lmap Want f = f
-  lmap f Want = f
-
-instance (Contravariant ((~>) :: i -> i -> *), Contravariant ((~>) :: j -> j -> *)) => Contravariant (Prod :: (i, j) -> (i, j) -> *) where
-  contramap f = Nat (lmap f)
-
--}
-
 instance Contravariant ((~>)::j->j-> *) => Contravariant (Nat::(i->j)->(i->j)-> *) where
   contramap (Nat f) = Nat $ \g -> Nat $ lmap f $ runNat g
 
 instance Contravariant Tagged where
   contramap _ = Nat (_Tagged id)
 
-instance QContravariant ConstValue where
-  qmap _ = _Const id
+instance Contravariant1 ConstValue where
+  contramap1 _ = _Const id
 
-instance QContravariant ConstValue2 where
-  qmap _ = _Const id
+instance Contravariant1 ConstValue2 where
+  contramap1 _ = _Const id
 
-instance QContravariant p => QContravariant (LiftValue p) where
-  qmap (Nat f) = Nat $ _Lift (qmap f)
+instance Contravariant1 p => Contravariant1 (LiftValue p) where
+  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
 
-instance QContravariant p => QContravariant (LiftValue2 p) where
-  qmap (Nat f) = Nat $ _Lift (qmap f)
+instance Contravariant1 p => Contravariant1 (LiftValue2 p) where
+  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
 
-instance QContravariant p => QContravariant (LiftConstraint p) where
-  qmap (Nat f) = Nat $ _Lift (qmap f)
+instance Contravariant1 p => Contravariant1 (LiftConstraint p) where
+  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
 
 instance Contravariant (ConstValue k) where
   contramap _ = _Const id
@@ -488,9 +470,9 @@ unto f = bimap f f
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
 bicontramap :: Bicontravariant p => (a ~> b) -> (c ~> d) -> p b d ~> p a c
-bicontramap f g = lmap f . qmap g
+bicontramap f g = lmap f . contramap1 g
 
-type Getter s a = forall p. (Strong p, QContravariant p) => p a a -> p s s
+type Getter s a = forall p. (Strong p, Contravariant1 p) => p a a -> p s s
 
 to :: (s ~> a) -> Getter s a
 to f = bicontramap f f
@@ -501,11 +483,11 @@ _Get = dimap runGet Get
 instance Category ((~>)::i->i-> *) => Contravariant (Get (r :: i)) where
   contramap f = Nat (_Get (. f))
 
-instance QContravariant (Get r) where
-  qmap _ = _Get id
+instance Contravariant1 (Get r) where
+  contramap1 _ = _Get id
 
-instance QFunctor (Get r) where
-  second _ = _Get id
+instance Functor1 (Get r) where
+  fmap1 _ = _Get id
 
 get :: forall (s::i) (a::i). Category ((~>)::i->i-> *) => (Get a a a -> Get a s s) -> s ~> a
 get l = runGet $ l (Get id)
@@ -522,8 +504,8 @@ instance Functor (Unget r) where
 instance Contravariant (Unget r) where
   contramap _ = Nat $ _Unget id
 
-instance Category ((~>) :: i -> i -> *) => QFunctor (Unget (r :: i)) where
-  second f = _Unget (f .)
+instance Category ((~>) :: i -> i -> *) => Functor1 (Unget (r :: i)) where
+  fmap1 f = _Unget (f .)
 
 unget :: forall (t::i) (b::i). Category ((~>)::i->i-> *) => (Unget b b b -> Unget b t t) -> b ~> t
 unget l = runUnget $ l (Unget id)
@@ -537,17 +519,17 @@ unget l = runUnget $ l (Unget id)
 newtype Un (p::i->i->j) (a::i) (b::i) (s::i) (t::i) = Un { runUn :: p t s ~> p b a }
 _Un = dimap runUn Un
 
-instance (Category ((~>)::j->j-> *), QFunctor p) => Contravariant (Un (p::i->i->j) a b) where
-  contramap f = Nat $ _Un $ dimap Hom runHom $ lmap (second f)
+instance (Category ((~>)::j->j-> *), Functor1 p) => Contravariant (Un (p::i->i->j) a b) where
+  contramap f = Nat $ _Un $ dimap Hom runHom $ lmap (fmap1 f)
 
-instance (Category ((~>)::j->j-> *), QContravariant p) => Functor (Un (p::i->i->j) a b) where
-  fmap f = Nat $ _Un $ dimap Hom runHom $ lmap (qmap f)
+instance (Category ((~>)::j->j-> *), Contravariant1 p) => Functor (Un (p::i->i->j) a b) where
+  fmap f = Nat $ _Un $ dimap Hom runHom $ lmap (contramap1 f)
 
-instance (Category ((~>)::j->j-> *), Contravariant p) => QFunctor (Un (p::i->i->j) a b) where
-  second g = _Un $ dimap Hom runHom $ lmap (lmap g)
+instance (Category ((~>)::j->j-> *), Contravariant p) => Functor1 (Un (p::i->i->j) a b) where
+  fmap1 g = _Un $ dimap Hom runHom $ lmap (lmap g)
 
-instance (Category ((~>)::j->j-> *), Functor p) => QContravariant (Un (p::i->i->j) a b) where
-  qmap f = _Un $ dimap Hom runHom $ lmap (first f)
+instance (Category ((~>)::j->j-> *), Functor p) => Contravariant1 (Un (p::i->i->j) a b) where
+  contramap1 f = _Un $ dimap Hom runHom $ lmap (first f)
 
 un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
 un l = runUn $ l (Un id)
@@ -556,14 +538,14 @@ un l = runUn $ l (Un id)
 class (Contravariant p, Functor p) => PPhantom (p :: x -> y -> z)
 instance (Contravariant p, Functor p) => PPhantom (p :: x -> y -> z)
 
-class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
-instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
+class (Contravariant1 p, Functor1 p) => QPhantom (p :: x -> y -> z)
+instance (Contravariant1 p, Functor1 p) => QPhantom (p :: x -> y -> z)
 
-rmap :: QFunctor p => (a ~> b) -> p c a ~> p c b
-rmap = second
+rmap :: Functor1 p => (a ~> b) -> p c a ~> p c b
+rmap = fmap1
 
 bimap :: (Category ((~>)::z->z-> *), Bifunctor (p::x->y->z)) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
-bimap f g = first f . second g
+bimap f g = first f . fmap1 g
 
 dimap :: (Category ((~>)::z->z-> *), Profunctor (p::x->y->z)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . rmap g
@@ -591,21 +573,21 @@ instance Tensor Either where
 
 instance Tensor p => Tensor (LiftValue p) where
   type Id (LiftValue p) = ConstValue (Id p)
-  associate = Nat $ _Lift $ second (unget _Lift) . associate . first (get _Lift)
+  associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
   lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
-  rho       = Nat $ rmap (unget _Lift . second (unget _Const)) rho
+  rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
 
 instance Tensor p => Tensor (LiftValue2 p) where
   type Id (LiftValue2 p) = ConstValue2 (Id p)
-  associate = Nat $ _Lift $ second (unget _Lift) . associate . first (get _Lift)
+  associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
   lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
-  rho       = Nat $ rmap (unget _Lift . second (unget _Const)) rho
+  rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
 
 instance Tensor p => Tensor (LiftConstraint p) where
   type Id (LiftConstraint p) = ConstConstraint (Id p)
-  associate = Nat $ _Lift $ second (unget _Lift) . associate . first (get _Lift)
+  associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
   lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
-  rho       = Nat $ rmap (unget _Lift . second (unget _Const)) rho
+  rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
 
 instance Tensor (&) where
   type Id (&) = (() :: Constraint)
@@ -642,7 +624,7 @@ data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
 associateProf :: forall (p :: k -> l -> *) (q :: j -> k -> *) (r :: i -> j -> *) (a :: i) (c :: l). Prof (Prof p q) r a c -> Prof p (Prof q r) a c
 associateProf (Prof (Prof a b) c) = Prof a (Prof b c)
 
-lambdaProf :: forall (p :: i -> j -> *) (a :: i) (b :: j). QFunctor p => Prof (~>) p a b -> p a b
+lambdaProf :: forall (p :: i -> j -> *) (a :: i) (b :: j). Functor1 p => Prof (~>) p a b -> p a b
 lambdaProf (Prof h p) = rmap h p
 
 rhoProf :: forall (p :: i -> k -> *) (a :: i) (b :: k). Category ((~>) :: i -> i -> *) => p a b -> Prof p (~>) a b
@@ -731,19 +713,19 @@ class (Cartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> 
 
 instance Strong (->) where
   _1 = first
-  _2 = second
+  _2 = fmap1
 
 instance Strong (:-) where
   _1 = first
-  _2 = second
+  _2 = fmap1
 
 instance Strong (Nat::(i-> *)->(i-> *)-> *) where
   _1 = first
-  _2 = second
+  _2 = fmap1
 
 instance Strong (Nat::(i-> Constraint)->(i-> Constraint)-> *) where
   _1 = first
-  _2 = second
+  _2 = fmap1
 
 instance Cartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
   _1 = _Get (. fst)
@@ -976,7 +958,7 @@ ap = curry (fmap apply . ap2)
 
 return :: forall (f :: x -> x) (a :: x). (Monoidal f, Strength f, CCC ((~>) :: x -> x -> *))
       => a ~> f a
-return = fmap (lambda . swap) . strength . second ap0 . rho
+return = fmap (lambda . swap) . strength . fmap1 ap0 . rho
 
 class (Functor f, Category ((~>) :: x -> x -> *)) => Comonad (f :: x -> x) where
   {-# MINIMAL extract, (duplicate | extend) #-}
@@ -1010,8 +992,8 @@ newtype Cokey i a j = Cokey { runCokey :: (i ~ j) => a }
 instance Functor (Cokey i) where
   fmap f = Nat $ \xs -> Cokey $ f (runCokey xs)
 
-instance QFunctor Cokey where
-  second f = Nat $ \xs -> Cokey $ f (runCokey xs)
+instance Functor1 Cokey where
+  fmap1 f = Nat $ \xs -> Cokey $ f (runCokey xs)
 
 instance Monoidal (Cokey i) where
   ap0 = Nat $ \a -> Cokey (getConst a)
@@ -1028,14 +1010,14 @@ data Key (i :: x) (a :: *) (j :: x) where
 instance Functor (Key i) where
   fmap f = Nat $ \ (Key a) -> Key (f a)
 
-instance QFunctor Key where
-  second f = Nat $ \ (Key a) -> Key (f a)
+instance Functor1 Key where
+  fmap1 f = Nat $ \ (Key a) -> Key (f a)
 
 instance Opmonoidal (Key i) where
   op0 = Nat $ \(Key v) -> Const v
   op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
 
--- * Traditional product categories
+-- * Traditional product categories w/ adjoined identities
 type instance (~>) = Prod -- (i,j) -> (i, j) -> *
 data Prod :: (i,j) -> (i,j) -> * where
   Want :: Prod a a
@@ -1046,6 +1028,22 @@ instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Cat
   Want . f = f
   f . Want = f
   Have f f' . Have g g' = Have (f . g) (f' . g')
+
+instance (Functor ((~>) a :: i -> *), Functor ((~>) b :: j -> *)) => Functor (Prod '(a,b) :: (i, j) -> *) where
+  fmap Want f = f
+  fmap f Want = f
+  fmap (Have f g) (Have f' g') = Have (fmap f f') (fmap g g')
+
+instance (Functor1 ((~>) :: i -> i -> *), Functor1 ((~>) :: j -> j -> *)) => Functor1 (Prod :: (i, j) -> (i, j) -> *) where
+  fmap1 Want f = f
+  fmap1 f Want = f
+  fmap1 (Have f g) (Have f' g') = Have (fmap1 f f') (fmap1 g g')
+
+instance (Contravariant ((~>) :: i -> i -> *), Contravariant ((~>) :: j -> j -> *)) => Contravariant (Prod :: (i, j) -> (i, j) -> *) where
+  contramap Want = id
+  contramap (Have f g) = Nat $ \case
+    Want       -> Have f g
+    Have f' g' -> Have (lmap f f') (lmap g g')
 
 runProd :: forall (a :: i) (b :: i) (c :: j) (d :: j). (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Prod '(a,c) '(b,d) -> (a ~> b, c ~> d)
 runProd Want       = (id,id)
