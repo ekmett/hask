@@ -133,7 +133,6 @@ _At = dimap getAt At
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
-
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
   type Const :: j -> i -> j
@@ -238,8 +237,20 @@ instance Functor ColimitValue2 where
 _Tagged :: Iso (Tagged s a) (Tagged t b) a b
 _Tagged = dimap unTagged Tagged
 
+instance Monoidal (Tagged s) where
+  ap1 = Tagged
+  ap2 = Tagged . bimap unTagged unTagged
+
+instance Opmonoidal (Tagged s) where
+  op1 = unTagged
+  op2 = bimap Tagged Tagged . unTagged
+
 instance Functor Proxy where
   fmap _ Proxy = Proxy
+
+instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
+  ap1 () = Proxy
+  ap2 (Proxy, Proxy) = Proxy
 
 -- * Dictionaries
 
@@ -256,8 +267,19 @@ instance Lifted LiftValue where
   type Lift = LiftValue
   _Lift = dimap lower Lift
 
+instance (Bifunctor p, Functor f, Functor g) => Functor (LiftValue p f g) where
+  fmap f = _Lift (bimap (fmap f) (fmap f))
+
+instance PFunctor p => Functor (LiftValue p) where
+  fmap f = Nat $ Nat $ _Lift $ first $ runNat f -- f = _Lift (bimap (fmap f) (fmap f))
+
+instance Functor LiftValue where
+  fmap f = Nat $ Nat $ Nat $ _Lift $ runNat (runNat f)
+
 class r (p a) (q a) => LiftConstraint (r :: j -> k -> Constraint) (p :: i -> j) (q :: i -> k) (a :: i)
+
 instance r (p a) (q a) => LiftConstraint r p q a
+
 instance Lifted LiftConstraint where
   type Lift = LiftConstraint
   _Lift = dimap (Sub Dict) (Sub Dict)
