@@ -178,6 +178,15 @@ instance Limited LimitValue where
 instance Functor LimitValue where
   fmap (Nat f) (Limit g) = Limit (f g)
 
+newtype LimitValue2 (f :: i -> j -> *) (y :: j) = Limit2 { getLimit2 :: forall x. f x y }
+
+instance Limited LimitValue2 where
+  type Limit = LimitValue2
+  _Limit = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
+
+instance Functor LimitValue2 where
+  fmap f = Nat $ \(Limit2 g) -> Limit2 (runNat (runNat f) g)
+
 -- * Colimit -| -^J
 
 class (Colimit ~ l, Constant (Const :: j -> i -> j)) => Colimited (l :: (i -> j) -> j) | i j -> l where
