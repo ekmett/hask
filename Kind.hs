@@ -185,27 +185,25 @@ instance Functor (ConstConstraint b) where
 
 -- * -^J -| Limit
 
-class (Limit ~ l, Constant (Const :: j -> i -> j)) => Limited (l :: (i -> j) -> j) | i j -> l where
-  type Limit :: (i -> j) -> j
-  _Limit :: Const -: (Limit :: (i -> j) -> j)
+type family Limit :: (i -> j) -> j
 
 newtype LimitValue (f :: i -> *) = Limit { getLimit :: forall x. f x }
-
-instance Limited LimitValue where
-  type Limit = LimitValue
-  _Limit = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
+type instance Limit = LimitValue
 
 instance Functor LimitValue where
   fmap (Nat f) (Limit g) = Limit (f g)
 
-newtype LimitValue2 (f :: i -> j -> *) (y :: j) = Limit2 { getLimit2 :: forall x. f x y }
+instance ConstValue -| LimitValue where
+  adj = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
 
-instance Limited LimitValue2 where
-  type Limit = LimitValue2
-  _Limit = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
+newtype LimitValue2 (f :: i -> j -> *) (y :: j) = Limit2 { getLimit2 :: forall x. f x y }
+type instance Limit = LimitValue2
 
 instance Functor LimitValue2 where
   fmap f = Nat $ \(Limit2 g) -> Limit2 (runNat (runNat f) g)
+
+instance ConstValue2 -| LimitValue2 where
+  adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
 
 -- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
 class LimitConstraint (p :: i -> Constraint) where
@@ -215,39 +213,43 @@ instance p Any => LimitConstraint (p :: i -> Constraint) where
   limitDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
     Sub d -> d
 
-instance Limited LimitConstraint where
-  type Limit = LimitConstraint
-  _Limit = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
+type instance Limit = LimitConstraint
+
+instance Functor LimitConstraint where
+  fmap f = dimap (Sub limitDict) (Sub Dict) (runAny f) where
+    runAny :: (p ~> q) -> p Any ~> q Any
+    runAny = runNat
+
+instance ConstConstraint -| LimitConstraint where
+  adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
     hither :: (ConstConstraint a Any :- f Any) -> a :- LimitConstraint f
     hither = dimap (Sub Dict) (Sub Dict)
 
 -- * Colimit -| -^J
 
-class (Colimit ~ l, Constant (Const :: j -> i -> j)) => Colimited (l :: (i -> j) -> j) | i j -> l where
-  type Colimit :: (i -> j) -> j
-  _Colimit :: Colimit -: (Const :: j -> i -> j)
+type family Colimit :: (i -> j) -> j
+type instance Colimit = ColimitValue
+type instance Colimit = ColimitValue2
 
 data ColimitValue (f :: i -> *) where
   Colimit :: f x -> ColimitValue f
 
-instance Colimited ColimitValue where
-  type Colimit = ColimitValue
-  _Colimit = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
-
 instance Functor ColimitValue where
   fmap (Nat f) (Colimit g)= Colimit (f g)
+
+instance ColimitValue -| ConstValue where
+  adj = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
 
 data ColimitValue2 (f :: i -> j -> *) (x :: j) where
   Colimit2 :: f y x -> ColimitValue2 f x
 
-instance Colimited ColimitValue2 where
-  type Colimit = ColimitValue2
-  _Colimit = dimap (\(Nat f) -> Nat $ Nat $ Const2 . f . Colimit2) $
-                    \ f -> Nat $ \ xs -> case xs of
-                      Colimit2 fyx -> getConst2 $ runNat (runNat f) fyx
-
 instance Functor ColimitValue2 where
   fmap f = Nat $ \(Colimit2 g) -> Colimit2 (runNat (runNat f) g)
+
+instance ColimitValue2 -| ConstValue2 where
+  adj = dimap (\(Nat f) -> Nat $ Nat $ Const2 . f . Colimit2) $
+               \ f -> Nat $ \ xs -> case xs of
+                 Colimit2 fyx -> getConst2 $ runNat (runNat f) fyx
 
 -- * Support for Tagged and Proxy
 
