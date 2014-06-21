@@ -129,10 +129,16 @@ _At = dimap getAt At
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
-newtype Lim (f :: i -> *) = Lim { getLim :: forall x. f x }
+newtype Limit (f :: i -> *) = Limit { getLimit :: forall x. f x }
 
-instance Functor Lim where
-  fmap (Nat f) (Lim g) = Lim (f g)
+instance Functor Limit where
+  fmap (Nat f) (Limit g) = Limit (f g)
+
+data Colimit (f :: i -> *) where
+  Colimit :: f x -> Colimit f
+
+instance Functor Colimit where
+  fmap (Nat f) (Colimit g)= Colimit (f g)
 
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
@@ -730,21 +736,26 @@ instance LiftValue (,) e -| LiftValue (->) e where
 --   adj = cccAdj
 
 -- Δ -| (*)
-diagProd :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
+diagProdAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
    Cartesian ((~>) :: i -> i -> *) =>
    Iso ('(a,a) ~> '(b,c)) ('(a',a') ~> '(b',c')) (a ~> b * c) (a' ~> b' * c')
-diagProd = dimap (uncurry (&&&) . runProd) $ \f -> Have (fst . f) (snd . f)
+diagProdAdj = dimap (uncurry (&&&) . runProd) $ \f -> Have (fst . f) (snd . f)
 
--- generalized diagonal -| limit
-constLim :: forall (a :: *) (b :: *) (f :: i -> *) (g :: i -> *).
-   Iso (Const a ~> f) (Const b ~> g) (a ~> Lim f) (b ~> Lim g)
-constLim = dimap (\f a -> Lim (runNat f (Const a))) $ \h -> Nat (getLim . h . getConst)
+-- -^J -| Lim
+constLimitAdj :: forall (a :: *) (b :: *) (f :: i -> *) (g :: i -> *).
+   Iso (Const a ~> f) (Const b ~> g) (a ~> Limit f) (b ~> Limit g)
+constLimitAdj = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
+
+-- Colim -| -^J
+colimitConstAdj :: forall (a :: *) (b :: *) (f :: i -> *) (g :: i -> *).
+   Iso (Colimit f ~> a) (Colimit g ~> b) (f ~> Const a) (g ~> Const b)
+colimitConstAdj = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
 
 -- (+) -| Δ
-sumDiag :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
+sumDiagAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
    Cocartesian ((~>) :: i -> i -> *) =>
    Iso (b + c ~> a) (b' + c' ~> a') ('(b,c) ~> '(a,a)) ('(b',c') ~> '(a',a'))
-sumDiag = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
+sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
   ap1 :: One ~> f One
