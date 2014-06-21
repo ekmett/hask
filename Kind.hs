@@ -935,12 +935,33 @@ instance Comonad (Store s) where
   extract = Nat $ \(Store f s) -> runNat f s
   duplicate = Nat $ \(Store f s) -> Store (Nat $ Store f) s
 
--- Coat i :: Hask -> Nat
--- Coat :: x -> * -> x -> *
-newtype Coat i a j = Coat { runCoat :: (i ~ j) => a }
+-- The dual of Conor McBride's "Atkey" adapted to this formalism
+--
+-- Cokey i :: Hask -> Nat
+-- Cokey :: x -> * -> x -> *
+newtype Cokey i a j = Cokey { runCokey :: (i ~ j) => a }
 
-instance Functor (Coat i) where
-  fmap f = Nat $ \xs -> Coat $ f (runCoat xs)
+instance Functor (Cokey i) where
+  fmap f = Nat $ \xs -> Cokey $ f (runCokey xs)
 
-instance PFunctor (Coat i) where
-  first f xs = Coat $ f (runCoat xs)
+instance PFunctor (Cokey i) where
+  first f xs = Cokey $ f (runCokey xs)
+
+instance QFunctor Cokey where
+  second f = Nat $ \xs -> Cokey $ f (runCokey xs)
+
+-- Conor McBride's "Atkey" adapted to this formalism
+--
+-- Key i :: Hask -> Nat
+-- Key :: x -> * -> x -> *
+data Key (i :: x) (a :: *) (j :: x) where
+  Key :: a -> Key i a i
+
+instance Functor (Key i) where
+  fmap f = Nat $ \ (Key a) -> Key (f a)
+
+instance PFunctor (Key i) where
+  first f (Key xs) = Key (f xs)
+
+instance QFunctor Key where
+  second f = Nat $ \ (Key a) -> Key (f a)
