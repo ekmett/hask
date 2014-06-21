@@ -131,7 +131,6 @@ instance Functor (At x) where
   fmap (Nat f) = _At f
 
 
-
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
   type Const :: j -> i -> j
@@ -821,6 +820,18 @@ instance Applicative.Applicative f => Monoidal f where
   ap1 = Applicative.pure
   ap2 = uncurry $ Applicative.liftA2 (,)
 
+instance Monoidal (Nat f :: (i -> *) -> *) where
+  ap1 () = terminal
+  ap2 = uncurry (&&&)
+
+instance Monoidal (Nat f :: (i -> Constraint) -> *) where
+  ap1 () = terminal
+  ap2 = uncurry (&&&)
+
+instance Monoidal (At x) where
+  ap1 () = At (Const ())
+  ap2 (At f, At g)= At (Lift (f, g))
+
 -- * Monads over our kind-indexed categories
 
 class Monoidal (m :: x -> x) => Monad (m :: x -> x) where
@@ -835,9 +846,21 @@ class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Fun
   op1 :: f Zero ~> Zero
   op2 :: f (a + b) ~> f a + f b
 
+instance Opmonoidal ((,) e) where
+  op1 = snd
+  op2 (e,ab) = bimap ((,) e) ((,) e) ab
+
 instance Opmonoidal Identity where
   op1 = runIdentity
   op2 = bimap Identity Identity . runIdentity
+
+instance Opmonoidal (At x) where
+  op1 (At (Const x)) = x
+  op2 (At (Lift eab))= bimap At At eab
+
+instance Opmonoidal (LiftValue (,) e) where
+  op1 = snd
+  op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
 
 -- * An
 
