@@ -129,16 +129,7 @@ _At = dimap getAt At
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
-newtype Limit (f :: i -> *) = Limit { getLimit :: forall x. f x }
 
-instance Functor Limit where
-  fmap (Nat f) (Limit g) = Limit (f g)
-
-data Colimit (f :: i -> *) where
-  Colimit :: f x -> Colimit f
-
-instance Functor Colimit where
-  fmap (Nat f) (Colimit g)= Colimit (f g)
 
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
@@ -170,6 +161,39 @@ instance Functor (ConstValue2 :: (j -> *) -> i -> j -> *) where
 
 instance Functor (ConstConstraint :: Constraint -> i -> Constraint) where
   fmap f = Nat (_Const f)
+
+-- * -^J -| Limit
+
+class (Limit ~ l, Constant (Const :: j -> i -> j)) => Limited (l :: (i -> j) -> j) | i j -> l where
+  type Limit :: (i -> j) -> j
+  _Limit :: forall (a :: j) (b :: j) (f :: i -> j) (g :: i -> j).
+    Iso (Const a ~> f) (Const b ~> g) (a ~> Limit f) (b ~> Limit g)
+
+newtype LimitValue (f :: i -> *) = Limit { getLimit :: forall x. f x }
+
+instance Limited LimitValue where
+  type Limit = LimitValue
+  _Limit = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
+
+instance Functor LimitValue where
+  fmap (Nat f) (Limit g) = Limit (f g)
+
+-- * Colimit -| -^J
+
+class (Colimit ~ l, Constant (Const :: j -> i -> j)) => Colimited (l :: (i -> j) -> j) | i j -> l where
+  type Colimit :: (i -> j) -> j
+  _Colimit :: forall (a :: j) (b :: j) (f :: i -> j) (g :: i -> j).
+    Iso (Colimit f ~> a) (Colimit g ~> b) (f ~> Const a) (g ~> Const b)
+
+data ColimitValue (f :: i -> *) where
+  Colimit :: f x -> ColimitValue f
+
+instance Colimited ColimitValue where
+  type Colimit = ColimitValue
+  _Colimit = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
+
+instance Functor ColimitValue where
+  fmap (Nat f) (Colimit g)= Colimit (f g)
 
 -- * Support for Tagged and Proxy
 
@@ -741,15 +765,6 @@ diagProdAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
    Iso ('(a,a) ~> '(b,c)) ('(a',a') ~> '(b',c')) (a ~> b * c) (a' ~> b' * c')
 diagProdAdj = dimap (uncurry (&&&) . runProd) $ \f -> Have (fst . f) (snd . f)
 
--- -^J -| Lim
-constLimitAdj :: forall (a :: *) (b :: *) (f :: i -> *) (g :: i -> *).
-   Iso (Const a ~> f) (Const b ~> g) (a ~> Limit f) (b ~> Limit g)
-constLimitAdj = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
-
--- Colim -| -^J
-colimitConstAdj :: forall (a :: *) (b :: *) (f :: i -> *) (g :: i -> *).
-   Iso (Colimit f ~> a) (Colimit g ~> b) (f ~> Const a) (g ~> Const b)
-colimitConstAdj = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
 
 -- (+) -| Δ
 sumDiagAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
