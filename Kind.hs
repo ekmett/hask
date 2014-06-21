@@ -134,7 +134,7 @@ instance Functor (At x) where
   fmap (Nat f) = _At f
 
 instance Monoidal (At x) where
-  ap1 = At . Const
+  ap0 = At . Const
   ap2 (At fx, At fy) = At (Lift (fx, fy))
 
 -- instance Opmonoidal (At x) where
@@ -870,28 +870,28 @@ sumDiagAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
 sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
-  ap1 :: One ~> f One
+  ap0 :: One ~> f One
   ap2 :: f a * f b ~> f (a * b)
 
 instance Monoidal Dict where
-  ap1 () = Dict
+  ap0 () = Dict
   ap2 (Dict, Dict) = Dict
 
 -- lift applicatives for Hask
 instance Applicative.Applicative f => Monoidal f where
-  ap1 = Applicative.pure
+  ap0 = Applicative.pure
   ap2 = uncurry $ Applicative.liftA2 (,)
 
 instance Monoidal ((:-) f) where
-  ap1 () = terminal
+  ap0 () = terminal
   ap2 = uncurry (&&&)
 
 instance Monoidal (Nat f :: (i -> *) -> *) where
-  ap1 () = terminal
+  ap0 () = terminal
   ap2 = uncurry (&&&)
 
 instance Monoidal (Nat f :: (i -> Constraint) -> *) where
-  ap1 () = terminal
+  ap0 () = terminal
   ap2 = uncurry (&&&)
 
 -- * Monads over our kind-indexed categories
@@ -906,23 +906,23 @@ instance (Applicative.Applicative m, Prelude.Monad m) => Monad m where
 
 
 class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Functor f) => Opmonoidal (f :: x -> y) where
-  op1 :: f Zero ~> Zero
+  op0 :: f Zero ~> Zero
   op2 :: f (a + b) ~> f a + f b
 
 instance Opmonoidal ((,) e) where
-  op1 = snd
+  op0 = snd
   op2 (e,ab) = bimap ((,) e) ((,) e) ab
 
 instance Opmonoidal Identity where
-  op1 = runIdentity
+  op0 = runIdentity
   op2 = bimap Identity Identity . runIdentity
 
 instance Opmonoidal (At x) where
-  op1 (At (Const x)) = x
+  op0 (At (Const x)) = x
   op2 (At (Lift eab))= bimap At At eab
 
 instance Opmonoidal (LiftValue (,) e) where
-  op1 = snd
+  op0 = snd
   op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
 
 -- * An
@@ -940,11 +940,11 @@ instance Functor An where
   fmap (Nat f) = Nat $ _An f
 
 instance Monoidal f => Monoidal (An f) where
-  ap1 = An . ap1
+  ap0 = An . ap0
   ap2 = An . ap2 . bimap runAn runAn
 
 instance Opmonoidal f => Opmonoidal (An f) where
-  op1 = op1 . runAn
+  op0 = op0 . runAn
   op2 = bimap An An . op2 . runAn
 
 
@@ -1005,7 +1005,7 @@ ap = curry (fmap apply . ap2)
 
 return :: forall (f :: x -> x) (a :: x). (Monoidal f, Strength f, CCC ((~>) :: x -> x -> *))
       => a ~> f a
-return = fmap (lambda . swap) . strength . second ap1 . rho
+return = fmap (lambda . swap) . strength . second ap0 . rho
 
 class (Functor f, Category ((~>) :: x -> x -> *)) => Comonad (f :: x -> x) where
   {-# MINIMAL extract, (duplicate | extend) #-}
@@ -1043,7 +1043,7 @@ instance QFunctor Cokey where
   second f = Nat $ \xs -> Cokey $ f (runCokey xs)
 
 instance Monoidal (Cokey i) where
-  ap1 = Nat $ \a -> Cokey (getConst a)
+  ap0 = Nat $ \a -> Cokey (getConst a)
   ap2 = Nat $ \ab -> Cokey $ case ab of
     Lift (Cokey a, Cokey b) -> (a, b)
 
@@ -1061,18 +1061,18 @@ instance QFunctor Key where
   second f = Nat $ \ (Key a) -> Key (f a)
 
 instance Opmonoidal (Key i) where
-  op1 = Nat $ \(Key v) -> Const v
+  op0 = Nat $ \(Key v) -> Const v
   op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
 
 instance Monoidal (Tagged s) where
-  ap1 = Tagged
+  ap0 = Tagged
   ap2 = Tagged . bimap unTagged unTagged
 
 instance Opmonoidal (Tagged s) where
-  op1 = unTagged
+  op0 = unTagged
   op2 = bimap Tagged Tagged . unTagged
 
 instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
-  ap1 () = Proxy
+  ap0 () = Proxy
   ap2 (Proxy, Proxy) = Proxy
 
