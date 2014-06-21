@@ -273,10 +273,10 @@ instance Functor LiftValue where
   fmap f = Nat $ Nat $ Nat $ _Lift $ runNat (runNat f)
 
 instance Functor p => Functor (LiftValue p) where
-  fmap f = Nat $ Nat $ _Lift $ runNat $ fmap $ runNat f
+  fmap f = Nat $ Nat $ _Lift $ first $ runNat f
 
 instance Contravariant p => Contravariant (LiftValue p) where
-  contramap f = Nat $ Nat $ _Lift $ runNat $ contramap $ runNat f
+  contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
 instance QFunctor p => QFunctor (LiftValue p) where
   second (Nat f) = Nat (_Lift $ second f)
@@ -316,10 +316,10 @@ instance Functor LiftValue2 where
   fmap f = Nat $ Nat $ Nat $ _Lift $ runNat (runNat f)
 
 instance Functor p => Functor (LiftValue2 p) where
-  fmap f = Nat $ Nat $ _Lift $ runNat $ fmap $ runNat f
+  fmap f = Nat $ Nat $ _Lift $ first $ runNat f
 
 instance Contravariant p => Contravariant (LiftValue2 p) where
-  contramap f = Nat $ Nat $ _Lift $ runNat $ contramap $ runNat f
+  contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
 instance QFunctor p => Functor (LiftValue2 p f) where
   fmap (Nat f) = Nat (_Lift $ second f)
@@ -900,8 +900,7 @@ instance Opmonoidal (Tagged s) where
   op0 = unTagged
   op2 = bimap Tagged Tagged . unTagged
 
--- * An
-
+-- * An = Identity for Nat (i -> *)
 newtype An (f :: i -> *) (a :: i) = An { runAn :: f a }
 _An = dimap runAn An
 
