@@ -123,6 +123,9 @@ instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Fun
 instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where
   fmap = (.)
 
+instance Functor ((:-) f) where
+  fmap = second
+
 -- We can defne a functor from the category of natural transformations to Hask
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
 _At = dimap getAt At
@@ -819,6 +822,10 @@ instance Monoidal Dict where
 instance Applicative.Applicative f => Monoidal f where
   ap1 = Applicative.pure
   ap2 = uncurry $ Applicative.liftA2 (,)
+
+instance Monoidal ((:-) f) where
+  ap1 () = terminal
+  ap2 = uncurry (&&&)
 
 instance Monoidal (Nat f :: (i -> *) -> *) where
   ap1 () = terminal
