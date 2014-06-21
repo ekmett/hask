@@ -18,6 +18,7 @@ module Kind where
 import qualified Control.Applicative as Applicative
 import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
+import qualified Control.Comonad as Comonad
 import qualified Control.Monad as Monad
 import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
@@ -846,6 +847,11 @@ class (Functor f, Category ((~>) :: x -> x -> *)) => Comonad (f :: x -> x) where
   extend :: (f a ~> b) -> f a ~> f b
   extend f = fmap f . duplicate
   extract   :: f a ~> a
+
+instance Comonad.Comonad f => Comonad f where
+  duplicate = Comonad.duplicate
+  extend = Comonad.extend
+  extract = Comonad.extract
 
 -- indexed store
 data Store (s :: x -> *) (a :: x -> *) (i :: x) = Store (s ~> a) (s i)
