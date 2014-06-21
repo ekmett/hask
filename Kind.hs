@@ -219,6 +219,18 @@ instance Colimited ColimitValue where
 instance Functor ColimitValue where
   fmap (Nat f) (Colimit g)= Colimit (f g)
 
+data ColimitValue2 (f :: i -> j -> *) (x :: j) where
+  Colimit2 :: f y x -> ColimitValue2 f x
+
+instance Colimited ColimitValue2 where
+  type Colimit = ColimitValue2
+  _Colimit = dimap (\(Nat f) -> Nat $ Nat $ Const2 . f . Colimit2) $
+                    \ f -> Nat $ \ xs -> case xs of
+                      Colimit2 fyx -> getConst2 $ runNat (runNat f) fyx
+
+instance Functor ColimitValue2 where
+  fmap f = Nat $ \(Colimit2 g) -> Colimit2 (runNat (runNat f) g)
+
 -- * Support for Tagged and Proxy
 
 _Tagged :: Iso (Tagged s a) (Tagged t b) a b
