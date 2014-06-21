@@ -318,7 +318,6 @@ instance Contravariant (ConstValue k :: i -> *) where
 instance Contravariant (ConstValue2 k :: i -> j -> *) where
   contramap _ = _Const id
 
-
 type Ungetter t b = forall p. (Choice p, PFunctor p) => p b b -> p t t
 
 unto :: (b ~> t) -> Ungetter t b
@@ -395,8 +394,8 @@ un l = runUn $ l (Un id)
 class (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 instance (PContravariant p, PFunctor p) => PPhantom (p :: x -> y -> z)
 
--- class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
--- instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
+class (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
+instance (QContravariant p, QFunctor p) => QPhantom (p :: x -> y -> z)
 
 rmap :: QFunctor p => (a ~> b) -> p c a ~> p c b
 rmap = second
