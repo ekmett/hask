@@ -976,3 +976,7 @@ instance PFunctor (Key i) where
 
 instance QFunctor Key where
   second f = Nat $ \ (Key a) -> Key (f a)
+
+instance Opmonoidal (Key i) where
+  op1 = Nat $ \(Key v) -> Const v
+  op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
