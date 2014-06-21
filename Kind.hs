@@ -31,7 +31,8 @@ import qualified Data.Traversable as Traversable
 import Data.Void
 import qualified Prelude
 import Prelude (Either(..), ($), either, Bool)
-import GHC.Exts (Constraint)
+import GHC.Exts (Constraint, Any)
+import Unsafe.Coerce (unsafeCoerce)
 
 -- * A kind-indexed family of categories
 
@@ -186,6 +187,20 @@ instance Limited LimitValue2 where
 
 instance Functor LimitValue2 where
   fmap f = Nat $ \(Limit2 g) -> Limit2 (runNat (runNat f) g)
+
+-- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
+class LimitConstraint (p :: i -> Constraint) where
+  limitDict :: Dict (p a)
+
+instance p Any => LimitConstraint (p :: i -> Constraint) where
+  limitDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
+    Sub d -> d
+
+instance Limited LimitConstraint where
+  type Limit = LimitConstraint
+  _Limit = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
+    hither :: (ConstConstraint a Any :- f Any) -> a :- LimitConstraint f
+    hither = dimap (Sub Dict) (Sub Dict)
 
 -- * Colimit -| -^J
 
