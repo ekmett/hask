@@ -129,6 +129,11 @@ _At = dimap getAt At
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
+newtype Lim (f :: i -> *) = Lim { getLim :: forall x. f x }
+
+instance Functor Lim where
+  fmap (Nat f) (Lim g) = Lim (f g)
+
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
   type Const :: j -> i -> j
@@ -729,6 +734,11 @@ diagProd :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
    Cartesian ((~>) :: i -> i -> *) =>
    Iso ('(a,a) ~> '(b,c)) ('(a',a') ~> '(b',c')) (a ~> b * c) (a' ~> b' * c')
 diagProd = dimap (uncurry (&&&) . runProd) $ \f -> Have (fst . f) (snd . f)
+
+-- generalized diagonal -| limit
+constLim :: forall (a :: *) (b :: *) (f :: i -> *) (g :: i -> *).
+   Iso (Const a ~> f) (Const b ~> g) (a ~> Lim f) (b ~> Lim g)
+constLim = dimap (\f a -> Lim (runNat f (Const a))) $ \h -> Nat (getLim . h . getConst)
 
 -- (+) -| Δ
 sumDiag :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
