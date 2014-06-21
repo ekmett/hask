@@ -41,29 +41,6 @@ type family (~>) :: i -> i -> *
 type instance (~>) = (->) -- * -> * -> *
 type instance (~>) = Nat  -- (i -> j) -> (i -> j) -> *
 type instance (~>) = (:-) -- Constraint -> Constraint -> *
-type instance (~>) = Prod -- (i,j) -> (i, j) -> *
-
-data Prod :: (i,j) -> (i,j) -> * where
-  Want :: Prod a a
-  Have :: forall (a :: i) (b :: i) (c :: j) (d :: j). (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
-
-instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Category (Prod :: (i,j) -> (i,j) -> *) where
-  id = Want
-  Want . f = f
-  f . Want = f
-  Have f f' . Have g g' = Have (f . g) (f' . g')
-
-runProd :: forall (a :: i) (b :: i) (c :: j) (d :: j). (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Prod '(a,c) '(b,d) -> (a ~> b, c ~> d)
-runProd Want       = (id,id)
-runProd (Have f g) = (f,g)
-
-runFst :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: i -> i -> *) => Prod '(a,c) '(b,d) -> a ~> b
-runFst Want       = id
-runFst (Have f _) = f
-
-runSnd :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: j -> j -> *) => Prod '(a,c) '(b,d) -> c ~> d
-runSnd Want       = id
-runSnd (Have _ g) = g
 
 -- needed because we can't partially apply (,) in the world of constraints
 class (p, q) => p & q
@@ -96,6 +73,23 @@ class QFunctor (p :: x -> y -> z) where
 
 class QContravariant (p :: x -> y -> z) where
   qmap :: (a ~> b) -> p c b ~> p c a
+
+-- | the isomorphism that witnesses f -| u
+type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
+
+-- | @f -| u@ indicates f is left adjoint to u
+class (Functor f, Functor u) => (f::y->x) -| (u::x->y) | f -> u, u -> f where
+  adj :: f -: u
+
+unitAdj :: forall (f :: y -> x) (u :: x -> y) (a :: y).
+           (f -| u, Category ((~>) :: y -> y -> *), Category ((~>) :: x -> x -> *))
+        => a ~> u (f a)
+unitAdj = get adj id
+
+counitAdj :: forall (f :: y -> x) (u :: x -> y) (b :: x).
+             (f -| u, Category ((~>) :: x -> x -> *), Category ((~>) :: y -> y -> *))
+          => f (u b) ~> b
+counitAdj = unget adj id
 
 -- * common aliases
 --
@@ -829,45 +823,14 @@ apply = uncurry id
 unapply :: forall (a :: i) (b :: i). CCC ((~>) :: i -> i -> *) => a ~> (a * b)^b
 unapply = curry id
 
--- | the isomorphism that witnesses f -| u
-type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
-
--- |
--- @f -| u@ indicates f is left adjoint to u
-class (Functor f, Functor u, Category ((~>) :: x -> x -> *), Category ((~>) :: y -> y -> *))
-   => (f::y->x) -| (u::x->y) | f -> u, u -> f where
-  adj :: f -: u
-
 cccAdj :: forall (e :: i). CCC ((~>) :: i -> i -> *) => (*) e -: Exp e
 cccAdj = dimap (. swap) (. swap) . curried
-
-unitAdj :: (f -| u) => a ~> u (f a)
-unitAdj = get adj id
-
-counitAdj :: (f -| u) => f (u b) ~> b
-counitAdj = unget adj id
 
 instance (,) e -| (->) e where
   adj = cccAdj
 
 instance LiftValue (,) e -| LiftValue (->) e where
   adj = cccAdj
-
--- instance LiftValue2 (LiftValue (,)) e -| LiftValue2 (LiftValue (->)) e where
---   adj = cccAdj
-
--- Δ -| (*)
-diagProdAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
-   Cartesian ((~>) :: i -> i -> *) =>
-   Iso ('(a,a) ~> '(b,c)) ('(a',a') ~> '(b',c')) (a ~> b * c) (a' ~> b' * c')
-diagProdAdj = dimap (uncurry (&&&) . runProd) $ \f -> Have (fst . f) (snd . f)
-
-
--- (+) -| Δ
-sumDiagAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
-   Cocartesian ((~>) :: i -> i -> *) =>
-   Iso (b + c ~> a) (b' + c' ~> a') ('(b,c) ~> '(a,a)) ('(b',c') ~> '(a',a'))
-sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
   ap0 :: One ~> f One
@@ -894,6 +857,15 @@ instance Monoidal (Nat f :: (i -> Constraint) -> *) where
   ap0 () = terminal
   ap2 = uncurry (&&&)
 
+instance Monoidal (Tagged s) where
+  ap0 = Tagged
+  ap2 = Tagged . bimap unTagged unTagged
+
+instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
+  ap0 () = Proxy
+  ap2 (Proxy, Proxy) = Proxy
+
+
 -- * Monads over our kind-indexed categories
 
 class Monoidal (m :: x -> x) => Monad (m :: x -> x) where
@@ -903,7 +875,6 @@ instance (Applicative.Applicative m, Prelude.Monad m) => Monad m where
   join = Monad.join
 
 -- * Opmonoidal functors between cocartesian categories
-
 
 class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Functor f) => Opmonoidal (f :: x -> y) where
   op0 :: f Zero ~> Zero
@@ -924,6 +895,10 @@ instance Opmonoidal (At x) where
 instance Opmonoidal (LiftValue (,) e) where
   op0 = snd
   op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
+
+instance Opmonoidal (Tagged s) where
+  op0 = unTagged
+  op2 = bimap Tagged Tagged . unTagged
 
 -- * An
 
@@ -947,13 +922,10 @@ instance Opmonoidal f => Opmonoidal (An f) where
   op0 = op0 . runAn
   op2 = bimap An An . op2 . runAn
 
-
 -- a monoid object in a cartesian category
 class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
   one  :: One ~> m
   mult :: m * m ~> m
-
-
 
 instance Monoid.Monoid m => Monoid m where
   one () = Monoid.mempty
@@ -1064,15 +1036,39 @@ instance Opmonoidal (Key i) where
   op0 = Nat $ \(Key v) -> Const v
   op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
 
-instance Monoidal (Tagged s) where
-  ap0 = Tagged
-  ap2 = Tagged . bimap unTagged unTagged
+-- * Traditional product categories
+type instance (~>) = Prod -- (i,j) -> (i, j) -> *
+data Prod :: (i,j) -> (i,j) -> * where
+  Want :: Prod a a
+  Have :: forall (a :: i) (b :: i) (c :: j) (d :: j). (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
 
-instance Opmonoidal (Tagged s) where
-  op0 = unTagged
-  op2 = bimap Tagged Tagged . unTagged
+instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Category (Prod :: (i,j) -> (i,j) -> *) where
+  id = Want
+  Want . f = f
+  f . Want = f
+  Have f f' . Have g g' = Have (f . g) (f' . g')
 
-instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
-  ap0 () = Proxy
-  ap2 (Proxy, Proxy) = Proxy
+runProd :: forall (a :: i) (b :: i) (c :: j) (d :: j). (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Prod '(a,c) '(b,d) -> (a ~> b, c ~> d)
+runProd Want       = (id,id)
+runProd (Have f g) = (f,g)
+
+runFst :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: i -> i -> *) => Prod '(a,c) '(b,d) -> a ~> b
+runFst Want       = id
+runFst (Have f _) = f
+
+runSnd :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: j -> j -> *) => Prod '(a,c) '(b,d) -> c ~> d
+runSnd Want       = id
+runSnd (Have _ g) = g
+
+-- Δ -| (*)
+diagProdAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
+   Cartesian ((~>) :: i -> i -> *) =>
+   Iso ('(a,a) ~> '(b,c)) ('(a',a') ~> '(b',c')) (a ~> b * c) (a' ~> b' * c')
+diagProdAdj = dimap (uncurry (&&&) . runProd) $ \f -> Have (fst . f) (snd . f)
+
+-- (+) -| Δ
+sumDiagAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
+   Cocartesian ((~>) :: i -> i -> *) =>
+   Iso (b + c ~> a) (b' + c' ~> a') ('(b,c) ~> '(a,a)) ('(b',c') ~> '(a',a'))
+sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 
