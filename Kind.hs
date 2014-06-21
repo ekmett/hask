@@ -45,9 +45,6 @@ instance (p, q) => p & q
 class Trivial a
 instance Trivial a
 
-class r (p a) (q a) => LiftConstraint (r :: j -> k -> Constraint) (p :: i -> j) (q :: i -> k) (a :: i)
-instance r (p a) (q a) => LiftConstraint r p q a
-
 -- * Natural transformations form a category, using parametricity as a proxy for naturality
 
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
@@ -103,53 +100,78 @@ instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) wher
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
 _At = dimap getAt At
 
--- Dict :: Constraint -> * switches categories from the category of constraints to Hask
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
--- .. and back
-newtype Const (b :: *) (a :: i) = Const { getConst :: b }
+class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
+  type Const :: j -> i -> j
+  _Const :: forall (a :: i) (b :: j) (a' :: i) (b' :: j). Iso (Const b a) (Const b' a') b b'
 
-_Const :: Iso (Const b a) (Const b' a') b b'
-_Const = dimap getConst Const
-_ConstConstraint :: Iso (ConstConstraint b a) (ConstConstraint b' a') b b'
-_ConstConstraint = dimap (Sub Dict) (Sub Dict)
+instance Constant ConstValue where
+  type Const = ConstValue
+  _Const = dimap getConst Const
+
+instance Constant ConstConstraint where
+  type Const = ConstConstraint
+  _Const = dimap (Sub Dict) (Sub Dict)
+
+-- .. and back
+newtype ConstValue (b :: *) (a :: i) = Const { getConst :: b }
 
 class b => ConstConstraint b a
 instance b => ConstConstraint b a
 
-instance Functor Const where
+instance Functor (ConstValue :: * -> i -> *) where
   fmap f = Nat (_Const f)
 
-instance Functor ConstConstraint where
-  fmap f = Nat (_ConstConstraint f)
+instance Functor (ConstConstraint :: Constraint -> i -> Constraint) where
+  fmap f = Nat (_Const f)
 
 -- * Support for Tagged and Proxy
 
+_Tagged :: Iso (Tagged s a) (Tagged t b) a b
 _Tagged = dimap unTagged Tagged
 
 instance Functor Proxy where
   fmap _ Proxy = Proxy
 
 -- * Dictionaries
---
+
 instance Functor Trivial where
   fmap _ = Sub Dict
 
 instance Contravariant Trivial where
   contramap _ = Sub Dict
 
+-- Dict :: Constraint -> * switches categories from the category of constraints to Hask
 instance Functor Dict where
   fmap p Dict = Dict \\ p
 
-newtype Lift (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
-_Lift :: Iso (Lift q f g a)  (Lift r f1 g1 a1)
-             (q (f a) (g a)) (r (f1 a1) (g1 a1))
+class Lift ~ s => Lifted (s :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l) | i j k l -> s where
+  type Lift :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l
+  _Lift :: forall (q :: j -> k -> l) (r :: j -> k -> l) (f :: i -> j) (g :: i -> k) (h :: i -> j) (e :: i -> k) (a :: i) (b :: i). Iso (Lift q f g a)  (Lift r h e b) (q (f a) (g a)) (r (h b) (e b))
+
+newtype LiftValue (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
+instance Lifted LiftValue where
+  type Lift = LiftValue
+  _Lift = dimap lower Lift
+
+class r (p a) (q a) => LiftConstraint (r :: j -> k -> Constraint) (p :: i -> j) (q :: i -> k) (a :: i)
+instance r (p a) (q a) => LiftConstraint r p q a
+instance Lifted LiftConstraint where
+  type Lift = LiftConstraint
+  _Lift = dimap (Sub Dict) (Sub Dict)
+
+
+
+{-
+_Lift :: Iso (Lift q f g a)  (Lift r h i b) (q (f a) (g a)) (r (h b) (i b))
 _Lift = dimap lower Lift
 
-_LiftConstraint :: Iso (LiftConstraint q f g a) (LiftConstraint r f1 g1 a1)
-                       (q (f a) (g a))          (r (f1 a1) (g1 a1))
-_LiftConstraint = dimap (Sub Dict) (Sub Dict)
+_Lift :: Iso (LiftConstraint q f g a) (LiftConstraint r f' g' a')
+                       (q (f a) (g a))          (r (f' a') (g' a'))
+_Lift = dimap (Sub Dict) (Sub Dict)
+-}
 
 instance PFunctor (,) where
   first = Arrow.first
@@ -166,11 +188,11 @@ instance QFunctor (:-) where
 instance PContravariant (:-) where
   lmap = dimap Hom runHom . lmap
 
-instance PFunctor p => PFunctor (Lift p) where
+instance PFunctor p => PFunctor (LiftValue p) where
   first (Nat f) = Nat (_Lift $ first f)
 
 instance PFunctor p => PFunctor (LiftConstraint p) where
-  first (Nat f) = Nat (_LiftConstraint $ first f)
+  first (Nat f) = Nat (_Lift $ first f)
 
 instance PFunctor Tagged where
   first _ = _Tagged id
@@ -193,20 +215,20 @@ instance QFunctor (,) where
 instance QFunctor Either where
   second = Arrow.right
 
-instance QFunctor (Const :: * -> i -> *) where
+instance QFunctor (ConstValue :: * -> i -> *) where
   second _ = _Const id
 
-instance QFunctor p => QFunctor (Lift p) where
+instance QFunctor p => QFunctor (LiftValue p) where
   second (Nat f) = Nat (_Lift $ second f)
 
 instance QFunctor p => QFunctor (LiftConstraint p) where
-  second (Nat f) = Nat (_LiftConstraint $ second f)
+  second (Nat f) = Nat (_Lift $ second f)
 
-instance QFunctor p => Functor (Lift p e) where
+instance QFunctor p => Functor (LiftValue p e) where
   fmap (Nat f) = Nat (_Lift $ second f)
 
 instance QFunctor p => Functor (LiftConstraint p e) where
-  fmap (Nat f) = Nat (_LiftConstraint $ second f)
+  fmap (Nat f) = Nat (_Lift $ second f)
 
 instance QFunctor At where
   second (Nat f) = _At f
@@ -259,25 +281,25 @@ instance Category ((~>) :: x -> x -> *) => PContravariant (Hom :: x -> x -> *) w
 instance PContravariant ((~>)::j->j-> *) => PContravariant (Nat::(i->j)->(i->j)-> *) where
   lmap (Nat ab) (Nat bc) = Nat (lmap ab bc)
 
-instance PContravariant p => PContravariant (Lift p) where
+instance PContravariant p => PContravariant (LiftValue p) where
   lmap (Nat f) = Nat $ _Lift (lmap f)
 
 instance PContravariant p => PContravariant (LiftConstraint p) where
-  lmap (Nat f) = Nat $ _LiftConstraint (lmap f)
+  lmap (Nat f) = Nat $ _Lift (lmap f)
 
 instance PContravariant Tagged where
   lmap _ = _Tagged id
 
-instance QContravariant (Const :: * -> i -> *) where
+instance QContravariant (ConstValue :: * -> i -> *) where
   qmap _ = _Const id
 
-instance QContravariant p => QContravariant (Lift p) where
+instance QContravariant p => QContravariant (LiftValue p) where
   qmap (Nat f) = Nat $ _Lift (qmap f)
 
 instance QContravariant p => QContravariant (LiftConstraint p) where
-  qmap (Nat f) = Nat $ _LiftConstraint (qmap f)
+  qmap (Nat f) = Nat $ _Lift (qmap f)
 
-instance Contravariant (Const k :: i -> *) where
+instance Contravariant (ConstValue k :: i -> *) where
   contramap _ = _Const id
 
 type Ungetter t b = forall p. (Choice p, PFunctor p) => p b b -> p t t
@@ -389,17 +411,17 @@ instance Tensor Either where
   lambda (Right a) = a
   rho = Left
 
-instance Tensor p => Tensor (Lift p) where
-  type Id (Lift p) = Const (Id p)
+instance Tensor p => Tensor (LiftValue p) where
+  type Id (LiftValue p) = ConstValue (Id p)
   associate = Nat $ _Lift $ second Lift . associate . first lower
   lambda    = Nat $ lmap (first getConst . lower) lambda
   rho       = Nat $ rmap (Lift . second Const) rho
 
 instance Tensor p => Tensor (LiftConstraint p) where
   type Id (LiftConstraint p) = ConstConstraint (Id p)
-  associate = Nat $ _LiftConstraint $ second (unget _LiftConstraint) . associate . first (get _LiftConstraint)
-  lambda    = Nat $ lmap (first (get _ConstConstraint) . get _LiftConstraint) lambda
-  rho       = Nat $ rmap (unget _LiftConstraint . second (unget _ConstConstraint)) rho
+  associate = Nat $ _Lift $ second (unget _Lift) . associate . first (get _Lift)
+  lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
+  rho       = Nat $ rmap (unget _Lift . second (unget _Const)) rho
 
 instance Tensor (&) where
   type Id (&) = (() :: Constraint)
@@ -420,11 +442,11 @@ instance Symmetric (&) where
 instance Symmetric Either where
   swap = either Right Left
 
-instance Symmetric p => Symmetric (Lift p) where
+instance Symmetric p => Symmetric (LiftValue p) where
   swap = Nat $ _Lift swap
 
 instance Symmetric p => Symmetric (LiftConstraint p) where
-  swap = Nat $ _LiftConstraint swap
+  swap = Nat $ _Lift swap
 
 -- profunctor composition forms a weak category.
 data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
@@ -448,8 +470,8 @@ instance Terminal () where
   terminal _ = ()
 
 -- we can only offer the terminal object for Nat :: (i -> *), not Nat :: (i -> j)
-instance Terminal (Const ()) where
-  type One = Const ()
+instance Terminal (ConstValue ()) where
+  type One = ConstValue ()
   terminal = Nat (Const . terminal)
 
 instance Terminal (() :: Constraint) where
@@ -458,7 +480,7 @@ instance Terminal (() :: Constraint) where
 
 instance Terminal (ConstConstraint ()) where
   type One = ConstConstraint ()
-  terminal = Nat (unget _ConstConstraint . terminal)
+  terminal = Nat (unget _Const . terminal)
 
 class Zero ~ t => Initial (t :: i) | i -> t where
   type Zero :: i
@@ -469,8 +491,8 @@ instance Initial Void where
   initial = absurd
 
 -- we can only offer the initial object for Nat :: (i -> *), not Nat :: (i -> j)
-instance Initial (Const Void) where
-  type Zero = Const Void
+instance Initial (ConstValue Void) where
+  type Zero = ConstValue Void
   initial = Nat $ initial . getConst
 
 instance Initial (() ~ Bool) where
@@ -479,7 +501,7 @@ instance Initial (() ~ Bool) where
 
 instance Initial (ConstConstraint (() ~ Bool)) where
   type Zero = ConstConstraint (() ~ Bool)
-  initial = Nat $ initial . get _ConstConstraint
+  initial = Nat $ initial . get _Const
 
 infixl 7 *
 class (h ~ (~>), Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
@@ -508,9 +530,9 @@ instance Cartesian (Nat :: (i -> *) -> (i -> *) -> *) where
 
 instance Cartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
   type (*) = LiftConstraint (&)
-  fst = Nat $ fst . get _LiftConstraint
-  snd = Nat $ snd . get _LiftConstraint
-  Nat f &&& Nat g = Nat $ unget _LiftConstraint . (f &&& g)
+  fst = Nat $ fst . get _Lift
+  snd = Nat $ snd . get _Lift
+  Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
 
 class (Cartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where
   {-# MINIMAL _1 | _2 #-}
@@ -634,7 +656,7 @@ counitAdj = unget adj id
 instance (,) e -| (->) e where
   adj = cccAdj
 
-instance Lift (,) e -| Lift (->) e where
+instance LiftValue (,) e -| LiftValue (->) e where
   adj = cccAdj
 
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
@@ -695,7 +717,7 @@ instance Monoid.Monoid m => Monoid m where
   one () = Monoid.mempty
   mult = uncurry Monoid.mappend
 
-instance Monoid (Const ()) where
+instance Monoid (ConstValue ()) where
   one = id
   mult = lambda
 
@@ -714,7 +736,7 @@ instance Comonoid Void where
   zero = id
   comult = absurd
 
-instance Comonoid (Const Void) where
+instance Comonoid (ConstValue Void) where
   zero = id
   comult = Nat $ absurd . getConst
 
