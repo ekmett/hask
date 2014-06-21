@@ -812,6 +812,10 @@ class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor
   ap1 :: One ~> f One
   ap2 :: f a * f b ~> f (a * b)
 
+instance Monoidal Dict where
+  ap1 () = Dict
+  ap2 (Dict, Dict) = Dict
+
 -- lift applicatives for Hask
 instance Applicative.Applicative f => Monoidal f where
   ap1 = Applicative.pure
@@ -888,6 +892,8 @@ instance Comonoid Void where
 instance Comonoid (ConstValue Void) where
   zero = id
   comult = Nat $ absurd . getConst
+
+-- instance Comonoid (ConstValue2 (ConstValue Void)) where
 
 class Functor f => Strength (f :: x -> x) where
   strength :: a * f b ~> f (a * b)
