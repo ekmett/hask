@@ -2,6 +2,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -53,6 +54,14 @@ instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Cat
 runProd :: forall (a :: i) (b :: i) (c :: j) (d :: j). (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Prod '(a,c) '(b,d) -> (a ~> b, c ~> d)
 runProd Want       = (id,id)
 runProd (Have f g) = (f,g)
+
+runFst :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: i -> i -> *) => Prod '(a,c) '(b,d) -> a ~> b
+runFst Want       = id
+runFst (Have f _) = f
+
+runSnd :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: j -> j -> *) => Prod '(a,c) '(b,d) -> c ~> d
+runSnd Want       = id
+runSnd (Have _ g) = g
 
 -- needed because we can't partially apply (,) in the world of constraints
 class (p, q) => p & q
@@ -713,6 +722,18 @@ instance LiftValue (,) e -| LiftValue (->) e where
 
 -- instance LiftValue2 (LiftValue (,)) e -| LiftValue2 (LiftValue (->)) e where
 --   adj = cccAdj
+
+-- Δ -| (*)
+diagProd :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
+   Cartesian ((~>) :: i -> i -> *) =>
+   Iso ('(a,a) ~> '(b,c)) ('(a',a') ~> '(b',c')) (a ~> b * c) (a' ~> b' * c')
+diagProd = dimap (uncurry (&&&) . runProd) $ \f -> Have (fst . f) (snd . f)
+
+-- (+) -| Δ
+sumDiag :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
+   Cocartesian ((~>) :: i -> i -> *) =>
+   Iso (b + c ~> a) (b' + c' ~> a') ('(b,c) ~> '(a,a)) ('(b',c') ~> '(a',a'))
+sumDiag = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
   ap1 :: One ~> f One
