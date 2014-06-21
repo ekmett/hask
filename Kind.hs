@@ -139,11 +139,12 @@ class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
   _Const :: forall (a :: i) (b :: j) (a' :: i) (b' :: j). Iso (Const b a) (Const b' a') b b'
 
 newtype ConstValue (b :: *) (a :: i) = Const { getConst :: b }
+
 instance Constant ConstValue where
   type Const = ConstValue
   _Const = dimap getConst Const
 
-newtype ConstValue2 (b :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: b c }
+newtype ConstValue2 (f :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: f c }
 instance Constant ConstValue2 where
   type Const = ConstValue2
   _Const = dimap (Nat getConst2) (Nat Const2)
@@ -155,14 +156,26 @@ instance Constant ConstConstraint where
 class b => ConstConstraint b a
 instance b => ConstConstraint b a
 
-instance Functor (ConstValue :: * -> i -> *) where
+instance Functor ConstValue where
   fmap f = Nat (_Const f)
 
-instance Functor (ConstValue2 :: (j -> *) -> i -> j -> *) where
+instance Functor (ConstValue b) where
+  fmap _ = _Const id
+
+instance Functor ConstValue2 where
   fmap f = Nat (_Const f)
 
-instance Functor (ConstConstraint :: Constraint -> i -> Constraint) where
+instance Functor (ConstValue2 f) where
+  fmap _ = Nat $ Const2 . getConst2
+
+instance Functor f => Functor (ConstValue2 f a) where
+  fmap f = Const2 . fmap f . getConst2
+
+instance Functor ConstConstraint where
   fmap f = Nat (_Const f)
+
+instance Functor (ConstConstraint b) where
+  fmap _ = Sub Dict
 
 -- * -^J -| Limit
 
