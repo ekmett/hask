@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
@@ -30,7 +31,7 @@ import Data.Tagged
 import qualified Data.Traversable as Traversable
 import Data.Void
 import qualified Prelude
-import Prelude (Either(..), ($), either, Bool)
+import Prelude (Either(..), ($), either, Bool, undefined)
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -38,15 +39,17 @@ import Unsafe.Coerce (unsafeCoerce)
 
 infixr 0 ~>
 type family (~>) :: i -> i -> *
-type instance (~>) = (->) -- * -> * -> *
-type instance (~>) = Nat  -- (i -> j) -> (i -> j) -> *
-type instance (~>) = (:-) -- Constraint -> Constraint -> *
+type instance (~>) = (->) -- @* -> * -> *@
+type instance (~>) = Nat  -- @(i -> j) -> (i -> j) -> *@
+type instance (~>) = (:-) -- @Constraint -> Constraint -> *@
 
+
+infixr 2 &
 -- needed because we can't partially apply (,) in the world of constraints
 class (p, q) => p & q
 instance (p, q) => p & q
 
--- * Natural transformations form a category, using parametricity as a proxy for naturality
+-- * Natural transformations form a category, using parametricity as a (stronger) proxy for naturality
 
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
 
@@ -353,6 +356,9 @@ instance Functor1 ((~>) :: j -> j -> *) => Functor1 (Nat :: (i -> j) -> (i -> j)
 
 instance Functor1 (&) where
   fmap1 p = Sub $ Dict \\ p
+
+instance Functor ((&) p) where
+  fmap = fmap1
 
 instance Functor1 (,) where
   fmap1 = Arrow.second
@@ -1069,3 +1075,52 @@ sumDiagAdj :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
    Iso (b + c ~> a) (b' + c' ~> a') ('(b,c) ~> '(a,a)) ('(b',c') ~> '(a',a'))
 sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 
+-- * Work in progress
+
+-- * Kan extensions
+
+type family Ran :: (i -> j) -> (i -> k) -> j -> k
+type family Lan :: (i -> j) -> (i -> k) -> j -> k
+
+type instance Ran = RanValue -- :: (i -> j) -> (i -> *) -> j -> *
+newtype RanValue f g a = Ran { runRan :: forall r. f r^a ~> g r }
+
+type instance Lan = LanValue -- :: (i -> j) -> (i -> *) -> j -> *
+data LanValue f g a where
+  Lan :: (f b ~> a) -> g b -> LanValue f g a
+
+-- newtype Codensity f a = Codensity { runCodensity :: forall r. f r^a ~> f r }
+-- newtype Yoneda f a = Yoneda { runYoneda :: forall r. r^a ~> f r }
+
+-- * Work in progress
+
+-- constraints can be upgraded to a cartesian closed category with reflection
+
+infixr 9 |-
+-- exponentials for constraints
+class p |- q where
+  implies :: p :- q
+
+-- these are going to be hard
+instance Contravariant (|-) where -- TODO
+instance Functor1 (|-) where -- TODO
+instance Functor ((|-) p) where
+  fmap = fmap1
+
+applyConstraint :: forall p q. (p |- q & p) :- q
+applyConstraint = Sub $ Dict \\ (implies :: p :- q)
+
+-- convert to and fron the internal representation of dictionaries
+
+_Sub :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict p -> Dict q) (Dict p' -> Dict q')
+_Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
+
+unapplyConstraint :: p :- q |- (p & q)
+unapplyConstraint = undefined -- TODO
+
+instance (&) p -| (|-) p where
+  adj = cccAdj
+
+instance CCC (:-) where
+  type Exp = (|-)
+  curried = dimap (\q -> fmap q . unapplyConstraint) (\p -> applyConstraint . first p)
