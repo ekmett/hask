@@ -956,6 +956,11 @@ instance PFunctor (Cokey i) where
 instance QFunctor Cokey where
   second f = Nat $ \xs -> Cokey $ f (runCokey xs)
 
+instance Monoidal (Cokey i) where
+  ap1 = Nat $ \a -> Cokey (getConst a)
+  ap2 = Nat $ \ab -> Cokey $ case ab of
+    Lift (Cokey a, Cokey b) -> (a, b)
+
 -- Conor McBride's "Atkey" adapted to this formalism
 --
 -- Key i :: Hask -> Nat
