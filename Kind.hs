@@ -1106,8 +1106,12 @@ class p |- q where
 _Sub :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict p -> Dict q) (Dict p' -> Dict q')
 _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
 
+newtype Magic p q r = Magic ((p |- q) => r)
+reify :: forall p q r. ((p |- q) => r) -> (p :- q) -> r
+reify k = unsafeCoerce (Magic k :: Magic p q r)
+
 _Implies :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
-_Implies = dimap (undefined :: (p :- q) -> Dict (p |- q)) (\Dict -> implies) -- TODO
+_Implies = dimap (reify Dict) (\Dict -> implies)
 
 instance Contravariant (|-) where 
   contramap f = Nat $ unget _Sub $ un _Implies (. f)
