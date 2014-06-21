@@ -11,6 +11,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 module Kind where
 
 import qualified Control.Applicative as Applicative
@@ -28,7 +29,7 @@ import qualified Data.Traversable as Traversable
 import Data.Void
 import qualified Prelude
 import Prelude (Either(..), ($), either, Bool)
-import GHC.Exts (Constraint, Any)
+import GHC.Exts (Constraint)
 
 -- * A kind-indexed family of categories
 
@@ -37,6 +38,21 @@ type family (~>) :: i -> i -> *
 type instance (~>) = (->) -- * -> * -> *
 type instance (~>) = Nat  -- (i -> j) -> (i -> j) -> *
 type instance (~>) = (:-) -- Constraint -> Constraint -> *
+type instance (~>) = Prod -- (i,j) -> (i, j) -> *
+
+data Prod :: (i,j) -> (i,j) -> * where
+  Want :: Prod a a
+  Have :: forall (a :: i) (b :: i) (c :: j) (d :: j). (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
+
+instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Category (Prod :: (i,j) -> (i,j) -> *) where
+  id = Want
+  Want . f = f
+  f . Want = f
+  Have f f' . Have g g' = Have (f . g) (f' . g')
+
+runProd :: forall (a :: i) (b :: i) (c :: j) (d :: j). (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Prod '(a,c) '(b,d) -> (a ~> b, c ~> d)
+runProd Want       = (id,id)
+runProd (Have f g) = (f,g)
 
 -- needed because we can't partially apply (,) in the world of constraints
 class (p, q) => p & q
@@ -89,6 +105,9 @@ instance Prelude.Functor f => Functor f where
 
 instance Contravariant.Contravariant f => Contravariant f where
   contramap = Contravariant.contramap
+
+instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Functor (Prod p :: (i, j) -> *) where
+  fmap = (.)
 
 instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where
   fmap = (.)
@@ -192,6 +211,9 @@ instance PFunctor p => PFunctor (LiftConstraint p) where
 instance PFunctor Tagged where
   first _ = _Tagged id
 
+instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => QFunctor (Prod :: (i, j) -> (i, j) -> *) where
+  second = (.)
+
 instance Category ((~>) :: x -> x -> *) => QFunctor (Hom :: x -> x -> *) where
   second g (Hom h) = Hom (g . h)
 
@@ -281,6 +303,11 @@ instance PContravariant (->) where
 
 instance Category ((~>) :: x -> x -> *) => PContravariant (Hom :: x -> x -> *) where
   lmap f = _Hom (.f)
+
+instance (PContravariant ((~>) :: i -> i -> *), PContravariant ((~>) :: j -> j -> *)) => PContravariant (Prod :: (i, j) -> (i, j) -> *) where
+  lmap (Have f f') (Have g g') = Have (lmap f g) (lmap f' g')
+  lmap Want f = f
+  lmap f Want = f
 
 instance PContravariant ((~>)::j->j-> *) => PContravariant (Nat::(i->j)->(i->j)-> *) where
   lmap (Nat ab) (Nat bc) = Nat (lmap ab bc)
