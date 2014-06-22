@@ -114,6 +114,7 @@ cozipL = dimap
   (unget adj (get adj inl ||| get adj inr))
   (fmap inl ||| fmap inr)
 
+
 -- tabulated :: (f -| u) => Iso (a ^ f One) (b ^ f One) (u a) (u b)
 -- splitL :: (f -| u) => Iso (f a) (f a') (a * f One) (a' * f One)
 
@@ -1374,6 +1375,41 @@ instance Copower2 e -| Nat e where
   adj = dimap (\f a -> Nat $ Nat $ \e -> runNat (runNat f) (Copower2 e a))
               (\f -> Nat $ Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
               -- Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
+
+-- we now need the notion of an adjunction to a dual category for handling powers
+
+-- | the isomorphism that witnesses f -| u
+type (f :: y -> x) =: (u :: x -> y) = forall a b a' b'. Iso (b ~> f a) (b' ~> f a') (a ~> u b) (a' ~> u b')
+
+class (Profunctor (Power :: * -> j -> j), k ~ (~>)) => Powered (k :: j -> j -> *) | j -> k where
+  type Power :: * -> j -> j
+  _Power :: forall (u :: *) (u' :: *) (a :: j) (a' :: j) (b :: j) (b' :: j).
+             Iso (a ~> Power u b) (a' ~> Power u' b') (u -> (a ~> b)) (u' -> (a' ~> b'))
+
+instance Powered (->) where
+  type Power = (->)
+  _Power = dimap Prelude.flip Prelude.flip
+
+newtype Power1 v f a = Power { runPower :: v -> f a }
+
+instance Contravariant Power1 where
+  contramap f = Nat $ Nat $ Power . lmap f . runPower
+
+instance Functor1 Power1 where
+  fmap1 f = Nat $ Power . fmap1 (runNat f) . runPower
+
+instance Functor (Power1 v) where
+  fmap = fmap1
+
+instance Functor f => Functor (Power1 v f) where
+  fmap f = Power . fmap1 (fmap f) . runPower
+
+-- Nat :: (i -> *) is powered over Hask
+instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Power = Power1
+  _Power = dimap
+     (\k v -> Nat $ \f -> runPower (runNat k f) v)
+     (\k -> Nat $ \a' -> Power $ \u' -> runNat (k u') a')
 
 -- * Kan extensions
 
