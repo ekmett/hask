@@ -231,7 +231,7 @@ type instance Limit = LimitValue2
 instance Functor LimitValue2 where
   fmap f = Nat $ \(Limit2 g) -> Limit2 (runNat (runNat f) g)
 
--- instance Monoidal LimitValue2
+-- instance Monoidal LimitValue2 -- instantiate when Nat on 2 arguments is made Cartesian
 
 instance ConstValue2 -| LimitValue2 where
   adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
@@ -250,6 +250,14 @@ instance Functor LimitConstraint where
   fmap f = dimap (Sub limitDict) (Sub Dict) (runAny f) where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
+
+instance Monoidal LimitConstraint where
+  ap0 = Sub Dict
+  ap2 = get zipR
+
+instance Monoid m => Monoid (LimitConstraint m) where
+  one = oneM
+  mult = multM
 
 instance ConstConstraint -| LimitConstraint where
   adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
