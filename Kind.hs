@@ -1197,6 +1197,11 @@ instance Initial '() where
 class Category c => Groupoid c where
   inverse :: c a b -> c b a
 
+instance (Groupoid ((~>) :: i -> i -> *), Groupoid ((~>) :: j -> j -> *)) =>
+  Groupoid (Prod :: (i, j) -> (i, j) -> *) where
+  inverse Want = Want
+  inverse (Have f g) = Have (inverse f) (inverse g)
+
 data Empty (a :: Void) (b :: Void) = Empty (Empty a b)
 
 type instance (~>) = Empty
