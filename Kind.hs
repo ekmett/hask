@@ -105,15 +105,29 @@ zipR :: (f -| u, Cartesian (Dom u), Cartesian (Cod u))
 zipR = dimap (get adj (unget adj fst &&& unget adj snd))
              (fmap fst &&& fmap snd)
 
+-- given f =| u, u is a strong indexed monoidal functor
+zipR1 :: (f =| u, Cartesian (Cod2 u), Cartesian (Cod2 f))
+     => Iso (u e a * u e b) (u e' a' * u e' b') (u e (a * b)) (u e' (a' * b'))
+zipR1 = dimap (get adj1 (unget adj1 fst &&& unget adj1 snd))
+              (fmap1 fst &&& fmap1 snd)
+
 absurdL :: (f -| u, Initial z) => Iso' z (f z)
 absurdL = dimap initial (unget adj initial)
 
-cozipL :: (f -| u, Cocartesian (Dom u), Cocartesian (Cod u))
+absurdL1 :: (f =| u, Initial z) => Iso' z (f e z)
+absurdL1 = dimap initial (unget adj1 initial)
+
+cozipL :: (f -| u, Cocartesian (Cod u), Cocartesian (Cod f))
        => Iso (f (a + b)) (f (a' + b')) (f a + f b) (f a' + f b')
 cozipL = dimap
   (unget adj (get adj inl ||| get adj inr))
   (fmap inl ||| fmap inr)
 
+cozipL1 :: (f =| u, Cocartesian (Cod2 u), Cocartesian (Cod2 f))
+       => Iso (f e (a + b)) (f e' (a' + b')) (f e a + f e b) (f e' a' + f e' b')
+cozipL1 = dimap
+  (unget adj1 (get adj1 inl ||| get adj1 inr))
+  (fmap1 inl ||| fmap1 inr)
 
 -- tabulated :: (f -| u) => Iso (a ^ f One) (b ^ f One) (u a) (u b)
 -- splitL :: (f -| u) => Iso (f a) (f a') (a * f One) (a' * f One)
@@ -126,6 +140,9 @@ class (Contravariant p, Contravariant1 p, Category (Cod2 p)) => Bicontravariant 
 instance (Contravariant p, Contravariant1 p, Category (Cod2 p)) => Bicontravariant p
 
 -- enriched profuncors C^op * D -> E
+--
+-- note: due to the fact that we use the variances in the other order, this is technically a
+-- correspondence, not a profunctor
 class (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
 instance (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
 
@@ -603,14 +620,11 @@ instance (Contravariant p, Functor p) => PPhantom p
 class (Contravariant1 p, Functor1 p) => QPhantom p
 instance (Contravariant1 p, Functor1 p) => QPhantom p
 
-rmap :: Functor1 p => (a ~> b) -> p c a ~> p c b
-rmap = fmap1
-
 bimap :: Bifunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
 bimap f g = first f . fmap1 g
 
 dimap :: Profunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
-dimap f g = lmap f . rmap g
+dimap f g = lmap f . fmap1 g
 
 -- tensor for a (skew) monoidal category
 class Bifunctor p => Tensor (p :: x -> x -> x) where
@@ -646,7 +660,7 @@ lambdaLift :: (Contravariant (Cod2 p), Constant k, Lifted s, Tensor p) => s p (k
 lambdaLift = Nat $ lmap (first (get _Const) . get _Lift) lambda
 
 rhoLift :: (Functor1 (Cod2 p), Constant k, Lifted s, Tensor p) => Nat f (s p f (k (Id p)))
-rhoLift = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
+rhoLift = Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) rho
 
 instance Tensor p => Tensor (Lift1 p) where
   type Id (Lift1 p) = Const1 (Id p)
@@ -687,6 +701,7 @@ instance Symmetric p => Symmetric (Lift2 p) where
 
 instance Symmetric p => Symmetric (LiftC p) where
   swap = Nat $ _Lift swap
+
 
 -- forward profunctor composition forms a weak category.
 data Prof :: (i -> j -> *) -> (j -> k -> *) -> i -> k -> * where
