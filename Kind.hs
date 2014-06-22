@@ -39,15 +39,20 @@ import Unsafe.Coerce (unsafeCoerce)
 -- * A kind-indexed family of categories
 
 infixr 0 ~>
-type family (~>) :: i -> i -> *
-type instance (~>) = (->) -- @* -> * -> *@
-type instance (~>) = Nat  -- @(i -> j) -> (i -> j) -> *@
-type instance (~>) = (:-) -- @Constraint -> Constraint -> *@
 
-type Dom (f :: x -> y) = ((~>) :: x -> x -> *)
-type Cod (f :: x -> y) = ((~>) :: y -> y -> *)
+type family (~>) :: i -> i -> *
+type instance (~>) = (->)  -- @* -> * -> *@
+type instance (~>) = Nat   -- @(i -> j) -> (i -> j) -> *@
+type instance (~>) = (:-)  -- @Constraint -> Constraint -> *@
+type instance (~>) = Unit  -- @() -> () -> *@
+type instance (~>) = Empty -- @Void -> Void -> *@
+type instance (~>) = Prod  -- @(i,j) -> (i, j) -> *@
+
+-- * convenience types that make it so we can avoid explicitly talking about the kinds as much as possible
+type Dom  (f :: x -> y)      = ((~>) :: x -> x -> *)
+type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
 type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
-type Arr (a :: x) = ((~>) :: x -> x -> *)
+type Arr  (a :: x)           = ((~>) :: x -> x -> *)
 
 infixr 2 &
 -- needed because we can't partially apply (,) in the world of constraints
@@ -158,47 +163,45 @@ instance Monoid m => Monoid (At x m) where
   one = oneM
   mult = multM
 
--- instance Opmonoidal (At x) where
-
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
   type Const :: j -> i -> j
   _Const :: Iso (k b a) (k b' a') b b'
 
-newtype ConstValue b a = Const { getConst :: b }
+newtype Const1 b a = Const { getConst :: b }
 
-instance Constant ConstValue where
-  type Const = ConstValue
+instance Constant Const1 where
+  type Const = Const1
   _Const = dimap getConst Const
 
-instance Functor ConstValue where
+instance Functor Const1 where
   fmap f = Nat (_Const f)
 
-instance Functor1 ConstValue where
+instance Functor1 Const1 where
   fmap1 _ = _Const id
 
-instance Functor (ConstValue b) where
+instance Functor (Const1 b) where
   fmap = fmap1
 
-newtype ConstValue2 (f :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: f c }
+newtype Const2 (f :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: f c }
 
-instance Constant ConstValue2 where
-  type Const = ConstValue2
+instance Constant Const2 where
+  type Const = Const2
   _Const = dimap (Nat getConst2) (Nat Const2)
 
-instance Functor ConstValue2 where
+instance Functor Const2 where
   fmap f = Nat (_Const f)
 
-instance Functor1 ConstValue2 where
+instance Functor1 Const2 where
   fmap1 _ = Nat $ Const2 . getConst2
 
-instance Functor (ConstValue2 f) where
+instance Functor (Const2 f) where
   fmap = fmap1
 
-instance Functor f => Functor1 (ConstValue2 f) where
+instance Functor f => Functor1 (Const2 f) where
   fmap1 f = Const2 . fmap f . getConst2
 
-instance Functor f => Functor (ConstValue2 f a) where
+instance Functor f => Functor (Const2 f a) where
   fmap = fmap1
 
 class b => ConstConstraint b a
@@ -218,32 +221,32 @@ instance Functor (ConstConstraint b) where
 
 type family Limit :: (i -> j) -> j
 
-newtype LimitValue (f :: i -> *) = Limit { getLimit :: forall x. f x }
-type instance Limit = LimitValue
+newtype Limit1 (f :: i -> *) = Limit { getLimit :: forall x. f x }
+type instance Limit = Limit1
 
-instance Functor LimitValue where
+instance Functor Limit1 where
   fmap (Nat f) (Limit g) = Limit (f g)
 
-instance Monoidal LimitValue where
+instance Monoidal Limit1 where
   ap0 () = Limit $ Const ()
   ap2 (Limit f, Limit g) = Limit (Lift (f, g))
 
-instance Monoid m => Monoid (LimitValue m) where
+instance Monoid m => Monoid (Limit1 m) where
   one = oneM
   mult = multM
 
-instance ConstValue -| LimitValue where
+instance Const1 -| Limit1 where
   adj = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
 
-newtype LimitValue2 (f :: i -> j -> *) (y :: j) = Limit2 { getLimit2 :: forall x. f x y }
-type instance Limit = LimitValue2
+newtype Limit2 (f :: i -> j -> *) (y :: j) = Limit2 { getLimit2 :: forall x. f x y }
+type instance Limit = Limit2
 
-instance Functor LimitValue2 where
+instance Functor Limit2 where
   fmap f = Nat $ \(Limit2 g) -> Limit2 (runNat (runNat f) g)
 
--- instance Monoidal LimitValue2 -- instantiate when Nat on 2 arguments is made Cartesian
+-- instance Monoidal Limit2 -- instantiate when Nat on 2 arguments is made Cartesian
 
-instance ConstValue2 -| LimitValue2 where
+instance Const2 -| Limit2 where
   adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
 
 -- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
@@ -277,36 +280,36 @@ instance ConstConstraint -| LimitConstraint where
 -- * Colimit -| -^J
 
 type family Colimit :: (i -> j) -> j
-type instance Colimit = ColimitValue
-type instance Colimit = ColimitValue2
+type instance Colimit = Colimit1
+type instance Colimit = Colimit2
 
-data ColimitValue (f :: i -> *) where
-  Colimit :: f x -> ColimitValue f
+data Colimit1 (f :: i -> *) where
+  Colimit :: f x -> Colimit1 f
 
-instance Functor ColimitValue where
+instance Functor Colimit1 where
   fmap (Nat f) (Colimit g)= Colimit (f g)
 
-instance Opmonoidal ColimitValue where
+instance Opmonoidal Colimit1 where
   op0 (Colimit (Const a)) = a
   op2 (Colimit (Lift ab)) = bimap Colimit Colimit ab
 
-instance Comonoid m => Comonoid (ColimitValue m) where
+instance Comonoid m => Comonoid (Colimit1 m) where
   zero = zeroOp
   comult = comultOp
 
-instance ColimitValue -| ConstValue where
+instance Colimit1 -| Const1 where
   adj = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
 
-data ColimitValue2 (f :: i -> j -> *) (x :: j) where
-  Colimit2 :: f y x -> ColimitValue2 f x
+data Colimit2 (f :: i -> j -> *) (x :: j) where
+  Colimit2 :: f y x -> Colimit2 f x
 
-instance Functor ColimitValue2 where
+instance Functor Colimit2 where
   fmap f = Nat $ \(Colimit2 g) -> Colimit2 (runNat (runNat f) g)
 
--- instance Opmonoidal ColimitValue2
--- instance Comonoid m => Comonoid (ColimitValue m)
+-- instance Opmonoidal Colimit2
+-- instance Comonoid m => Comonoid (Colimit1 m)
 
-instance ColimitValue2 -| ConstValue2 where
+instance Colimit2 -| Const2 where
   adj = dimap (\(Nat f) -> Nat $ Nat $ Const2 . f . Colimit2) $
                \ f -> Nat $ \ xs -> case xs of
                  Colimit2 fyx -> getConst2 $ runNat (runNat f) fyx
@@ -333,33 +336,33 @@ class Lift ~ s => Lifted (s :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l) 
   type Lift :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l
   _Lift :: Iso (s q f g a) (s r h e b) (q (f a) (g a)) (r (h b) (e b))
 
--- ** LiftValue
+-- ** Lift1
 
-newtype LiftValue p f g a = Lift { lower :: p (f a) (g a) }
+newtype Lift1 p f g a = Lift { lower :: p (f a) (g a) }
 
-instance Lifted LiftValue where
-  type Lift = LiftValue
+instance Lifted Lift1 where
+  type Lift = Lift1
   _Lift = dimap lower Lift
 
-instance Functor LiftValue where
+instance Functor Lift1 where
   fmap f = Nat $ Nat $ Nat $ _Lift $ runNat (runNat f)
 
-instance Functor p => Functor (LiftValue p) where
+instance Functor p => Functor (Lift1 p) where
   fmap f = Nat $ Nat $ _Lift $ first $ runNat f
 
-instance Contravariant p => Contravariant (LiftValue p) where
+instance Contravariant p => Contravariant (Lift1 p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance Contravariant1 p => Contravariant1 (LiftValue p) where
+instance Contravariant1 p => Contravariant1 (Lift1 p) where
   contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
 
-instance Functor1 p => Functor1 (LiftValue p) where
+instance Functor1 p => Functor1 (Lift1 p) where
   fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance Functor1 p => Functor (LiftValue p f) where
+instance Functor1 p => Functor (Lift1 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance (Functor p, Functor1 p, Functor f, Functor g) => Functor (LiftValue p f g) where
+instance (Functor p, Functor1 p, Functor f, Functor g) => Functor (Lift1 p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
 
 -- ** LiftConstraint
@@ -389,30 +392,30 @@ instance Lifted LiftConstraint where
   type Lift = LiftConstraint
   _Lift = dimap (Sub Dict) (Sub Dict)
 
--- ** LiftValue2
+-- ** Lift2
 
-newtype LiftValue2 p f g a b = Lift2 { lower2 :: p (f a) (g a) b }
+newtype Lift2 p f g a b = Lift2 { lower2 :: p (f a) (g a) b }
 
-instance Lifted LiftValue2 where
-  type Lift = LiftValue2
+instance Lifted Lift2 where
+  type Lift = Lift2
   _Lift = dimap (Nat lower2) (Nat Lift2)
 
-instance Functor LiftValue2 where
+instance Functor Lift2 where
   fmap f = Nat $ Nat $ Nat $ _Lift $ runNat (runNat f)
 
-instance Functor p => Functor (LiftValue2 p) where
+instance Functor p => Functor (Lift2 p) where
   fmap f = Nat $ Nat $ _Lift $ first $ runNat f
 
-instance Contravariant p => Contravariant (LiftValue2 p) where
+instance Contravariant p => Contravariant (Lift2 p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance Functor1 p => Functor (LiftValue2 p f) where
+instance Functor1 p => Functor (Lift2 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance Contravariant1 p => Contravariant (LiftValue2 p f) where
+instance Contravariant1 p => Contravariant (Lift2 p f) where
   contramap = contramap1
 
-instance Functor1 p => Functor1 (LiftValue2 p) where
+instance Functor1 p => Functor1 (Lift2 p) where
   fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
 -- * Functors
@@ -542,19 +545,19 @@ instance Contravariant ((~>)::j->j-> *) => Contravariant (Nat::(i->j)->(i->j)-> 
 instance Contravariant Tagged where
   contramap _ = Nat (_Tagged id)
 
-instance Contravariant1 ConstValue where
+instance Contravariant1 Const1 where
   contramap1 _ = _Const id
 
-instance Contravariant1 ConstValue2 where
+instance Contravariant1 Const2 where
   contramap1 _ = _Const id
 
-instance Contravariant1 p => Contravariant1 (LiftValue2 p) where
+instance Contravariant1 p => Contravariant1 (Lift2 p) where
   contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
 
-instance Contravariant (ConstValue k) where
+instance Contravariant (Const1 k) where
   contramap _ = _Const id
 
-instance Contravariant (ConstValue2 k) where
+instance Contravariant (Const2 k) where
   contramap _ = _Const id
 
 type Ungetter t b = forall p. (Choice p, Functor p) => p b b -> p t t
@@ -668,14 +671,14 @@ instance Tensor Either where
   lambda (Right a) = a
   rho = Left
 
-instance Tensor p => Tensor (LiftValue p) where
-  type Id (LiftValue p) = ConstValue (Id p)
+instance Tensor p => Tensor (Lift1 p) where
+  type Id (Lift1 p) = Const1 (Id p)
   associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
   lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
   rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
 
-instance Tensor p => Tensor (LiftValue2 p) where
-  type Id (LiftValue2 p) = ConstValue2 (Id p)
+instance Tensor p => Tensor (Lift2 p) where
+  type Id (Lift2 p) = Const2 (Id p)
   associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
   lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
   rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
@@ -705,10 +708,10 @@ instance Symmetric (&) where
 instance Symmetric Either where
   swap = either Right Left
 
-instance Symmetric p => Symmetric (LiftValue p) where
+instance Symmetric p => Symmetric (Lift1 p) where
   swap = Nat $ _Lift swap
 
-instance Symmetric p => Symmetric (LiftValue2 p) where
+instance Symmetric p => Symmetric (Lift2 p) where
   swap = Nat $ _Lift swap
 
 instance Symmetric p => Symmetric (LiftConstraint p) where
@@ -736,8 +739,8 @@ instance Terminal () where
   terminal _ = ()
 
 -- we can only offer the terminal object for Nat :: (i -> *), not Nat :: (i -> j)
-instance Terminal (ConstValue ()) where
-  type One = ConstValue ()
+instance Terminal (Const1 ()) where
+  type One = Const1 ()
   terminal = Nat (Const . terminal)
 
 instance Terminal (() :: Constraint) where
@@ -757,8 +760,8 @@ instance Initial Void where
   initial = absurd
 
 -- we can only offer the initial object for Nat :: (i -> *), not Nat :: (i -> j)
-instance Initial (ConstValue Void) where
-  type Zero = ConstValue Void
+instance Initial (Const1 Void) where
+  type Zero = Const1 Void
   initial = Nat $ initial . getConst
 
 instance Initial (() ~ Bool) where
@@ -908,8 +911,10 @@ cccAdj = dimap (. swap) (. swap) . curried
 instance (,) e -| (->) e where
   adj = cccAdj
 
-instance LiftValue (,) e -| LiftValue (->) e where
+instance Lift1 (,) e -| Lift1 (->) e where
   adj = cccAdj
+
+-- monoidal functors preserve the structure of our tensor and take monoid objects to monoid objects
 
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
   ap0 :: One ~> f One
@@ -936,11 +941,11 @@ instance Monoid m => Monoid (f :- m) where
   one = oneM
   mult = multM
 
-instance Monoidal (LiftValue (->) f) where
+instance Monoidal (Lift1 (->) f) where
   ap0 = curry fst
   ap2 = get zipR
 
-instance Monoid m => Monoid (LiftValue (->) f m) where
+instance Monoid m => Monoid (Lift1 (->) f m) where
   one = oneM
   mult = multM
 
@@ -1016,11 +1021,11 @@ instance Comonoid m => Comonoid (At x m) where
   zero = zeroOp
   comult = comultOp
 
-instance Opmonoidal (LiftValue (,) e) where
+instance Opmonoidal (Lift1 (,) e) where
   op0 = snd
   op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
 
-instance Comonoid m => Comonoid (LiftValue (,) e m) where
+instance Comonoid m => Comonoid (Lift1 (,) e m) where
   zero = zeroOp
   comult = comultOp
 
@@ -1074,7 +1079,7 @@ instance Monoid.Monoid m => Monoid m where
   one () = Monoid.mempty
   mult = uncurry Monoid.mappend
 
-instance Monoid (ConstValue ()) where
+instance Monoid (Const1 ()) where
   one = id
   mult = lambda
 
@@ -1101,11 +1106,11 @@ instance Comonoid Void where
   zero = id
   comult = absurd
 
-instance Comonoid (ConstValue Void) where
+instance Comonoid (Const1 Void) where
   zero = id
   comult = Nat $ absurd . getConst
 
--- instance Comonoid (ConstValue2 (ConstValue Void)) where
+-- instance Comonoid (Const2 (Const1 Void)) where
 
 class Functor f => Strength f where
   strength :: a * f b ~> f (a * b)
@@ -1197,7 +1202,6 @@ instance Comonoid m => Comonoid (Key i m) where
   comult = comultOp
 
 -- * Traditional product categories w/ adjoined identities
-type instance (~>) = Prod -- (i,j) -> (i, j) -> *
 data Prod :: (i,j) -> (i,j) -> * where
   Want :: Prod a a
   Have :: (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
@@ -1263,12 +1267,12 @@ sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 type family Ran :: (i -> j) -> (i -> k) -> j -> k
 type family Lan :: (i -> j) -> (i -> k) -> j -> k
 
-type instance Ran = RanValue -- :: (i -> j) -> (i -> *) -> j -> *
-newtype RanValue f g a = Ran { runRan :: forall r. f r^a ~> g r }
+type instance Ran = Ran1 -- :: (i -> j) -> (i -> *) -> j -> *
+newtype Ran1 f g a = Ran { runRan :: forall r. f r^a ~> g r }
 
-type instance Lan = LanValue -- :: (i -> j) -> (i -> *) -> j -> *
-data LanValue f g a where
-  Lan :: (f b ~> a) -> g b -> LanValue f g a
+type instance Lan = Lan1 -- :: (i -> j) -> (i -> *) -> j -> *
+data Lan1 f g a where
+  Lan :: (f b ~> a) -> g b -> Lan1 f g a
 
 -- newtype Codensity f a = Codensity { runCodensity :: forall r. f r^a ~> f r }
 -- newtype Yoneda f a = Yoneda { runYoneda :: forall r. r^a ~> f r }
@@ -1315,7 +1319,6 @@ instance CCC (:-) where
   curried = dimap (\q -> fmap q . unapplyConstraint) (\p -> applyConstraint . first p)
 
 data Unit (a :: ()) (b :: ()) = Unit
-type instance (~>) = Unit
 
 instance Category Unit where
   id = Unit
@@ -1359,8 +1362,6 @@ instance (Groupoid ((~>) :: i -> i -> *), Groupoid ((~>) :: j -> j -> *)) =>
   inverse (Have f g) = Have (inverse f) (inverse g)
 
 data Empty (a :: Void) (b :: Void) = Empty (Empty a b)
-
-type instance (~>) = Empty
 
 instance Category Empty where
   id = Empty id
