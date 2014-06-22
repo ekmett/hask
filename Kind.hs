@@ -1505,7 +1505,9 @@ type g · f = Up f g
 
 class (Category ((~>) :: k -> k -> *), Up ~ up) => Composed (up :: (i -> j) -> (j -> k) -> i -> k) | i j k -> up where
   type Up :: (i -> j) -> (j -> k) -> i -> k
-  -- can't put the iso in here
+  -- can't put the iso in here due to ghc #9200
+  -- Composed is used to define Functor1, Functor1 is used in Profunctor, Profunctor is used in Iso
+  -- but we recurse polymorphically during the cycle
   up    :: g (f a) ~> up f g a
   runUp :: up f g a ~> g (f a)
 
