@@ -186,7 +186,7 @@ instance Semimonoidal (At x) where
 instance Monoidal (At x) where
   ap0 = At . Const
 
-instance Semimonoid m => Semimonoid (At x m) where
+instance Semigroup m => Semigroup (At x m) where
   mult = multM
 
 instance Monoid m => Monoid (At x m) where
@@ -253,7 +253,7 @@ instance Semimonoidal Limit1 where
 instance Monoidal Limit1 where
   ap0 () = Limit $ Const ()
 
-instance Semimonoid m => Semimonoid (Limit1 m) where
+instance Semigroup m => Semigroup (Limit1 m) where
   mult = multM
 
 instance Monoid m => Monoid (Limit1 m) where
@@ -294,7 +294,7 @@ instance Semimonoidal LimitC where
 instance Monoidal LimitC where
   ap0 = Sub Dict
 
--- instance Semimonoid m => Semimonoid (LimitC m) where mult = multM
+-- instance Semigroup m => Semigroup (LimitC m) where mult = multM
 
 instance Monoid m => Monoid (LimitC m) where
   one = oneM
@@ -322,7 +322,7 @@ instance Opsemimonoidal Colimit1 where
 instance Opmonoidal Colimit1 where
   op0 (Colimit (Const a)) = a
 
-instance Cosemimonoid m => Cosemimonoid (Colimit1 m) where
+instance Cosemigroup m => Cosemigroup (Colimit1 m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (Colimit1 m) where
@@ -1028,7 +1028,7 @@ instance Semimonoidal Dict where
 instance Monoidal Dict where
   ap0 () = Dict
 
-instance Semimonoid (Dict m) where
+instance Semigroup (Dict m) where
   mult (Dict, Dict) = Dict
 
 instance Monoid m => Monoid (Dict m) where
@@ -1049,7 +1049,7 @@ instance Semimonoidal ((:-) f) where
 instance Monoidal ((:-) f) where
   ap0 () = terminal
 
-instance Semimonoid (f :- m) where -- every m is a semimonoid
+instance Semigroup (f :- m) where -- every m is a semimonoid
   mult = multM
 
 instance Monoid m => Monoid (f :- m) where
@@ -1061,7 +1061,7 @@ instance Semimonoidal (Lift1 (->) f) where
 instance Monoidal (Lift1 (->) f) where
   ap0 = curry fst
 
-instance Semimonoid m => Semimonoid (Lift1 (->) f m) where
+instance Semigroup m => Semigroup (Lift1 (->) f m) where
   mult = multM
 
 instance Monoid m => Monoid (Lift1 (->) f m) where
@@ -1077,7 +1077,7 @@ instance Semimonoidal ((|-) f) where
 instance Monoidal ((|-) f) where
   ap0 = curry fst
 
--- instance Semimonoid m => Semimonoid (f |- m) where mult = multM -- all constraints are semimonoids!
+-- instance Semigroup m => Semigroup (f |- m) where mult = multM -- all constraints are semimonoids!
 
 instance Monoid m => Monoid (f |- m) where
   one = oneM
@@ -1094,7 +1094,7 @@ instance Semimonoidal (Nat f :: (i -> Constraint) -> *) where
 instance Monoidal (Nat f :: (i -> Constraint) -> *) where
   ap0 () = terminal
 
-instance (Semimonoidal (Nat f), Semimonoid m) => Semimonoid (Nat f m) where
+instance (Semimonoidal (Nat f), Semigroup m) => Semigroup (Nat f m) where
   mult = multM
 
 instance (Monoidal (Nat f), Monoid m) => Monoid (Nat f m) where
@@ -1145,7 +1145,7 @@ instance Opsemimonoidal ((,) e) where
 instance Opmonoidal ((,) e) where
   op0 = snd
 
-instance Cosemimonoid m => Cosemimonoid (e, m) where
+instance Cosemigroup m => Cosemigroup (e, m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (e, m) where
@@ -1157,7 +1157,7 @@ instance Opsemimonoidal Identity where
 instance Opmonoidal Identity where
   op0 = runIdentity
 
-instance Cosemimonoid m => Cosemimonoid (Identity m) where
+instance Cosemigroup m => Cosemigroup (Identity m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (Identity m) where
@@ -1169,7 +1169,7 @@ instance Opsemimonoidal (At x) where
 instance Opmonoidal (At x) where
   op0 (At (Const x)) = x
 
-instance Cosemimonoid m => Cosemimonoid (At x m) where
+instance Cosemigroup m => Cosemigroup (At x m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (At x m) where
@@ -1184,7 +1184,7 @@ instance Opsemimonoidal (Lift1 (,) e) where
 instance Opmonoidal (Lift1 (,) e) where
   op0 = snd
 
-instance Cosemimonoid m => Cosemimonoid (Lift1 (,) e m) where
+instance Cosemigroup m => Cosemigroup (Lift1 (,) e m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (Lift1 (,) e m) where
@@ -1196,7 +1196,7 @@ instance Opsemimonoidal (Tagged s) where
 instance Opmonoidal (Tagged s) where
   op0 = unTagged
 
-instance Cosemimonoid m => Cosemimonoid (Tagged s m) where
+instance Cosemigroup m => Cosemigroup (Tagged s m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (Tagged s m) where
@@ -1221,7 +1221,7 @@ instance Semimonoidal An where
 instance Monoidal An where
   ap0 = Nat An
 
-instance Semimonoid m => Semimonoid (An m) where
+instance Semigroup m => Semigroup (An m) where
   mult = multM
 
 instance Monoid m => Monoid (An m) where
@@ -1238,7 +1238,7 @@ instance Opsemimonoidal An where
 instance Opmonoidal An where
   op0 = Nat runAn
 
-instance Cosemimonoid m => Cosemimonoid (An m) where
+instance Cosemigroup m => Cosemigroup (An m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (An m) where
@@ -1265,16 +1265,16 @@ instance Opsemimonoidal f => Opsemimonoidal (An f) where
 instance Opmonoidal f => Opmonoidal (An f) where
   op0 = op0 . runAn
 
-instance (Opsemimonoidal f, Cosemimonoid m) => Cosemimonoid (An f m) where
+instance (Opsemimonoidal f, Cosemigroup m) => Cosemigroup (An f m) where
   comult = comultOp
 
 instance (Opmonoidal f, Comonoid m) => Comonoid (An f m) where
   zero = zeroOp
 
-class Precartesian ((~>) :: i -> i -> *) => Semimonoid (m :: i) where
+class Precartesian ((~>) :: i -> i -> *) => Semigroup (m :: i) where
   mult :: m * m ~> m
 
-class (Semimonoid m, Cartesian ((~>) :: i -> i -> *)) => Monoid (m :: i) where
+class (Semigroup m, Cartesian ((~>) :: i -> i -> *)) => Monoid (m :: i) where
   one  :: One ~> m
 
 -- monoidal functors take monoids to monoids
@@ -1282,34 +1282,34 @@ class (Semimonoid m, Cartesian ((~>) :: i -> i -> *)) => Monoid (m :: i) where
 oneM :: (Monoidal u, Monoid m) => One ~> u m
 oneM = fmap one . ap0
 
-multM :: (Semimonoidal u, Semimonoid m) => u m * u m ~> u m
+multM :: (Semimonoidal u, Semigroup m) => u m * u m ~> u m
 multM = fmap mult . ap2
 
--- instance Semigroup.Semigroup m => Semimonoid m where
+-- instance Semigroup.Semigroup m => Semigroup m where
 --   mult = uncurry Monoid.mappend
 
 -- instance (Semigroup.Semigroup m, Monoid.Monoid m) => Monoid m where
 --   one () = Monoid.mempty
 
-instance Semimonoid (Const1 ()) where
+instance Semigroup (Const1 ()) where
   mult = get lambda
 
 instance Monoid (Const1 ()) where
   one = id
 
-instance Semimonoid (p :: Constraint) where
+instance Semigroup (p :: Constraint) where
   mult = Sub Dict
 
 instance Monoid (() :: Constraint) where
   one = id
 
-mappend :: (Semimonoid m, CCC (Arr m)) => m ~> m^m
+mappend :: (Semigroup m, CCC (Arr m)) => m ~> m^m
 mappend = curry mult
 
-class Precocartesian (Arr m) => Cosemimonoid m where
+class Precocartesian (Arr m) => Cosemigroup m where
   comult :: m ~> m + m
 
-class (Cosemimonoid m, Cocartesian (Arr m)) => Comonoid m where
+class (Cosemigroup m, Cocartesian (Arr m)) => Comonoid m where
   zero   :: m ~> Zero
 
 -- opmonoidal functors take comonoids to comonoids
@@ -1317,25 +1317,25 @@ class (Cosemimonoid m, Cocartesian (Arr m)) => Comonoid m where
 zeroOp :: (Opmonoidal f, Comonoid m) => f m ~> Zero
 zeroOp = op0 . fmap zero
 
-comultOp :: (Opsemimonoidal f, Cosemimonoid m) => f m ~> f m + f m
+comultOp :: (Opsemimonoidal f, Cosemigroup m) => f m ~> f m + f m
 comultOp = op2 . fmap comult
 
-instance Cosemimonoid Void where
+instance Cosemigroup Void where
   comult = initial
 
 instance Comonoid Void where
   zero = id
 
-instance Semimonoid Void where
+instance Semigroup Void where
   mult = fst
 
-instance Cosemimonoid (Const1 Void) where
+instance Cosemigroup (Const1 Void) where
   comult = Nat $ absurd . getConst
 
 instance Comonoid (Const1 Void) where
   zero = id
 
-instance Semimonoid (Const1 Void) where
+instance Semigroup (Const1 Void) where
   mult = fst
 
 -- instance Comonoid (Const2 (Const1 Void)) where
@@ -1405,7 +1405,7 @@ instance Semimonoidal (Cokey i) where
 instance Monoidal (Cokey i) where
   ap0 = Nat $ \a -> Cokey (getConst a)
 
-instance Semimonoid m => Semimonoid (Cokey i m) where
+instance Semigroup m => Semigroup (Cokey i m) where
   mult = multM
 
 instance Monoid m => Monoid (Cokey i m) where
@@ -1427,7 +1427,7 @@ instance Opsemimonoidal (Key i) where
 instance Opmonoidal (Key i) where
   op0 = Nat $ \(Key v) -> Const v
 
-instance Cosemimonoid m => Cosemimonoid (Key i m) where
+instance Cosemigroup m => Cosemigroup (Key i m) where
   comult = comultOp
 
 instance Comonoid m => Comonoid (Key i m) where
@@ -1582,7 +1582,7 @@ instance Semimonoidal (Power1 v) where
 instance Monoidal (Power1 v) where
   ap0 = Nat $ \(Const ()) -> Power $ \v -> Const ()
 
-instance Semimonoid m => Semimonoid (Power1 v m) where
+instance Semigroup m => Semigroup (Power1 v m) where
   mult = multM
 
 instance Monoid m => Monoid (Power1 v m) where
@@ -1594,7 +1594,7 @@ instance Semimonoidal f => Semimonoidal (Power1 v f) where
 instance Monoidal f => Monoidal (Power1 v f) where
   ap0 () = Power $ \_ -> ap0 ()
 
-instance (Semimonoidal f, Semimonoid m) => Semimonoid (Power1 v f m) where
+instance (Semimonoidal f, Semigroup m) => Semigroup (Power1 v f m) where
   mult = multM
 
 instance (Monoidal f, Monoid m) => Monoid (Power1 v f m) where
