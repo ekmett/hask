@@ -141,18 +141,18 @@ cozipL1 = dimap
 -- splitL :: (f -| u) => Iso (f a) (f a') (a * f One) (a' * f One)
 
 -- * common aliases
-class (Functor p, Functor1 p, Category (Cod2 p)) => Bifunctor p
-instance (Functor p, Functor1 p, Category (Cod2 p)) => Bifunctor p
+class (Functor p, Functor1 p) => Bifunctor p
+instance (Functor p, Functor1 p) => Bifunctor p
 
-class (Contravariant p, Contravariant1 p, Category (Cod2 p)) => Bicontravariant p
-instance (Contravariant p, Contravariant1 p, Category (Cod2 p)) => Bicontravariant p
+class (Contravariant p, Contravariant1 p) => Bicontravariant p
+instance (Contravariant p, Contravariant1 p) => Bicontravariant p
 
 -- enriched profuncors C^op * D -> E
 --
 -- note: due to the fact that we use the variances in the other order, this is technically a
 -- correspondence, not a profunctor
-class (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
-instance (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
+class (Contravariant p, Functor1 p) => Profunctor p
+instance (Contravariant p, Functor1 p) => Profunctor p
 
 -- Lift Prelude instances of Functor without overlap, using the kind index to say
 -- these are all the instances of kind * -> *
@@ -555,7 +555,7 @@ unto f = bimap f f
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 type Iso' s a = Iso s s a a
 
-bicontramap :: Bicontravariant p => (a ~> b) -> (c ~> d) -> p b d ~> p a c
+bicontramap :: (Bicontravariant p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b d ~> p a c
 bicontramap f g = lmap f . contramap1 g
 
 type Getter s a = forall p. (Strong p, Contravariant1 p) => p a a -> p s s
@@ -625,14 +625,14 @@ un l = runUn $ l (Un id)
 class (Contravariant p, Functor p) => Phantom p
 instance (Contravariant p, Functor p) => Phantom p
 
-bimap :: Bifunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
+bimap :: (Bifunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
 bimap f g = first f . fmap1 g
 
-dimap :: Profunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
+dimap :: (Profunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . fmap1 g
 
 -- tensor for a monoidal category
-class Bifunctor p => Tensor (p :: x -> x -> x) where
+class (Profunctor (Cod2 p), Category (Cod2 p), Bifunctor p) => Tensor (p :: x -> x -> x) where
   type Id p :: x
   associate   :: p (p a b) c ~> p a (p b c)
   unassociate :: p a (p b c) ~> p (p a b) c
@@ -680,22 +680,22 @@ instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -
   rho = rhoProf
 -}
 
-associateLift :: (Profunctor (Cod2 p), Lifted s, Tensor p) => s p (s p f g) h ~> s p f (s p g h)
+associateLift :: (Lifted s, Tensor p) => s p (s p f g) h ~> s p f (s p g h)
 associateLift = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
 
-unassociateLift :: (Profunctor (Cod2 p), Lifted s, Tensor p) => s p f (s p g h) ~> s p (s p f g) h
-unassociateLift = undefined
+unassociateLift :: (Lifted s, Tensor p) => s p f (s p g h) ~> s p (s p f g) h
+unassociateLift = Nat $ _Lift $ first (unget _Lift) . unassociate . fmap1 (get _Lift)
 
-lambdaLift :: (Contravariant (Cod2 p), Constant k, Lifted s, Tensor p) => s p (k (Id p)) f ~> f
+lambdaLift :: (Constant k, Lifted s, Tensor p) => s p (k (Id p)) f ~> f
 lambdaLift = Nat $ lmap (first (get _Const) . get _Lift) lambda
 
-unlambdaLift :: (Functor1 (Cod2 p), Constant k, Lifted s, Tensor p) => f ~> s p (k (Id p)) f
+unlambdaLift :: (Constant k, Lifted s, Tensor p) => f ~> s p (k (Id p)) f
 unlambdaLift = undefined
 
-rhoLift :: (Contravariant (Cod2 p), Constant k, Lifted s, Tensor p) => s p f (k (Id p)) ~> f
+rhoLift :: (Constant k, Lifted s, Tensor p) => s p f (k (Id p)) ~> f
 rhoLift = undefined -- TODO
 
-unrhoLift :: (Functor1 (Cod2 p), Constant k, Lifted s, Tensor p) => f ~> s p f (k (Id p))
+unrhoLift :: (Constant k, Lifted s, Tensor p) => f ~> s p f (k (Id p))
 unrhoLift = Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) unrho
 
 instance Tensor p => Tensor (Lift1 p) where
