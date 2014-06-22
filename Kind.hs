@@ -685,7 +685,7 @@ lambdaLift :: (Constant k, Lifted s, Tensor p) =>
    Iso (s p (k (Id p)) f) (s p (k (Id p)) g) f g
 lambdaLift   = dimap
    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-   undefined
+   (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
 
 rhoLift :: (Constant k, Lifted s, Tensor p) =>
    Iso (s p f (k (Id p))) (s p g (k (Id p))) f g
