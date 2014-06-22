@@ -204,17 +204,17 @@ instance Functor f => Functor1 (Const2 f) where
 instance Functor f => Functor (Const2 f a) where
   fmap = fmap1
 
-class b => ConstConstraint b a
-instance b => ConstConstraint b a
+class b => ConstC b a
+instance b => ConstC b a
 
-instance Constant ConstConstraint where
-  type Const = ConstConstraint
+instance Constant ConstC where
+  type Const = ConstC
   _Const = dimap (Sub Dict) (Sub Dict)
 
-instance Functor ConstConstraint where
+instance Functor ConstC where
   fmap f = Nat (_Const f)
 
-instance Functor (ConstConstraint b) where
+instance Functor (ConstC b) where
   fmap _ = Sub Dict
 
 -- * -^J -| Limit
@@ -250,31 +250,31 @@ instance Const2 -| Limit2 where
   adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
 
 -- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
-class LimitConstraint (p :: i -> Constraint) where
+class LimitC (p :: i -> Constraint) where
   limitDict :: Dict (p a)
 
-instance p Any => LimitConstraint (p :: i -> Constraint) where
+instance p Any => LimitC (p :: i -> Constraint) where
   limitDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
     Sub d -> d
 
-type instance Limit = LimitConstraint
+type instance Limit = LimitC
 
-instance Functor LimitConstraint where
+instance Functor LimitC where
   fmap f = dimap (Sub limitDict) (Sub Dict) (runAny f) where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
 
-instance Monoidal LimitConstraint where
+instance Monoidal LimitC where
   ap0 = Sub Dict
   ap2 = get zipR
 
-instance Monoid m => Monoid (LimitConstraint m) where
+instance Monoid m => Monoid (LimitC m) where
   one = oneM
   mult = multM
 
-instance ConstConstraint -| LimitConstraint where
+instance ConstC -| LimitC where
   adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
-    hither :: (ConstConstraint a Any :- f Any) -> a :- LimitConstraint f
+    hither :: (ConstC a Any :- f Any) -> a :- LimitC f
     hither = dimap (Sub Dict) (Sub Dict)
 
 -- * Colimit -| -^J
@@ -365,31 +365,31 @@ instance Functor1 p => Functor (Lift1 p f) where
 instance (Functor p, Functor1 p, Functor f, Functor g) => Functor (Lift1 p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
 
--- ** LiftConstraint
+-- ** LiftC
 
-class r (p a) (q a) => LiftConstraint r p q a
-instance r (p a) (q a) => LiftConstraint r p q a
+class r (p a) (q a) => LiftC r p q a
+instance r (p a) (q a) => LiftC r p q a
 
-instance Functor p => Functor (LiftConstraint p) where
+instance Functor p => Functor (LiftC p) where
   fmap f = Nat $ Nat $ _Lift $ first $ runNat f
 
-instance Contravariant p => Contravariant (LiftConstraint p) where
+instance Contravariant p => Contravariant (LiftC p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance Functor1 p => Functor1 (LiftConstraint p) where
+instance Functor1 p => Functor1 (LiftC p) where
   fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance Functor1 p => Functor (LiftConstraint p e) where
+instance Functor1 p => Functor (LiftC p e) where
   fmap = fmap1
 
-instance Contravariant1 p => Contravariant1 (LiftConstraint p) where
+instance Contravariant1 p => Contravariant1 (LiftC p) where
   contramap1 (Nat f) = Nat (_Lift $ contramap1 f)
 
-instance Contravariant1 p => Contravariant (LiftConstraint p e) where
+instance Contravariant1 p => Contravariant (LiftC p e) where
   contramap = contramap1
 
-instance Lifted LiftConstraint where
-  type Lift = LiftConstraint
+instance Lifted LiftC where
+  type Lift = LiftC
   _Lift = dimap (Sub Dict) (Sub Dict)
 
 -- ** Lift2
@@ -683,8 +683,8 @@ instance Tensor p => Tensor (Lift2 p) where
   lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
   rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
 
-instance Tensor p => Tensor (LiftConstraint p) where
-  type Id (LiftConstraint p) = ConstConstraint (Id p)
+instance Tensor p => Tensor (LiftC p) where
+  type Id (LiftC p) = ConstC (Id p)
   associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
   lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
   rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
@@ -714,7 +714,7 @@ instance Symmetric p => Symmetric (Lift1 p) where
 instance Symmetric p => Symmetric (Lift2 p) where
   swap = Nat $ _Lift swap
 
-instance Symmetric p => Symmetric (LiftConstraint p) where
+instance Symmetric p => Symmetric (LiftC p) where
   swap = Nat $ _Lift swap
 
 -- profunctor composition forms a weak category.
@@ -747,8 +747,8 @@ instance Terminal (() :: Constraint) where
   type One = (() :: Constraint)
   terminal = Constraint.top
 
-instance Terminal (ConstConstraint ()) where
-  type One = ConstConstraint ()
+instance Terminal (ConstC ()) where
+  type One = ConstC ()
   terminal = Nat (unget _Const . terminal)
 
 class Zero ~ t => Initial (t :: i) | i -> t where
@@ -768,8 +768,8 @@ instance Initial (() ~ Bool) where
   type Zero = () ~ Bool
   initial = Constraint.bottom
 
-instance Initial (ConstConstraint (() ~ Bool)) where
-  type Zero = ConstConstraint (() ~ Bool)
+instance Initial (ConstC (() ~ Bool)) where
+  type Zero = ConstC (() ~ Bool)
   initial = Nat $ initial . get _Const
 
 infixl 7 *
@@ -798,7 +798,7 @@ instance Cartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   Nat f &&& Nat g = Nat $ Lift . (f &&& g)
 
 instance Cartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
-  type (*) = LiftConstraint (&)
+  type (*) = LiftC (&)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
@@ -949,7 +949,7 @@ instance Monoid m => Monoid (Lift1 (->) f m) where
   one = oneM
   mult = multM
 
---instance Monoidal (LiftConstraint (|-) f) where
+--instance Monoidal (LiftC (|-) f) where
 --  ap0 = curry fst
 --  ap2 = get zipR
 
@@ -1292,6 +1292,7 @@ _Sub :: Iso (p :- q) (p' :- q') (Dict p -> Dict q) (Dict p' -> Dict q')
 _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
 
 newtype Magic p q r = Magic ((p |- q) => r)
+
 reify :: forall p q r. ((p |- q) => r) -> (p :- q) -> r
 reify k = unsafeCoerce (Magic k :: Magic p q r)
 
@@ -1300,8 +1301,10 @@ _Implies = dimap (reify Dict) (\Dict -> implies)
 
 instance Contravariant (|-) where
   contramap f = Nat $ unget _Sub $ un _Implies (. f)
+
 instance Functor1 (|-) where
   fmap1 f = unget _Sub $ un _Implies (f .)
+
 instance Functor ((|-) p) where
   fmap = fmap1
 
