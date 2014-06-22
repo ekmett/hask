@@ -1576,11 +1576,17 @@ _Up :: Composed up => Iso (up f g a) (up f' g' a') (g (f a)) (g' (f' a'))
 _Up = dimap runUp up
 
 newtype Up1 f g a = Up (g (f a))
+newtype Up2 f g a b = Up2 (g (f a) b)
 
 instance Composed Up1 where
   type Up = Up1
   up = Up
   runUp (Up a) = a
+
+instance Composed Up2 where
+  type Up = Up2
+  up = Nat Up2
+  runUp = Nat $ \(Up2 a) -> a
 
 class g (f a) => UpC f g a
 instance g (f a) => UpC f g a
@@ -1590,11 +1596,11 @@ instance Composed UpC where
   up = Sub Dict
   runUp = Sub Dict
 
-instance Functor (Up1 f) where
-  fmap f = Nat $ _Up (runNat f)
+instance Functor (Up1 f) where fmap f = Nat $ _Up (runNat f)
+instance Functor (Up2 f) where fmap f = Nat $ _Up (runNat f)
+instance Functor (UpC f) where fmap f = Nat $ _Up (runNat f)
 
-instance Functor (UpC f) where
-  fmap f = Nat $ _Up (runNat f)
+-- functors over the second argument as indexed functors
 
 class Limit (Up p Functor) => Functor1 p
 instance Limit (Up p Functor) => Functor1 p
@@ -1602,8 +1608,21 @@ instance Limit (Up p Functor) => Functor1 p
 fmap1 :: forall p a b c. Functor1 p => (a ~> b) -> p c a ~> p c b
 fmap1 f = case (limitDict :: Dict (Up p Functor c)) of Dict -> fmap f
 
+-- contravariant functors over the second argument as indexed functors
+
 class Limit (Up p Contravariant) => Contravariant1 p
 instance Limit (Up p Contravariant) => Contravariant1 p
 
 contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
 contramap1 f = case (limitDict :: Dict (Up p Contravariant c)) of Dict -> contramap f
+
+-- indexed monoidal functors
+
+class Limit (Up p Monoidal) => Monoidal1 p
+instance Limit (Up p Monoidal) => Monoidal1 p
+
+ap0_1 :: forall p e. Monoidal1 p => One ~> p e One
+ap0_1 = case (limitDict :: Dict (Up p Monoidal e)) of Dict -> ap0
+
+ap2_1 :: forall p e a b. Monoidal1 p => p e a * p e b ~> p e (a * b)
+ap2_1 = case (limitDict :: Dict (Up p Monoidal e)) of Dict -> ap2
