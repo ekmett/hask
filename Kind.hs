@@ -1046,6 +1046,9 @@ class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Fun
 instance Functor Identity where
   fmap = Prelude.fmap
 
+instance Identity -| Identity where
+  adj = dimap (dimap Identity Identity) (dimap runIdentity runIdentity)
+
 instance Opmonoidal ((,) e) where
   op0 = snd
   op2 (e,ab) = bimap ((,) e) ((,) e) ab
