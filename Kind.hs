@@ -154,6 +154,10 @@ instance Monoidal (At x) where
   ap0 = At . Const
   ap2 (At fx, At fy) = At (Lift (fx, fy))
 
+instance Monoid m => Monoid (At x m) where
+  one = oneM
+  mult = multM
+
 -- instance Opmonoidal (At x) where
 
 -- .. and back
@@ -850,6 +854,10 @@ instance Monoidal Dict where
   ap0 () = Dict
   ap2 (Dict, Dict) = Dict
 
+instance Monoid m => Monoid (Dict m) where
+  one = oneM
+  mult = multM
+
 -- lift applicatives for Hask
 instance Applicative.Applicative f => Monoidal f where
   ap0 = Applicative.pure
@@ -859,9 +867,17 @@ instance Monoidal ((:-) f) where
   ap0 () = terminal
   ap2 = uncurry (&&&)
 
+instance Monoid m => Monoid (f :- m) where
+  one = oneM
+  mult = multM
+
 instance Monoidal (LiftValue (->) f) where
   ap0 = curry fst
   ap2 = get zipR
+
+instance Monoid m => Monoid (LiftValue (->) f m) where
+  one = oneM
+  mult = multM
 
 --instance Monoidal (LiftConstraint (|-) f) where
 --  ap0 = curry fst
@@ -871,6 +887,10 @@ instance Monoidal ((|-) f) where
   ap0 = curry fst
   ap2 = get zipR
 
+instance Monoid m => Monoid (f |- m) where
+  one = oneM
+  mult = multM
+
 instance Monoidal (Nat f :: (i -> *) -> *) where
   ap0 () = terminal
   ap2 = uncurry (&&&)
@@ -879,13 +899,19 @@ instance Monoidal (Nat f :: (i -> Constraint) -> *) where
   ap0 () = terminal
   ap2 = uncurry (&&&)
 
-instance Monoidal (Tagged s) where
-  ap0 = Tagged
-  ap2 = Tagged . bimap unTagged unTagged
+instance (Monoidal (Nat f), Monoid m) => Monoid (Nat f m) where
+  one = oneM
+  mult = multM
+
+-- inherited from base
+-- instance Monoidal (Tagged s)
+-- instance Monoid m => Monoid (Tagged s m)
 
 instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
   ap0 () = Proxy
   ap2 (Proxy, Proxy) = Proxy
+
+-- instance Monoid (Proxy a) -- from base
 
 -- * Monads over our kind-indexed categories
 
@@ -946,6 +972,14 @@ instance Opmonoidal f => Opmonoidal (An f) where
 class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
   one  :: One ~> m
   mult :: m * m ~> m
+
+-- monoidal functors take monoids to monoids
+
+oneM :: (Monoidal u, Monoid m) => One ~> u m
+oneM = fmap one . ap0
+
+multM :: (Monoidal u, Monoid m) => u m * u m ~> u m
+multM = fmap mult . ap2
 
 instance Monoid.Monoid m => Monoid m where
   one () = Monoid.mempty
