@@ -89,23 +89,36 @@ type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> 
 class (Functor f, Functor u) => (f::y->x) -| (u::x->y) | f -> u, u -> f where
   adj :: f -: u
 
-leftAdjunct :: (f -| u) => (f a ~> b) -> a ~> u b
-leftAdjunct = get adj
-
-rightAdjunct :: (f -| u) => (a ~> u b) -> f a ~> b
-rightAdjunct = unget adj
-
-ap2R :: (f -| u, Cartesian (Dom u), Cartesian (Cod u)) => (u a * u b) ~> u (a * b)
-ap2R = get adj (unget adj fst &&& unget adj snd)
-
 unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
 
 counitAdj :: (f -| u, Category (Dom f)) => f (u b) ~> b
 counitAdj = unget adj id
 
--- * common aliases
+-- given f -| u, u is a strong monoidal functor
 --
+-- @
+-- ap0 = get adj terminal
+-- ap2 = get zipR
+-- @
+zipR :: (f -| u, Cartesian (Dom u), Cartesian (Cod u))
+     => Iso (u a * u b) (u a' * u b') (u (a * b)) (u (a' * b'))
+zipR = dimap (get adj (unget adj fst &&& unget adj snd))
+             (fmap fst &&& fmap snd)
+
+absurdL :: (f -| u, Initial z) => Iso' z (f z)
+absurdL = dimap initial (unget adj initial)
+
+cozipL :: (f -| u, Cocartesian (Dom u), Cocartesian (Cod u))
+       => Iso (f (a + b)) (f (a' + b')) (f a + f b) (f a' + f b')
+cozipL = dimap
+  (unget adj (get adj inl ||| get adj inr))
+  (fmap inl ||| fmap inr)
+
+-- tabulated :: (f -| u) => Iso (a ^ f One) (b ^ f One) (u a) (u b)
+-- splitL :: (f -| u) => Iso (f a) (f a') (a * f One) (a' * f One)
+
+-- * common aliases
 class (Functor p, Functor1 p, Category (Cod2 p)) => Bifunctor p
 instance (Functor p, Functor1 p, Category (Cod2 p)) => Bifunctor p
 
@@ -481,6 +494,7 @@ unto :: (b ~> t) -> Ungetter t b
 unto f = bimap f f
 
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
+type Iso' s a = Iso s s a a
 
 bicontramap :: Bicontravariant p => (a ~> b) -> (c ~> d) -> p b d ~> p a c
 bicontramap f g = lmap f . contramap1 g
@@ -847,16 +861,15 @@ instance Monoidal ((:-) f) where
 
 instance Monoidal (LiftValue (->) f) where
   ap0 = curry fst
-  ap2 = ap2R
+  ap2 = get zipR
 
 --instance Monoidal (LiftConstraint (|-) f) where
 --  ap0 = curry fst
---  ap2 = ap2R
+--  ap2 = get zipR
 
 instance Monoidal ((|-) f) where
   ap0 = curry fst
-  -- ap2 :: ((f |- a) & (f |- b)) :- (f |- (a & b))
-  ap2 = ap2R
+  ap2 = get zipR
 
 instance Monoidal (Nat f :: (i -> *) -> *) where
   ap0 () = terminal
