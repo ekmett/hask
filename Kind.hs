@@ -26,9 +26,9 @@ import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Data.Functor.Contravariant as Contravariant
 import Data.Functor.Identity
-import qualified Data.Monoid as Monoid
+-- import qualified Data.Monoid as Monoid
 import Data.Proxy
-import qualified Data.Semigroup as Semigroup
+-- import qualified Data.Semigroup as Semigroup
 import Data.Tagged
 import qualified Data.Traversable as Traversable
 import Data.Void
@@ -316,10 +316,10 @@ data Colimit1 (f :: i -> *) where
 instance Functor Colimit1 where
   fmap (Nat f) (Colimit g)= Colimit (f g)
 
-instance Opsemimonoidal Colimit1 where
+instance Cosemimonoidal Colimit1 where
   op2 (Colimit (Lift ab)) = bimap Colimit Colimit ab
 
-instance Opmonoidal Colimit1 where
+instance Comonoidal Colimit1 where
   op0 (Colimit (Const a)) = a
 
 instance Cosemigroup m => Cosemigroup (Colimit1 m) where
@@ -337,7 +337,7 @@ data Colimit2 (f :: i -> j -> *) (x :: j) where
 instance Functor Colimit2 where
   fmap f = Nat $ \(Colimit2 g) -> Colimit2 (runNat (runNat f) g)
 
--- instance Opmonoidal Colimit2
+-- instance Comonoidal Colimit2
 -- instance Comonoid m => Comonoid (Colimit1 m)
 
 instance Colimit2 -| Const2 where
@@ -1101,8 +1101,17 @@ instance (Monoidal (Nat f), Monoid m) => Monoid (Nat f m) where
   one = oneM
 
 -- inherited from base
--- instance Monoidal (Tagged s)
--- instance Monoid m => Monoid (Tagged s m)
+instance Semimonoidal (Tagged s) where
+  ap2 = Tagged . bimap unTagged unTagged
+
+instance Monoidal (Tagged s) where
+  ap0  = Tagged
+
+instance Semigroup m => Semigroup (Tagged s m) where
+  mult = Tagged . mult . bimap unTagged unTagged
+
+instance Monoid m => Monoid (Tagged s m) where
+  one = Tagged . one
 
 instance Precartesian ((~>) :: i -> i -> *) => Semimonoidal (Proxy :: i -> *) where
   ap2 (Proxy, Proxy) = Proxy
@@ -1125,12 +1134,12 @@ instance (Monoidal m, Semimonad m) => Monad m
 -- instance (Monoidal m, Prelude.Monad m) => Monad m where
 --   join = Monad.join
 
--- * Opmonoidal functors between cocartesian categories
+-- * Comonoidal functors between cocartesian categories
 
-class (Precocartesian ((~>) :: x -> x -> *), Precocartesian ((~>) :: y -> y -> *), Functor f) => Opsemimonoidal (f :: x -> y) where
+class (Precocartesian ((~>) :: x -> x -> *), Precocartesian ((~>) :: y -> y -> *), Functor f) => Cosemimonoidal (f :: x -> y) where
   op2 :: f (a + b) ~> f a + f b
 
-class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Opsemimonoidal f) => Opmonoidal (f :: x -> y) where
+class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Cosemimonoidal f) => Comonoidal (f :: x -> y) where
   op0 :: f Zero ~> Zero
 
 instance Functor Identity where
@@ -1139,10 +1148,10 @@ instance Functor Identity where
 instance Identity -| Identity where
   adj = dimap (dimap Identity Identity) (dimap runIdentity runIdentity)
 
-instance Opsemimonoidal ((,) e) where
+instance Cosemimonoidal ((,) e) where
   op2 (e,ab) = bimap ((,) e) ((,) e) ab
 
-instance Opmonoidal ((,) e) where
+instance Comonoidal ((,) e) where
   op0 = snd
 
 instance Cosemigroup m => Cosemigroup (e, m) where
@@ -1151,10 +1160,10 @@ instance Cosemigroup m => Cosemigroup (e, m) where
 instance Comonoid m => Comonoid (e, m) where
   zero = zeroOp
 
-instance Opsemimonoidal Identity where
+instance Cosemimonoidal Identity where
   op2 = bimap Identity Identity . runIdentity
 
-instance Opmonoidal Identity where
+instance Comonoidal Identity where
   op0 = runIdentity
 
 instance Cosemigroup m => Cosemigroup (Identity m) where
@@ -1163,10 +1172,10 @@ instance Cosemigroup m => Cosemigroup (Identity m) where
 instance Comonoid m => Comonoid (Identity m) where
   zero = zeroOp
 
-instance Opsemimonoidal (At x) where
+instance Cosemimonoidal (At x) where
   op2 (At (Lift eab))= bimap At At eab
 
-instance Opmonoidal (At x) where
+instance Comonoidal (At x) where
   op0 (At (Const x)) = x
 
 instance Cosemigroup m => Cosemigroup (At x m) where
@@ -1177,11 +1186,11 @@ instance Comonoid m => Comonoid (At x m) where
 
 -- lift all of these through Lift? its a limit
 
--- instance Opsemimonoidal p => Opsemimonoidal (Lift1 p e) where
-instance Opsemimonoidal (Lift1 (,) e) where
+-- instance Cosemimonoidal p => Cosemimonoidal (Lift1 p e) where
+instance Cosemimonoidal (Lift1 (,) e) where
   op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
 
-instance Opmonoidal (Lift1 (,) e) where
+instance Comonoidal (Lift1 (,) e) where
   op0 = snd
 
 instance Cosemigroup m => Cosemigroup (Lift1 (,) e m) where
@@ -1190,10 +1199,10 @@ instance Cosemigroup m => Cosemigroup (Lift1 (,) e m) where
 instance Comonoid m => Comonoid (Lift1 (,) e m) where
   zero = zeroOp
 
-instance Opsemimonoidal (Tagged s) where
+instance Cosemimonoidal (Tagged s) where
   op2 = bimap Tagged Tagged . unTagged
 
-instance Opmonoidal (Tagged s) where
+instance Comonoidal (Tagged s) where
   op0 = unTagged
 
 instance Cosemigroup m => Cosemigroup (Tagged s m) where
@@ -1232,10 +1241,10 @@ instance Semimonad An where
 
 instance Monad An
 
-instance Opsemimonoidal An where
+instance Cosemimonoidal An where
   op2 = Nat $ \(An (Lift ea)) -> Lift (bimap An An ea)
 
-instance Opmonoidal An where
+instance Comonoidal An where
   op0 = Nat runAn
 
 instance Cosemigroup m => Cosemigroup (An m) where
@@ -1259,16 +1268,16 @@ instance Semimonoidal f => Semimonoidal (An f) where
 instance Monoidal f => Monoidal (An f) where
   ap0 = An . ap0
 
-instance Opsemimonoidal f => Opsemimonoidal (An f) where
+instance Cosemimonoidal f => Cosemimonoidal (An f) where
   op2 = bimap An An . op2 . runAn
 
-instance Opmonoidal f => Opmonoidal (An f) where
+instance Comonoidal f => Comonoidal (An f) where
   op0 = op0 . runAn
 
-instance (Opsemimonoidal f, Cosemigroup m) => Cosemigroup (An f m) where
+instance (Cosemimonoidal f, Cosemigroup m) => Cosemigroup (An f m) where
   comult = comultOp
 
-instance (Opmonoidal f, Comonoid m) => Comonoid (An f m) where
+instance (Comonoidal f, Comonoid m) => Comonoid (An f m) where
   zero = zeroOp
 
 class Precartesian ((~>) :: i -> i -> *) => Semigroup (m :: i) where
@@ -1314,10 +1323,10 @@ class (Cosemigroup m, Cocartesian (Arr m)) => Comonoid m where
 
 -- opmonoidal functors take comonoids to comonoids
 
-zeroOp :: (Opmonoidal f, Comonoid m) => f m ~> Zero
+zeroOp :: (Comonoidal f, Comonoid m) => f m ~> Zero
 zeroOp = op0 . fmap zero
 
-comultOp :: (Opsemimonoidal f, Cosemigroup m) => f m ~> f m + f m
+comultOp :: (Cosemimonoidal f, Cosemigroup m) => f m ~> f m + f m
 comultOp = op2 . fmap comult
 
 instance Cosemigroup Void where
@@ -1421,10 +1430,10 @@ data Key i a j where
 instance Functor (Key i) where
   fmap f = Nat $ \ (Key a) -> Key (f a)
 
-instance Opsemimonoidal (Key i) where
+instance Cosemimonoidal (Key i) where
   op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
 
-instance Opmonoidal (Key i) where
+instance Comonoidal (Key i) where
   op0 = Nat $ \(Key v) -> Const v
 
 instance Cosemigroup m => Cosemigroup (Key i m) where
