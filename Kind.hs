@@ -622,11 +622,11 @@ un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
 un l = runUn $ l (Un id)
 -- un = via _Un
 
-class (Contravariant p, Functor p) => PPhantom p
-instance (Contravariant p, Functor p) => PPhantom p
+class (Contravariant p, Functor p) => Phantom p
+instance (Contravariant p, Functor p) => Phantom p
 
-class (Contravariant1 p, Functor1 p) => QPhantom p
-instance (Contravariant1 p, Functor1 p) => QPhantom p
+class (Contravariant1 p, Functor1 p) => Phantom1 p
+instance (Contravariant1 p, Functor1 p) => Phantom1 p
 
 bimap :: Bifunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
 bimap f g = first f . fmap1 g
