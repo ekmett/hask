@@ -1465,11 +1465,10 @@ _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
 
 newtype Magic p q r = Magic ((p |- q) => r)
 
-reify :: forall p q r. ((p |- q) => r) -> (p :- q) -> r
-reify k = unsafeCoerce (Magic k :: Magic p q r)
-
 _Implies :: Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
-_Implies = dimap (reify Dict) (\Dict -> implies)
+_Implies = dimap (reify Dict) (\Dict -> implies) where
+  reify :: forall p q r. ((p |- q) => r) -> (p :- q) -> r
+  reify k = unsafeCoerce (Magic k :: Magic p q r)
 
 instance Contravariant (|-) where
   contramap f = Nat $ unget _Sub $ un _Implies (. f)
@@ -1480,18 +1479,16 @@ instance Functor1 (|-) where
 instance Functor ((|-) p) where
   fmap = fmap1
 
-applyConstraint :: forall p q. (p |- q & p) :- q
-applyConstraint = Sub $ Dict \\ (implies :: p :- q)
-
-unapplyConstraint :: p :- q |- (p & q)
-unapplyConstraint = Sub $ get _Implies (Sub Dict)
-
 instance (&) p -| (|-) p where
   adj = cccAdj
 
 instance CCC (:-) where
   type Exp = (|-)
-  curried = dimap (\q -> fmap q . unapplyConstraint) (\p -> applyConstraint . first p)
+  curried = dimap (\q -> fmap q . unapplyConstraint) (\p -> applyConstraint . first p) where
+    applyConstraint :: forall p q. (p |- q & p) :- q
+    applyConstraint = Sub $ Dict \\ (implies :: p :- q)
+    unapplyConstraint :: p :- q |- (p & q)
+    unapplyConstraint = Sub $ get _Implies (Sub Dict)
 
 data Unit (a :: ()) (b :: ()) = Unit
 
