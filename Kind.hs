@@ -687,13 +687,13 @@ unassociateLift :: (Lifted s, Tensor p) => s p f (s p g h) ~> s p (s p f g) h
 unassociateLift = Nat $ _Lift $ first (unget _Lift) . unassociate . fmap1 (get _Lift)
 
 lambdaLift :: (Constant k, Lifted s, Tensor p) => s p (k (Id p)) f ~> f
-lambdaLift = Nat $ lmap (first (get _Const) . get _Lift) lambda
+lambdaLift   = Nat $ lmap (first (get _Const) . get _Lift) lambda
 
 unlambdaLift :: (Constant k, Lifted s, Tensor p) => f ~> s p (k (Id p)) f
-unlambdaLift = undefined
+unlambdaLift = undefined -- Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) unlambda
 
-rhoLift :: (Constant k, Lifted s, Tensor p) => s p f (k (Id p)) ~> f
-rhoLift = undefined -- TODO
+rhoLift   :: (Constant k, Lifted s, Tensor p) => s p f (k (Id p)) ~> f
+rhoLift   = Nat $ lmap (fmap1 (get _Const) . get _Lift) rho
 
 unrhoLift :: (Constant k, Lifted s, Tensor p) => f ~> s p f (k (Id p))
 unrhoLift = Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) unrho
