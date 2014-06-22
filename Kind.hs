@@ -69,6 +69,9 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
   id = Nat id
   Nat f . Nat g = Nat (f . g)
 
+instance Groupoid ((~>) :: j -> j -> *) => Groupoid (Nat :: (i -> j) -> (i -> j) -> *) where
+  inverse (Nat f) = Nat (inverse f)
+
 -- * Functors between these kind-indexed categories
 
 class Functor (f :: x -> y) where
