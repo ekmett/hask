@@ -1301,6 +1301,8 @@ sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 -- * Work in progress
 
 -- | Copower e -| (~>) e
+--
+-- note this is forced to be on the 'wrong side' like products in Haskell.
 type family Copower :: x -> * -> x
 
 type instance Copower = (,)
@@ -1376,15 +1378,21 @@ instance Copower2 e -| Nat e where
               (\f -> Nat $ Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
               -- Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
 
--- we now need the notion of an adjunction to a dual category for handling powers
-
--- | the isomorphism that witnesses f -| u
-type (f :: y -> x) =: (u :: x -> y) = forall a b a' b'. Iso (b ~> f a) (b' ~> f a') (a ~> u b) (a' ~> u b')
-
 class (Profunctor (Power :: * -> j -> j), k ~ (~>)) => Powered (k :: j -> j -> *) | j -> k where
   type Power :: * -> j -> j
+  -- | Power _ b -| (_ ~> b) a contravariant adjunction
   _Power :: forall (u :: *) (u' :: *) (a :: j) (a' :: j) (b :: j) (b' :: j).
              Iso (a ~> Power u b) (a' ~> Power u' b') (u -> (a ~> b)) (u' -> (a' ~> b'))
+
+-- powers are traditionally denoted ⋔ in prefix, but ⋔ is an operator
+infixr 0 ⋔
+type (⋔) = Power
+
+flip :: Powered k => (a ~> u ⋔ b) -> u -> k a b
+flip = get _Power
+
+unflip :: Powered k => (u -> k a b) -> a ~> u ⋔ b
+unflip = unget _Power
 
 instance Powered (->) where
   type Power = (->)
@@ -1430,21 +1438,30 @@ instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
 -- * Kan extensions
 
 type family Ran :: (i -> j) -> (i -> k) -> j -> k
-type family Lan :: (i -> j) -> (i -> k) -> j -> k
+type family Lan :: (m -> c) -> (m -> a) -> c -> a
 
 type instance Ran = Ran1
+newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) -> g r }
 
-newtype Ran1 f g a = Ran { runRan :: forall r. f r^a ~> g r }
+-- alternately, by universal property
+-- data Ran f g a = forall z. Functor z => Ran (forall x. z (f x) ~> g x) (z a)
 
--- instance Category ((~>) :: j -> j -> *) => Contravariant (Ran1 :: (i -> j) -> (i -> *) -> j -> *) where
---   contramap (Nat f) = Nat $ Nat $ \(Ran k) -> Ran $ k . fmap1 f
+instance Category ((~>) :: j -> j -> *) => Contravariant (Ran1 :: (i -> j) -> (i -> *) -> j -> *) where
+  contramap (Nat f) = Nat $ Nat $ \(Ran k) -> Ran $ k . (f .)
 
 instance Category (Cod f) => Functor (Ran1 f) where
   fmap (Nat f) = Nat $ \(Ran k) -> Ran $ f . k
 
-type instance Lan = Lan1 -- :: (i -> j) -> (i -> *) -> j -> *
+type instance Ran = Ran2
+newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. (a ~> f r) -> g r x }
+
+type instance Lan = Lan1
 data Lan1 f g a where
-  Lan :: (f b ~> a) -> g b -> Lan1 f g a
+  Lan :: Copower (g b) (f b ~> a) -> Lan1 f g a
+
+type instance Lan = Lan2
+data Lan2 f g a x where
+  Lan2 :: Copower (g b) (f b ~> a) x -> Lan2 f g a x
 
 -- newtype Codensity f a = Codensity { runCodensity :: forall r. f r^a ~> f r }
 -- newtype Yoneda f a = Yoneda { runYoneda :: forall r. r^a ~> f r }
