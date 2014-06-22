@@ -931,21 +931,41 @@ instance Opmonoidal ((,) e) where
   op0 = snd
   op2 (e,ab) = bimap ((,) e) ((,) e) ab
 
+instance Comonoid m => Comonoid (e, m) where
+  zero = zeroOp
+  comult = comultOp
+
 instance Opmonoidal Identity where
   op0 = runIdentity
   op2 = bimap Identity Identity . runIdentity
+
+instance Comonoid m => Comonoid (Identity m) where
+  zero = zeroOp
+  comult = comultOp
 
 instance Opmonoidal (At x) where
   op0 (At (Const x)) = x
   op2 (At (Lift eab))= bimap At At eab
 
+instance Comonoid m => Comonoid (At x m) where
+  zero = zeroOp
+  comult = comultOp
+
 instance Opmonoidal (LiftValue (,) e) where
   op0 = snd
   op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
 
+instance Comonoid m => Comonoid (LiftValue (,) e m) where
+  zero = zeroOp
+  comult = comultOp
+
 instance Opmonoidal (Tagged s) where
   op0 = unTagged
   op2 = bimap Tagged Tagged . unTagged
+
+instance Comonoid m => Comonoid (Tagged s m) where
+  zero = zeroOp
+  comult = comultOp
 
 -- * An = Identity for Nat (i -> *)
 newtype An (f :: i -> *) (a :: i) = An { runAn :: f a }
@@ -967,6 +987,10 @@ instance Monoidal f => Monoidal (An f) where
 instance Opmonoidal f => Opmonoidal (An f) where
   op0 = op0 . runAn
   op2 = bimap An An . op2 . runAn
+
+instance (Opmonoidal f, Comonoid m) => Comonoid (An f m) where
+  zero = zeroOp
+  comult = comultOp
 
 -- a monoid object in a cartesian category
 class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
@@ -999,6 +1023,14 @@ mappend = curry mult
 class Cocartesian (Arr m) => Comonoid m where
   zero   :: m ~> Zero
   comult :: m ~> m + m
+
+-- opmonoidal functors take comonoids to comonoids
+
+zeroOp :: (Opmonoidal f, Comonoid m) => f m ~> Zero
+zeroOp = op0 . fmap zero
+
+comultOp :: (Opmonoidal f, Comonoid m) => f m ~> f m + f m
+comultOp = op2 . fmap comult
 
 instance Comonoid Void where
   zero = id
@@ -1070,6 +1102,10 @@ instance Monoidal (Cokey i) where
   ap2 = Nat $ \ab -> Cokey $ case ab of
     Lift (Cokey a, Cokey b) -> (a, b)
 
+instance Monoid m => Monoid (Cokey i m) where
+  one = oneM
+  mult = multM
+
 -- Conor McBride's "Atkey" adapted to this formalism
 --
 -- Key i :: Hask -> Nat
@@ -1086,6 +1122,10 @@ instance Functor1 Key where
 instance Opmonoidal (Key i) where
   op0 = Nat $ \(Key v) -> Const v
   op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
+
+instance Comonoid m => Comonoid (Key i m) where
+  zero = zeroOp
+  comult = comultOp
 
 -- * Traditional product categories w/ adjoined identities
 type instance (~>) = Prod -- (i,j) -> (i, j) -> *
