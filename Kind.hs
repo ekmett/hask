@@ -125,11 +125,15 @@ instance (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
 
 -- Lift Prelude instances of Functor without overlap, using the kind index to say
 -- these are all the instances of kind * -> *
+--
+-- Unfortunately that isn't true, as functors to/from k -> * that are polymorphic in k
+-- overlap with these instances!
+--
 -- instance Prelude.Functor f => Functor f where
 --   fmap = Prelude.fmap
 
-instance Contravariant.Contravariant f => Contravariant f where
-  contramap = Contravariant.contramap
+-- instance Contravariant.Contravariant f => Contravariant f where
+--    contramap = Contravariant.contramap
 
 instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where
   fmap = (.)
@@ -301,6 +305,9 @@ _Tagged = dimap unTagged Tagged
 
 instance Functor Proxy where
   fmap _ Proxy = Proxy
+
+instance Contravariant Proxy where
+  contramap _ Proxy = Proxy
 
 -- * Dictionaries
 
@@ -887,9 +894,13 @@ instance Monoid m => Monoid (Dict m) where
   mult = multM
 
 -- lift applicatives for Hask
-instance (Functor f, Applicative.Applicative f) => Monoidal f where
-  ap0 = Applicative.pure
-  ap2 = uncurry $ Applicative.liftA2 (,)
+--
+-- instance Applicative.Applicative f => Monoidal f where
+--   ap0 = Applicative.pure
+--   ap2 = uncurry $ Applicative.liftA2 (,)
+
+ap2Applicative :: Applicative.Applicative f => f a * f b -> f (a * b)
+ap2Applicative = uncurry $ Applicative.liftA2 (,)
 
 instance Monoidal ((:-) f) where
   ap0 () = terminal
@@ -907,7 +918,7 @@ instance Monoid m => Monoid (Lift1 (->) f m) where
   one = oneM
   mult = multM
 
---instance Monoidal (LiftC (|-) f) where
+-- instance Monoidal (LiftC (|-) f) where
 --  ap0 = curry fst
 --  ap2 = get zipR
 
@@ -946,7 +957,7 @@ instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
 class Monoidal (m :: x -> x) => Monad (m :: x -> x) where
   join :: m (m a) ~> m a
 
-instance (Functor m, Applicative.Applicative m, Prelude.Monad m) => Monad m where
+instance (Monoidal m, Prelude.Monad m) => Monad m where
   join = Monad.join
 
 -- * Opmonoidal functors between cocartesian categories
@@ -957,7 +968,7 @@ class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Fun
 
 instance Functor Identity where
   fmap = Prelude.fmap
-  
+
 instance Opmonoidal ((,) e) where
   op0 = snd
   op2 (e,ab) = bimap ((,) e) ((,) e) ab
@@ -1283,7 +1294,7 @@ instance Contravariant f => Contravariant (Copower2 f x) where
 
 instance Functor1 f => Functor (Copower2 f x a) where
   fmap f (Copower2 fab x) = Copower2 (fmap1 f fab) x
-  
+
 instance Contravariant1 f => Contravariant (Copower2 f x a) where
   contramap f (Copower2 fab x) = Copower2 (contramap1 f fab) x
 
@@ -1319,7 +1330,7 @@ instance Contravariant Power1 where
 
 instance Functor (Power1 v) where
   fmap f = Nat $ Power . fmap1 (runNat f) . runPower
-  
+
 instance Monoidal (Power1 v) where
   ap0 = Nat $ \(Const ()) -> Power $ \v -> Const ()
   ap2 = Nat $ \(Lift (Power va, Power vb)) -> Power $ \v -> Lift (va v, vb v)
@@ -1485,19 +1496,24 @@ data No (a :: Void)
 instance Functor No where
   fmap !f = Prelude.undefined
 
+type family Compose :: (j -> k) -> (i -> j) -> i -> k
 
-
-type family (.:) :: (j -> k) -> (i -> j) -> i -> k
+infixr 9 ·
+type (·) = Compose
 
 class c (f a) => ComposeC c f a
 instance c (f a) => ComposeC c f a
 
-type instance (.:) = ComposeC
+type instance Compose = ComposeC
 
-type Functor1 p = LimitC (Functor .: p)
+class Limit (Compose Functor p) => Functor1 p
+instance Limit (Compose Functor p) => Functor1 p
+
 fmap1 :: forall p a b c. Functor1 p => (a ~> b) -> p c a ~> p c b
-fmap1 f = case (limitDict :: Dict ((Functor .: p) c)) of Dict -> fmap f
+fmap1 f = case (limitDict :: Dict (Compose Functor p c)) of Dict -> fmap f
 
-type Contravariant1 p = LimitC (Contravariant .: p)
+class Limit (Compose Contravariant p) => Contravariant1 p
+instance Limit (Compose Contravariant p) => Contravariant1 p
+
 contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
-contramap1 f = case (limitDict :: Dict ((Contravariant .: p) c)) of Dict -> contramap f
+contramap1 f = case (limitDict :: Dict (Compose Contravariant p c)) of Dict -> contramap f
