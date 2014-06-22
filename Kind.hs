@@ -631,22 +631,14 @@ bimap f g = first f . fmap1 g
 dimap :: (Profunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . fmap1 g
 
--- tensor for a monoidal category
-class (Profunctor (Cod2 p), Category (Cod2 p), Bifunctor p) => Tensor (p :: x -> x -> x) where
-  type Id p :: x
+class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Associative p where
   associate :: Iso (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
-  lambda    :: Iso (p (Id p) a) (p (Id p) a') a a'
-  rho       :: Iso (p a (Id p)) (p a' (Id p)) a a'
 
-instance Tensor (,) where
-  type Id (,) = ()
+instance Associative (,) where
   associate   = dimap (\((a,b),c) -> (a,(b,c)))
                       (\(a,(b,c)) -> ((a,b),c))
-  lambda = dimap (\((), a) -> a) ((,) ())
-  rho    = dimap (\(a, ()) -> a) (\a -> (a, ()))
 
-instance Tensor Either where
-  type Id Either = Void
+instance Associative Either where
   associate = dimap hither yon where
     hither (Left (Left a)) = Left a
     hither (Left (Right b)) = Right (Left b)
@@ -654,24 +646,35 @@ instance Tensor Either where
     yon (Left a) = Left (Left a)
     yon (Right (Left b)) = Left (Right b)
     yon (Right (Right c)) = Right c
+
+instance Associative (&) where
+  associate   = dimap (Sub Dict) (Sub Dict)
+
+instance Category ((~>) :: i -> i -> *) => Associative (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
+  associate = associateProf
+
+-- tensor for a monoidal category
+class Associative p => Tensor (p :: x -> x -> x) where
+  type Id p :: x
+  lambda    :: Iso (p (Id p) a) (p (Id p) a') a a'
+  rho       :: Iso (p a (Id p)) (p a' (Id p)) a a'
+
+instance Tensor (,) where
+  type Id (,) = ()
+  lambda = dimap (\((), a) -> a) ((,) ())
+  rho    = dimap (\(a, ()) -> a) (\a -> (a, ()))
+
+instance Tensor Either where
+  type Id Either = Void
   lambda = dimap (\(Right a) -> a) Right
   rho = dimap (\(Left a) -> a) Left
 
 instance Tensor (&) where
   type Id (&) = (() :: Constraint)
-  associate   = dimap (Sub Dict) (Sub Dict)
   lambda      = dimap (Sub Dict) (Sub Dict)
   rho         = dimap (Sub Dict) (Sub Dict)
 
-{-
-instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
-  type Id Prof = (~>)
-  associate = associateProf
-  -- lambda = lambdaProf
-  rho = rhoProf
--}
-
-associateLift :: (Lifted s, Tensor p)
+associateLift :: (Lifted s, Associative p)
   => Iso (s p (s p f g) h) (s p (s p f' g') h')
          (s p f (s p g h)) (s p f' (s p g' h'))
 associateLift = dimap
@@ -690,21 +693,27 @@ rhoLift =
   dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
         (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
 
+instance Associative p => Associative (Lift1 p) where
+  associate   = associateLift
+
 instance Tensor p => Tensor (Lift1 p) where
   type Id (Lift1 p) = Const1 (Id p)
-  associate   = associateLift
   lambda      = lambdaLift
   rho         = rhoLift
+
+instance Associative p => Associative (Lift2 p) where
+  associate   = associateLift
 
 instance Tensor p => Tensor (Lift2 p) where
   type Id (Lift2 p) = Const2 (Id p)
-  associate   = associateLift
   lambda      = lambdaLift
   rho         = rhoLift
 
+instance Associative p => Associative (LiftC p) where
+  associate   = associateLift
+
 instance Tensor p => Tensor (LiftC p) where
   type Id (LiftC p) = ConstC (Id p)
-  associate   = associateLift
   lambda      = lambdaLift
   rho         = rhoLift
 
