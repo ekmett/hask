@@ -2,6 +2,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeOperators #-}
@@ -1113,7 +1114,7 @@ reify k = unsafeCoerce (Magic k :: Magic p q r)
 _Implies :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
 _Implies = dimap (reify Dict) (\Dict -> implies)
 
-instance Contravariant (|-) where 
+instance Contravariant (|-) where
   contramap f = Nat $ unget _Sub $ un _Implies (. f)
 instance Functor1 (|-) where
   fmap1 f = unget _Sub $ un _Implies (f .)
@@ -1133,13 +1134,33 @@ instance CCC (:-) where
   type Exp = (|-)
   curried = dimap (\q -> fmap q . unapplyConstraint) (\p -> applyConstraint . first p)
 
-
-
 data Unit (a :: ()) (b :: ()) = Unit
 type instance (~>) = Unit
+
 instance Category Unit where
   id = Unit
   Unit . Unit = Unit
+
+instance Groupoid Unit where
+  inverse Unit = Unit
+
+instance Contravariant Unit where
+  contramap f = Nat (. f)
+
+instance Functor Unit where
+  fmap = contramap . inverse
+
+instance Functor1 Unit where
+  fmap1 = (.)
+
+instance Contravariant1 Unit where
+  contramap1 = fmap1 . inverse
+
+instance Functor (Unit a) where
+  fmap = fmap1
+
+instance Contravariant (Unit a) where
+  contramap = contramap1
 
 instance Terminal '() where
   type One = '()
@@ -1149,9 +1170,40 @@ instance Initial '() where
   type Zero = '()
   initial = Unit
 
+class Category c => Groupoid c where
+  inverse :: c a b -> c b a
 
 data Empty (a :: Void) (b :: Void) = Empty (Empty a b)
+
 type instance (~>) = Empty
+
 instance Category Empty where
   id = Empty id
   (.) f = f `Prelude.seq` spin f where spin (Empty f) = spin f
+
+instance Groupoid Empty where
+  inverse !f = Empty (inverse f)
+
+instance Contravariant Empty where
+  contramap f = Nat (. f)
+
+instance Functor Empty where
+  fmap = contramap . inverse
+
+instance Functor1 Empty where
+  fmap1 = (.)
+
+instance Contravariant1 Empty where
+  contramap1 = fmap1 . inverse
+
+instance Functor (Empty a) where
+  fmap = fmap1
+
+instance Contravariant (Empty a) where
+  contramap = contramap1
+
+-- No :: Void -> *
+data No (a :: Void)
+
+instance Functor No where
+  fmap !f = Prelude.undefined
