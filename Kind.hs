@@ -1401,6 +1401,22 @@ instance Functor1 Power1 where
 instance Functor (Power1 v) where
   fmap = fmap1
 
+instance Monoidal (Power1 v) where
+  ap0 = Nat $ \(Const ()) -> Power $ \v -> Const ()
+  ap2 = Nat $ \(Lift (Power va, Power vb)) -> Power $ \v -> Lift (va v, vb v)
+
+instance Monoid m => Monoid (Power1 v m) where
+  one = oneM
+  mult = multM
+
+instance Monoidal f => Monoidal (Power1 v f) where
+  ap0 () = Power $ \_ -> ap0 ()
+  ap2 (Power vfa, Power vfb) = Power $ \v -> ap2 (vfa v, vfb v)
+
+instance (Monoidal f, Monoid m) => Monoid (Power1 v f m) where
+  one = oneM
+  mult = multM
+
 instance Functor f => Functor (Power1 v f) where
   fmap f = Power . fmap1 (fmap f) . runPower
 
