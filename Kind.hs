@@ -85,6 +85,20 @@ type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> 
 class (Functor f, Functor u) => (f::y->x) -| (u::x->y) | f -> u, u -> f where
   adj :: f -: u
 
+leftAdjunct :: (f -| u) => (f a ~> b) -> a ~> u b
+leftAdjunct = get adj
+
+rightAdjunct :: (f -| u) => (a ~> u b) -> f a ~> b
+rightAdjunct = unget adj
+
+type Dom (f :: x -> y) = ((~>) :: x -> x -> *)
+type Cod (f :: x -> y) = ((~>) :: y -> y -> *)
+
+ap2R :: forall (f :: y -> x) (u :: x -> y) (a :: x) (b :: x).
+        (f -| u, Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *) )
+     => (u a * u b) ~> u (a * b)
+ap2R = leftAdjunct (rightAdjunct fst &&& rightAdjunct snd)
+
 unitAdj :: forall (f :: y -> x) (u :: x -> y) (a :: y).
            (f -| u, Category ((~>) :: y -> y -> *), Category ((~>) :: x -> x -> *))
         => a ~> u (f a)
@@ -838,6 +852,19 @@ instance Monoidal ((:-) f) where
   ap0 () = terminal
   ap2 = uncurry (&&&)
 
+instance Monoidal (LiftValue (->) f) where
+  ap0 = curry fst
+  ap2 = ap2R
+
+--instance Monoidal (LiftConstraint (|-) f) where
+--  ap0 = curry fst
+--  ap2 = ap2R
+
+instance Monoidal ((|-) f) where
+  ap0 = curry fst
+  -- ap2 :: ((f |- a) & (f |- b)) :- (f |- (a & b))
+  ap2 = ap2R
+
 instance Monoidal (Nat f :: (i -> *) -> *) where
   ap0 () = terminal
   ap2 = uncurry (&&&)
@@ -853,7 +880,6 @@ instance Monoidal (Tagged s) where
 instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
   ap0 () = Proxy
   ap2 (Proxy, Proxy) = Proxy
-
 
 -- * Monads over our kind-indexed categories
 
