@@ -658,6 +658,14 @@ instance Tensor (&) where
   lambda    = Sub Dict
   rho       = Sub Dict
 
+{-
+instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
+  type Id Prof = (~>)
+  associate = associateProf
+  -- lambda = lambdaProf
+  rho = rhoProf
+-}
+
 associateLift :: (Profunctor (Cod2 p), Lifted s, Tensor p) => s p (s p f g) h ~> s p f (s p g h)
 associateLift = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
 
@@ -725,14 +733,14 @@ instance Contravariant p => Contravariant (Prof p q) where
 instance Functor1 q => Functor (Prof p q a) where
   fmap f (Prof p q) = Prof p (fmap1 f q)
 
-associateProf :: Prof (Prof p q) r a c -> Prof p (Prof q r) a c
-associateProf (Prof (Prof a b) c) = Prof a (Prof b c)
+associateProf :: Prof (Prof p q) r ~> Prof p (Prof q r)
+associateProf = nat2 $ \ (Prof (Prof a b) c) -> Prof a (Prof b c)
 
-lambdaProf :: Contravariant p => Prof (~>) p a b -> p a b
-lambdaProf (Prof h p) = lmap h p
+lambdaProf :: Contravariant p => Prof (~>) p ~> p
+lambdaProf = nat2 $ \(Prof h p) -> lmap h p
 
-rhoProf :: (Category q, q ~ (~>)) => p a b -> Prof p q a b
-rhoProf p = Prof p id
+rhoProf :: (Category q, q ~ (~>)) => p ~> Prof p q
+rhoProf = nat2 $ \p -> Prof p id
 
 newtype ProfR p q a b = ProfR { runProfR :: forall x. p x a -> q x b }
 
