@@ -82,6 +82,12 @@ type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> 
 class (Functor f, Functor u) => (f::y->x) -| (u::x->y) | f -> u, u -> f where
   adj :: f -: u
 
+type (f :: i -> y -> x) =: (u :: i -> x -> y) = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
+
+-- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
+class (Functor1 f, Functor1 u) => (f::i->y->x) =| (u::i->x->y) | f -> u, u -> f where
+  adj1 :: f =: u
+
 unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
 
@@ -844,7 +850,7 @@ type Prism s t a b = forall p. Choice p => p a b -> p s t
 type a ^ b = Exp b a
 infixr 8 ^
 
-class (Profunctor (Exp :: x -> x -> x), Cartesian k) => CCC (k :: x -> x -> *) | x -> k where
+class (Cartesian k, (*) =| (Exp :: x -> x -> x), Profunctor (Exp :: x -> x -> x)) => CCC (k :: x -> x -> *) | x -> k where
   type Exp :: x -> x -> x
   curried :: forall (a :: x) (b :: x) (c :: x) (a' :: x) (b' :: x) (c' :: x). Iso (a * b ~> c) (a' * b' ~> c') (a ~> c^b) (a' ~> c'^b')
 
@@ -870,14 +876,20 @@ apply = uncurry id
 unapply :: forall (a :: i) (b :: i). CCC ((~>) :: i -> i -> *) => a ~> (a * b)^b
 unapply = curry id
 
-cccAdj :: forall (e :: i). CCC ((~>) :: i -> i -> *) => (*) e -: Exp e
-cccAdj = dimap (. swap) (. swap) . curried
+ccc :: CCC ((~>) :: i -> i -> *) => (*) =: (Exp :: i -> i -> i)
+ccc = dimap (. swap) (. swap) . curried
+
+instance (,) =| (->) where
+  adj1 = ccc
 
 instance (,) e -| (->) e where
-  adj = cccAdj
+  adj = ccc
+
+instance Lift1 (,) =| Lift1 (->) where
+  adj1 = ccc
 
 instance Lift1 (,) e -| Lift1 (->) e where
-  adj = cccAdj
+  adj = ccc
 
 -- monoidal functors preserve the structure of our tensor and take monoid objects to monoid objects
 
@@ -1418,8 +1430,11 @@ instance Contravariant (|-) where
 instance Functor ((|-) p) where
   fmap f = unget _Sub $ un _Implies (f .)
 
+instance (&) =| (|-) where
+  adj1 = ccc
+
 instance (&) p -| (|-) p where
-  adj = cccAdj
+  adj = ccc
 
 instance CCC (:-) where
   type Exp = (|-)
