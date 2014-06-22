@@ -286,6 +286,14 @@ data ColimitValue (f :: i -> *) where
 instance Functor ColimitValue where
   fmap (Nat f) (Colimit g)= Colimit (f g)
 
+instance Opmonoidal ColimitValue where
+  op0 (Colimit (Const a)) = a
+  op2 (Colimit (Lift ab)) = bimap Colimit Colimit ab
+
+instance Comonoid m => Comonoid (ColimitValue m) where
+  zero = zeroOp
+  comult = comultOp
+
 instance ColimitValue -| ConstValue where
   adj = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
 
@@ -294,6 +302,9 @@ data ColimitValue2 (f :: i -> j -> *) (x :: j) where
 
 instance Functor ColimitValue2 where
   fmap f = Nat $ \(Colimit2 g) -> Colimit2 (runNat (runNat f) g)
+
+-- instance Opmonoidal ColimitValue2
+-- instance Comonoid m => Comonoid (ColimitValue m)
 
 instance ColimitValue2 -| ConstValue2 where
   adj = dimap (\(Nat f) -> Nat $ Nat $ Const2 . f . Colimit2) $
