@@ -171,32 +171,42 @@ instance Constant ConstValue where
   type Const = ConstValue
   _Const = dimap getConst Const
 
+instance Functor ConstValue where
+  fmap f = Nat (_Const f)
+
+instance Functor1 ConstValue where
+  fmap1 _ = _Const id
+
+instance Functor (ConstValue b) where
+  fmap = fmap1
+
 newtype ConstValue2 (f :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: f c }
+
 instance Constant ConstValue2 where
   type Const = ConstValue2
   _Const = dimap (Nat getConst2) (Nat Const2)
 
-instance Constant ConstConstraint where
-  type Const = ConstConstraint
-  _Const = dimap (Sub Dict) (Sub Dict)
+instance Functor ConstValue2 where
+  fmap f = Nat (_Const f)
+
+instance Functor1 ConstValue2 where
+  fmap1 _ = Nat $ Const2 . getConst2
+
+instance Functor (ConstValue2 f) where
+  fmap = fmap1
+
+instance Functor f => Functor1 (ConstValue2 f) where
+  fmap1 f = Const2 . fmap f . getConst2
+
+instance Functor f => Functor (ConstValue2 f a) where
+  fmap = fmap1
 
 class b => ConstConstraint b a
 instance b => ConstConstraint b a
 
-instance Functor ConstValue where
-  fmap f = Nat (_Const f)
-
-instance Functor (ConstValue b) where
-  fmap _ = _Const id
-
-instance Functor ConstValue2 where
-  fmap f = Nat (_Const f)
-
-instance Functor (ConstValue2 f) where
-  fmap _ = Nat $ Const2 . getConst2
-
-instance Functor f => Functor (ConstValue2 f a) where
-  fmap f = Const2 . fmap f . getConst2
+instance Constant ConstConstraint where
+  type Const = ConstConstraint
+  _Const = dimap (Sub Dict) (Sub Dict)
 
 instance Functor ConstConstraint where
   fmap f = Nat (_Const f)
@@ -304,9 +314,15 @@ instance Functor Proxy where
 instance Functor Dict where
   fmap p Dict = Dict \\ p
 
+-- * Lift
+
+-- Lifting lets us define things an index up from simpler parts, recycle products, etc.
+
 class Lift ~ s => Lifted (s :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l) | i j k l -> s where
   type Lift :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l
   _Lift :: Iso (s q f g a) (s r h e b) (q (f a) (g a)) (r (h b) (e b))
+
+-- ** LiftValue
 
 newtype LiftValue p f g a = Lift { lower :: p (f a) (g a) }
 
@@ -323,6 +339,9 @@ instance Functor p => Functor (LiftValue p) where
 instance Contravariant p => Contravariant (LiftValue p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
+instance Contravariant1 p => Contravariant1 (LiftValue p) where
+  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
+
 instance Functor1 p => Functor1 (LiftValue p) where
   fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
@@ -331,6 +350,8 @@ instance Functor1 p => Functor (LiftValue p f) where
 
 instance (Functor p, Functor1 p, Functor f, Functor g) => Functor (LiftValue p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
+
+-- ** LiftConstraint
 
 class r (p a) (q a) => LiftConstraint r p q a
 instance r (p a) (q a) => LiftConstraint r p q a
@@ -341,15 +362,23 @@ instance Functor p => Functor (LiftConstraint p) where
 instance Contravariant p => Contravariant (LiftConstraint p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
+instance Functor1 p => Functor1 (LiftConstraint p) where
+  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
+
 instance Functor1 p => Functor (LiftConstraint p e) where
-  fmap (Nat f) = Nat (_Lift $ fmap1 f)
+  fmap = fmap1
+
+instance Contravariant1 p => Contravariant1 (LiftConstraint p) where
+  contramap1 (Nat f) = Nat (_Lift $ contramap1 f)
 
 instance Contravariant1 p => Contravariant (LiftConstraint p e) where
-  contramap (Nat f) = Nat (_Lift $ contramap1 f)
+  contramap = contramap1
 
 instance Lifted LiftConstraint where
   type Lift = LiftConstraint
   _Lift = dimap (Sub Dict) (Sub Dict)
+
+-- ** LiftValue2
 
 newtype LiftValue2 p f g a b = Lift2 { lower2 :: p (f a) (g a) b }
 
@@ -369,35 +398,28 @@ instance Contravariant p => Contravariant (LiftValue2 p) where
 instance Functor1 p => Functor (LiftValue2 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
+instance Contravariant1 p => Contravariant (LiftValue2 p f) where
+  contramap = contramap1
+
 instance Functor1 p => Functor1 (LiftValue2 p) where
   fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
+
+-- * Functors
+
+-- ** Products
+
+-- *** Hask
 
 instance Functor (,) where
   fmap f = Nat (Arrow.first f)
 
+instance Functor1 (,) where
+  fmap1 = Arrow.second
+
+-- *** Constraint
+
 instance Functor (&) where
   fmap f = Nat $ Sub $ Dict \\ f
-
-instance Functor Either where
-  fmap f = Nat (Arrow.left f)
-
-instance Functor1 (:-) where
-  fmap1 = dimap Hom runHom . fmap1
-
-instance Contravariant (:-) where
-  contramap f = Nat $ dimap Hom runHom (lmap f)
-
-instance Functor Tagged where
-  fmap _ = Nat (_Tagged id)
-
-instance Category ((~>) :: x -> x -> *) => Functor1 (Hom :: x -> x -> *) where
-  fmap1 g (Hom h) = Hom (g . h)
-
-instance Functor1 (->) where
-  fmap1 = (.)
-
-instance Functor1 ((~>) :: j -> j -> *) => Functor1 (Nat :: (i -> j) -> (i -> j) -> *) where
-  fmap1 (Nat ab) (Nat ca) = Nat (fmap1 ab ca)
 
 instance Functor1 (&) where
   fmap1 p = Sub $ Dict \\ p
@@ -405,20 +427,40 @@ instance Functor1 (&) where
 instance Functor ((&) p) where
   fmap = fmap1
 
-instance Functor1 (,) where
-  fmap1 = Arrow.second
+-- ** Coproducts
+
+-- *** Hask
+
+instance Functor Either where
+  fmap f = Nat (Arrow.left f)
+
+-- ** Homs
+
+-- *** Hask
+instance Functor1 (->) where
+  fmap1 = (.)
+
+-- ** Constraint
+
+instance Functor1 (:-) where
+  fmap1 = dimap Hom runHom . fmap1
+
+instance Contravariant (:-) where
+  contramap f = Nat $ dimap Hom runHom (lmap f)
+
+instance Category ((~>) :: x -> x -> *) => Functor1 (Hom :: x -> x -> *) where
+  fmap1 g (Hom h) = Hom (g . h)
+
+-- * Misc
+
+instance Functor Tagged where
+  fmap _ = Nat (_Tagged id)
+
+instance Functor1 ((~>) :: j -> j -> *) => Functor1 (Nat :: (i -> j) -> (i -> j) -> *) where
+  fmap1 (Nat ab) (Nat ca) = Nat (fmap1 ab ca)
 
 instance Functor1 Either where
   fmap1 = Arrow.right
-
-instance Functor1 ConstValue where
-  fmap1 _ = _Const id
-
-instance Functor1 ConstValue2 where
-  fmap1 _ = _Const id
-
-instance Functor1 p => Functor1 (LiftConstraint p) where
-  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
 
 instance Functor1 At where
   fmap1 (Nat f) = _At f
@@ -495,13 +537,7 @@ instance Contravariant1 ConstValue where
 instance Contravariant1 ConstValue2 where
   contramap1 _ = _Const id
 
-instance Contravariant1 p => Contravariant1 (LiftValue p) where
-  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
-
 instance Contravariant1 p => Contravariant1 (LiftValue2 p) where
-  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
-
-instance Contravariant1 p => Contravariant1 (LiftConstraint p) where
   contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
 
 instance Contravariant (ConstValue k) where
