@@ -54,12 +54,6 @@ type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
 type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
 type Arr  (a :: x)           = ((~>) :: x -> x -> *)
 
-infixr 2 &
--- needed because we can't partially apply (,) in the world of constraints
-class (p, q) => p & q
-instance (p, q) => p & q
-
--- * Natural transformations form a category, using parametricity as a (stronger) proxy for naturality
 
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
 
@@ -432,6 +426,14 @@ instance Functor1 (,) where
 
 -- *** Constraint
 
+infixr 2 &
+
+-- needed because we can't partially apply (,) in the world of constraints
+class (p, q) => p & q
+instance (p, q) => p & q
+
+-- Natural transformations form a category, using parametricity as a (stronger) proxy for naturality
+
 instance Functor (&) where
   fmap f = Nat $ Sub $ Dict \\ f
 
@@ -635,11 +637,11 @@ un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
 un l = runUn $ l (Un id)
 -- un = via _Un
 
-class (Contravariant p, Functor p) => PPhantom (p :: x -> y -> z)
-instance (Contravariant p, Functor p) => PPhantom (p :: x -> y -> z)
+class (Contravariant p, Functor p) => PPhantom p
+instance (Contravariant p, Functor p) => PPhantom p
 
-class (Contravariant1 p, Functor1 p) => QPhantom (p :: x -> y -> z)
-instance (Contravariant1 p, Functor1 p) => QPhantom (p :: x -> y -> z)
+class (Contravariant1 p, Functor1 p) => QPhantom p
+instance (Contravariant1 p, Functor1 p) => QPhantom p
 
 rmap :: Functor1 p => (a ~> b) -> p c a ~> p c b
 rmap = fmap1
@@ -650,7 +652,7 @@ bimap f g = first f . fmap1 g
 dimap :: Profunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . rmap g
 
--- tensor for a skew monoidal category
+-- tensor for a (skew) monoidal category
 class Bifunctor p => Tensor (p :: x -> x -> x) where
   type Id p :: x
   associate :: p (p a b) c ~> p a (p b c)
@@ -671,29 +673,38 @@ instance Tensor Either where
   lambda (Right a) = a
   rho = Left
 
-instance Tensor p => Tensor (Lift1 p) where
-  type Id (Lift1 p) = Const1 (Id p)
-  associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
-  lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
-  rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
-
-instance Tensor p => Tensor (Lift2 p) where
-  type Id (Lift2 p) = Const2 (Id p)
-  associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
-  lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
-  rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
-
-instance Tensor p => Tensor (LiftC p) where
-  type Id (LiftC p) = ConstC (Id p)
-  associate = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
-  lambda    = Nat $ lmap (first (get _Const) . get _Lift) lambda
-  rho       = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
-
 instance Tensor (&) where
   type Id (&) = (() :: Constraint)
   associate = Sub Dict
-  lambda = Sub Dict
-  rho = Sub Dict
+  lambda    = Sub Dict
+  rho       = Sub Dict
+
+associateLift :: (Profunctor (Cod2 p), Lifted s, Tensor p) => s p (s p f g) h ~> s p f (s p g h)
+associateLift = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
+
+lambdaLift :: (Contravariant (Cod2 p), Constant k, Lifted s, Tensor p) => s p (k (Id p)) g ~> g
+lambdaLift = Nat $ lmap (first (get _Const) . get _Lift) lambda
+
+rhoLift :: (Functor1 (Cod2 p), Constant k, Lifted s, Tensor p) => Nat f (s p f (k (Id p)))
+rhoLift = Nat $ rmap (unget _Lift . fmap1 (unget _Const)) rho
+
+instance Tensor p => Tensor (Lift1 p) where
+  type Id (Lift1 p) = Const1 (Id p)
+  associate = associateLift
+  lambda    = lambdaLift
+  rho       = rhoLift
+
+instance Tensor p => Tensor (Lift2 p) where
+  type Id (Lift2 p) = Const2 (Id p)
+  associate = associateLift
+  lambda    = lambdaLift
+  rho       = rhoLift
+
+instance Tensor p => Tensor (LiftC p) where
+  type Id (LiftC p) = ConstC (Id p)
+  associate = associateLift
+  lambda    = lambdaLift
+  rho       = rhoLift
 
 -- symmetric monoidal category
 class Bifunctor p => Symmetric p where
@@ -1044,6 +1055,32 @@ _An = dimap runAn An
 instance Functor f => Functor (An f) where
   fmap = _An . fmap
 
+instance Comonad An where
+  extract = Nat runAn
+  duplicate = Nat An
+
+instance Monoidal An where
+  ap0 = Nat An
+  ap2 = Nat $ \(Lift (An x, An y)) -> An (Lift (x, y))
+
+instance Monoid m => Monoid (An m) where
+  one = oneM
+  mult = multM
+
+instance Monad An where
+  join = Nat runAn
+
+instance Opmonoidal An where
+  op0 = Nat runAn
+  op2 = Nat $ \(An (Lift ea)) -> Lift (bimap An An ea)
+
+instance Comonoid m => Comonoid (An m) where
+  zero = zeroOp
+  comult = comultOp
+
+instance An -| An where
+  adj = dimap (dimap (Nat An) (Nat An)) (dimap (Nat runAn) (Nat runAn))
+
 instance Contravariant f => Contravariant (An f) where
   contramap = _An . contramap
 
@@ -1330,6 +1367,9 @@ instance Category Unit where
 instance Groupoid Unit where
   inverse Unit = Unit
 
+instance Symmetric Unit where
+  swap = inverse
+
 instance Contravariant Unit where
   contramap f = Nat (. f)
 
@@ -1372,6 +1412,9 @@ instance Category Empty where
 
 instance Groupoid Empty where
   inverse !f = Empty (inverse f)
+
+instance Symmetric Empty where
+  swap = inverse
 
 instance Contravariant Empty where
   contramap f = Nat (. f)
