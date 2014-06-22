@@ -54,8 +54,16 @@ type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
 type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
 type Arr  (a :: x)           = ((~>) :: x -> x -> *)
 
-
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
+
+nat2 :: (forall a b. f a b ~> g a b) -> f ~> g
+nat2 f = Nat (Nat f)
+
+nat3 :: (forall a b c. f a b c ~> g a b c) -> f ~> g
+nat3 f = Nat (Nat (Nat f))
+
+runNat2 = runNat . runNat
+runNat3 = runNat . runNat . runNat
 
 instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j) -> *) where
   id = Nat id
@@ -254,7 +262,7 @@ instance Functor Limit2 where
 -- instance Monoidal Limit2 -- instantiate when Nat on 2 arguments is made Cartesian
 
 instance Const2 -| Limit2 where
-  adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
+  adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> nat2 $ getLimit2 . h . getConst2
 
 -- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
 class LimitC (p :: i -> Constraint) where
@@ -317,9 +325,9 @@ instance Functor Colimit2 where
 -- instance Comonoid m => Comonoid (Colimit1 m)
 
 instance Colimit2 -| Const2 where
-  adj = dimap (\(Nat f) -> Nat $ Nat $ Const2 . f . Colimit2) $
+  adj = dimap (\(Nat f) -> nat2 $ Const2 . f . Colimit2) $
                \ f -> Nat $ \ xs -> case xs of
-                 Colimit2 fyx -> getConst2 $ runNat (runNat f) fyx
+                 Colimit2 fyx -> getConst2 $ runNat2 f fyx
 
 -- * Support for Tagged and Proxy
 
@@ -355,13 +363,13 @@ instance Lifted Lift1 where
   _Lift = dimap lower Lift
 
 instance Functor Lift1 where
-  fmap f = Nat $ Nat $ Nat $ _Lift $ runNat (runNat f)
+  fmap f = nat3 $ _Lift $ runNat2 f
 
 instance Functor p => Functor (Lift1 p) where
-  fmap f = Nat $ Nat $ _Lift $ first $ runNat f
+  fmap f = nat2 $ _Lift $ first $ runNat f
 
 instance Contravariant p => Contravariant (Lift1 p) where
-  contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
+  contramap f = nat2 $ _Lift $ lmap $ runNat f
 
 instance Contravariant1 p => Contravariant (Lift1 p f) where
   contramap (Nat f) = Nat $ _Lift (contramap1 f)
@@ -378,10 +386,10 @@ class r (p a) (q a) => LiftC r p q a
 instance r (p a) (q a) => LiftC r p q a
 
 instance Functor p => Functor (LiftC p) where
-  fmap f = Nat $ Nat $ _Lift $ first $ runNat f
+  fmap f = nat2 $ _Lift $ first $ runNat f
 
 instance Contravariant p => Contravariant (LiftC p) where
-  contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
+  contramap f = nat2 $ _Lift $ lmap $ runNat f
 
 instance Functor1 p => Functor (LiftC p e) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
@@ -402,13 +410,13 @@ instance Lifted Lift2 where
   _Lift = dimap (Nat lower2) (Nat Lift2)
 
 instance Functor Lift2 where
-  fmap f = Nat $ Nat $ Nat $ _Lift $ runNat (runNat f)
+  fmap f = nat3 $ _Lift $ runNat2 f
 
 instance Functor p => Functor (Lift2 p) where
-  fmap f = Nat $ Nat $ _Lift $ first $ runNat f
+  fmap f = nat2 $ _Lift $ first $ runNat f
 
 instance Contravariant p => Contravariant (Lift2 p) where
-  contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
+  contramap f = nat2 $ _Lift $ lmap $ runNat f
 
 instance Functor1 p => Functor (Lift2 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
@@ -480,16 +488,16 @@ data Via (a :: x) (b :: x) (s :: x) (t :: x) where
   Via :: (s ~> a) -> (b ~> t) -> Via a b s t
 
 instance Functor1 ((~>) :: x -> x -> *) => Functor (Via :: x -> x -> x -> x -> *) where
-  fmap f = Nat $ Nat $ Nat $ \(Via sa bt) -> Via (fmap1 f sa) bt
+  fmap f = nat3 $ \(Via sa bt) -> Via (fmap1 f sa) bt
 
 instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant (Via :: x -> x -> x -> x -> *) where
-  contramap f = Nat $ Nat $ Nat $ \(Via sa bt) -> Via (contramap1 f sa) bt
+  contramap f = nat3 $ \(Via sa bt) -> Via (contramap1 f sa) bt
 
 instance Functor ((~>) :: x -> x -> *) => Functor (Via a :: x -> x -> x -> *) where
-  fmap f = Nat $ Nat $ \(Via sa bt) -> Via sa (first f bt)
+  fmap f = nat2 $ \(Via sa bt) -> Via sa (first f bt)
 
 instance Contravariant ((~>) :: x -> x -> *) => Contravariant (Via a :: x -> x -> x -> *) where
-  contramap f = Nat $ Nat $ \(Via sa bt) -> Via sa (lmap f bt)
+  contramap f = nat2 $ \(Via sa bt) -> Via sa (lmap f bt)
 
 instance Functor ((~>) :: x -> x -> *) => Functor (Via a b :: x -> x -> *) where
   fmap f = Nat $ \(Via sa bt) -> Via (first f sa) bt
@@ -680,6 +688,7 @@ instance Tensor p => Tensor (LiftC p) where
   lambda    = lambdaLift
   rho       = rhoLift
 
+
 -- symmetric monoidal category
 class Bifunctor p => Symmetric p where
   swap :: p a b ~> p b a
@@ -708,10 +717,10 @@ data Prof :: (i -> j -> *) -> (j -> k -> *) -> i -> k -> * where
   Prof :: p a b -> q b c -> Prof p q a c
 
 instance Functor Prof where
-  fmap f = Nat $ Nat $ Nat $ \(Prof p q) -> Prof (runNat (runNat f) p) q
+  fmap f = nat3 $ \(Prof p q) -> Prof (runNat2 f p) q
 
 instance Functor (Prof p) where
-  fmap f = Nat $ Nat $ \(Prof p q) -> Prof p (runNat (runNat f) q)
+  fmap f = nat2 $ \(Prof p q) -> Prof p (runNat2 f q)
 
 instance Contravariant p => Contravariant (Prof p q) where
   contramap f = Nat $ \(Prof p q) -> Prof (runNat (contramap f) p) q
@@ -730,13 +739,13 @@ rhoProf p = Prof p id
 
 newtype ProfR p q a b = ProfR { runProfR :: forall x. p x a -> q x b }
 
--- ProfL =| Prof =| ProfR
+-- ProfL? =| Prof =| ProfR
 
 instance Contravariant ProfR where
-  contramap f = Nat $ Nat $ Nat $ \(ProfR pq) -> ProfR $ \p -> pq (runNat (runNat f) p)
+  contramap f = nat3 $ \(ProfR pq) -> ProfR $ \p -> pq (runNat2 f p)
 
 instance Functor (ProfR p) where
-  fmap f = Nat $ Nat $ \(ProfR pq) -> ProfR $ \p -> runNat (runNat f) (pq p)
+  fmap f = nat2 $ \(ProfR pq) -> ProfR $ \p -> runNat2 f (pq p)
 
 instance Functor1 p => Contravariant (ProfR p q) where
   contramap f = Nat $ \(ProfR pq) -> ProfR $ \p -> pq (fmap1 f p)
@@ -752,11 +761,13 @@ instance Contravariant1 q => Contravariant (ProfR p q a) where
 
 instance Prof =| ProfR where
 -- adj1 :: Iso (Prof p q ~> r) (Prof p' q' ~> r') (q ~> ProfR p r) (q' ~> ProfR p' r')
-  adj1 = dimap (\k -> Nat $ Nat $ \p -> ProfR $ \q -> runNat (runNat k) (Prof q p))
-               (\k -> Nat $ Nat $ \(Prof p q) -> runProfR (runNat (runNat k) q) p) -- runR (runNat (runNat k) p) q)
+  adj1 = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof q p))
+               (\k -> nat2 $ \(Prof p q) -> runProfR (runNat2 k q) p) -- runR (runNat (runNat k) p) q)
 
 instance Prof e -| ProfR e where
   adj = adj1
+
+-- Terminal objects
 
 class One ~ t => Terminal (t :: i) | i -> t where
   type One :: i
@@ -1331,7 +1342,7 @@ type instance Copower = Copower2
 data Copower1 f x a = Copower (f a) x
 
 instance Functor Copower1 where
-  fmap (Nat f) = Nat $ Nat $ \(Copower fa x) -> Copower (f fa) x
+  fmap (Nat f) = nat2 $ \(Copower fa x) -> Copower (f fa) x
 
 instance Functor (Copower1 f) where
   fmap f = Nat $ \(Copower fa x) -> Copower fa (f x)
@@ -1353,10 +1364,10 @@ instance Copower1 e -| Nat e where
 data Copower2 f x a b = Copower2 (f a b) x
 
 instance Functor Copower2 where
-  fmap f = Nat $ Nat $ Nat $ \(Copower2 fab x) -> Copower2 (runNat (runNat f) fab) x
+  fmap f = nat3 $ \(Copower2 fab x) -> Copower2 (runNat2 f fab) x
 
 instance Functor (Copower2 f) where
-  fmap f = Nat $ Nat $ \(Copower2 fab x) -> Copower2 fab (f x)
+  fmap f = nat2 $ \(Copower2 fab x) -> Copower2 fab (f x)
 
 instance Functor f => Functor (Copower2 f x) where
   fmap f = Nat $ \(Copower2 fa x) -> Copower2 (first f fa) x
@@ -1371,8 +1382,8 @@ instance Contravariant1 f => Contravariant (Copower2 f x a) where
   contramap f (Copower2 fab x) = Copower2 (contramap1 f fab) x
 
 instance Copower2 =| Nat where
-  adj1 = dimap (\f a -> Nat $ Nat $ \e -> runNat (runNat f) (Copower2 e a))
-              (\f -> Nat $ Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
+  adj1 = dimap (\f a -> nat2 $ \e -> runNat (runNat f) (Copower2 e a))
+              (\f -> nat2 $ \(Copower2 e a) -> runNat2 (f a) e)
 
 instance Copower2 e -| Nat e where
   adj = adj1
@@ -1400,7 +1411,7 @@ instance Powered (->) where
 newtype Power1 v f a = Power { runPower :: v -> f a }
 
 instance Contravariant Power1 where
-  contramap f = Nat $ Nat $ Power . lmap f . runPower
+  contramap f = nat2 $ Power . lmap f . runPower
 
 instance Functor (Power1 v) where
   fmap f = Nat $ Power . fmap1 (runNat f) . runPower
@@ -1446,7 +1457,7 @@ newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a
 -- data Ran f g a = forall z. Functor z => Ran (forall x. z (f x) ~> g x) (z a)
 
 instance Category ((~>) :: j -> j -> *) => Contravariant (Ran1 :: (i -> j) -> (i -> *) -> j -> *) where
-  contramap (Nat f) = Nat $ Nat $ \(Ran k) -> Ran $ k . (f .)
+  contramap (Nat f) = nat2 $ \(Ran k) -> Ran $ k . (f .)
 
 instance Category (Cod f) => Functor (Ran1 f) where
   fmap (Nat f) = Nat $ \(Ran k) -> Ran $ f . k
