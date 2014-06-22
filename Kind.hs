@@ -69,9 +69,6 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
   id = Nat id
   Nat f . Nat g = Nat (f . g)
 
-instance Groupoid ((~>) :: j -> j -> *) => Groupoid (Nat :: (i -> j) -> (i -> j) -> *) where
-  inverse (Nat f) = Nat (inverse f)
-
 -- * Functors between these kind-indexed categories
 
 class Functor (f :: x -> y) where
@@ -1520,29 +1517,19 @@ instance CCC (:-) where
     unapplyConstraint :: p :- q |- (p & q)
     unapplyConstraint = Sub $ get _Implies (Sub Dict)
 
+-- * The terminal category with one object
+
 data Unit (a :: ()) (b :: ()) = Unit
 
 instance Category Unit where
   id = Unit
   Unit . Unit = Unit
 
-instance Groupoid Unit where
-  inverse Unit = Unit
-
-instance Symmetric Unit where
-  swap = inverse
-
 instance Contravariant Unit where
   contramap f = Nat (. f)
 
-instance Functor Unit where
-  fmap = contramap . inverse
-
 instance Functor (Unit a) where
   fmap = (.)
-
-instance Contravariant (Unit a) where
-  contramap = fmap . inverse
 
 instance Terminal '() where
   type One = '()
@@ -1552,22 +1539,25 @@ instance Initial '() where
   type Zero = '()
   initial = Unit
 
-class Category c => Groupoid c where
-  inverse :: c a b -> c b a
+-- Unit also forms a bifunctor, so you can map forwards/backwards, etc.
 
-instance (Groupoid ((~>) :: i -> i -> *), Groupoid ((~>) :: j -> j -> *)) =>
-  Groupoid (Prod :: (i, j) -> (i, j) -> *) where
-  inverse Want = Want
-  inverse (Have f g) = Have (inverse f) (inverse g)
+instance Functor Unit where
+  fmap = contramap . inverse
+
+instance Contravariant (Unit a) where
+  contramap = fmap . inverse
+
+instance Symmetric Unit where
+  swap = inverse
+
+
+-- * The initial "empty" category
 
 data Empty (a :: Void) (b :: Void) = Empty (Empty a b)
 
 instance Category Empty where
   id = Empty id
   (.) f = f `Prelude.seq` spin f where spin (Empty f) = spin f
-
-instance Groupoid Empty where
-  inverse !f = Empty (inverse f)
 
 instance Symmetric Empty where
   swap = inverse
@@ -1655,3 +1645,22 @@ ap0_1 = case (limitDict :: Dict (Up p Monoidal e)) of Dict -> ap0
 
 ap2_1 :: forall p e a b. Monoidal1 p => p e a * p e b ~> p e (a * b)
 ap2_1 = case (limitDict :: Dict (Up p Monoidal e)) of Dict -> ap2
+
+-- * Groupoids
+
+class Category c => Groupoid c where
+  inverse :: c a b -> c b a
+
+instance Groupoid ((~>) :: j -> j -> *) => Groupoid (Nat :: (i -> j) -> (i -> j) -> *) where
+  inverse (Nat f) = Nat (inverse f)
+
+instance (Groupoid ((~>) :: i -> i -> *), Groupoid ((~>) :: j -> j -> *)) =>
+  Groupoid (Prod :: (i, j) -> (i, j) -> *) where
+  inverse Want = Want
+  inverse (Have f g) = Have (inverse f) (inverse g)
+
+instance Groupoid Empty where
+  inverse !f = Empty (inverse f)
+
+instance Groupoid Unit where
+  inverse Unit = Unit
