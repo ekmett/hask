@@ -1664,3 +1664,29 @@ instance Groupoid Empty where
 
 instance Groupoid Unit where
   inverse Unit = Unit
+
+-- * Representability
+
+class Representable (p :: x -> y -> *) where
+  type Rep p :: y -> x
+  _Rep :: Iso (p a b) (p a' b') (a ~> Rep p b) (a' ~> Rep p b')
+
+instance Representable (->) where
+  type Rep (->) = Identity
+  _Rep = dimap (Identity.) (runIdentity.)
+
+instance Representable (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Rep Nat = An
+  _Rep = dimap (Nat An.) (Nat runAn.)
+
+class Corepresentable (p :: x -> y -> *) where
+  type Corep p :: x -> y
+  _Corep :: Iso (p a b) (p a' b') (Corep p a ~> b) (Corep p a' ~> b')
+
+instance Corepresentable (->) where
+  type Corep (->) = Identity
+  _Corep = dimap (.runIdentity) (.Identity)
+
+instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Corep Nat = An
+  _Corep = dimap (.Nat runAn) (.Nat An)
