@@ -75,12 +75,6 @@ first = runNat . fmap
 lmap :: Contravariant p => (a ~> b) -> p b c ~> p a c
 lmap = runNat . contramap
 
-class Functor1 (p :: x -> y -> z) where
-  fmap1 :: (a ~> b) -> p c a ~> p c b
-
-class Contravariant1 (p :: x -> y -> z) where
-  contramap1 :: (a ~> b) -> p c b ~> p c a
-
 -- | the isomorphism that witnesses f -| u
 type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
 
@@ -131,8 +125,8 @@ instance (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
 
 -- Lift Prelude instances of Functor without overlap, using the kind index to say
 -- these are all the instances of kind * -> *
-instance Prelude.Functor f => Functor f where
-  fmap = Prelude.fmap
+-- instance Prelude.Functor f => Functor f where
+--   fmap = Prelude.fmap
 
 instance Contravariant.Contravariant f => Contravariant f where
   contramap = Contravariant.contramap
@@ -172,11 +166,8 @@ instance Constant Const1 where
 instance Functor Const1 where
   fmap f = Nat (_Const f)
 
-instance Functor1 Const1 where
-  fmap1 _ = _Const id
-
 instance Functor (Const1 b) where
-  fmap = fmap1
+  fmap _ = _Const id
 
 newtype Const2 (f :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: f c }
 
@@ -187,17 +178,11 @@ instance Constant Const2 where
 instance Functor Const2 where
   fmap f = Nat (_Const f)
 
-instance Functor1 Const2 where
-  fmap1 _ = Nat $ Const2 . getConst2
-
 instance Functor (Const2 f) where
-  fmap = fmap1
-
-instance Functor f => Functor1 (Const2 f) where
-  fmap1 f = Const2 . fmap f . getConst2
+  fmap _ = Nat $ Const2 . getConst2
 
 instance Functor f => Functor (Const2 f a) where
-  fmap = fmap1
+  fmap f = Const2 . fmap f . getConst2
 
 class b => ConstC b a
 instance b => ConstC b a
@@ -348,11 +333,8 @@ instance Functor p => Functor (Lift1 p) where
 instance Contravariant p => Contravariant (Lift1 p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance Contravariant1 p => Contravariant1 (Lift1 p) where
-  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
-
-instance Functor1 p => Functor1 (Lift1 p) where
-  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
+instance Contravariant1 p => Contravariant (Lift1 p f) where
+  contramap (Nat f) = Nat $ _Lift (contramap1 f)
 
 instance Functor1 p => Functor (Lift1 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
@@ -371,17 +353,11 @@ instance Functor p => Functor (LiftC p) where
 instance Contravariant p => Contravariant (LiftC p) where
   contramap f = Nat $ Nat $ _Lift $ lmap $ runNat f
 
-instance Functor1 p => Functor1 (LiftC p) where
-  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
-
 instance Functor1 p => Functor (LiftC p e) where
-  fmap = fmap1
-
-instance Contravariant1 p => Contravariant1 (LiftC p) where
-  contramap1 (Nat f) = Nat (_Lift $ contramap1 f)
+  fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
 instance Contravariant1 p => Contravariant (LiftC p e) where
-  contramap = contramap1
+  contramap (Nat f) = Nat (_Lift $ contramap1 f)
 
 instance Lifted LiftC where
   type Lift = LiftC
@@ -410,9 +386,6 @@ instance Functor1 p => Functor (Lift2 p f) where
 instance Contravariant1 p => Contravariant (Lift2 p f) where
   contramap = contramap1
 
-instance Functor1 p => Functor1 (Lift2 p) where
-  fmap1 (Nat f) = Nat (_Lift $ fmap1 f)
-
 -- * Functors
 
 -- ** Products
@@ -422,8 +395,8 @@ instance Functor1 p => Functor1 (Lift2 p) where
 instance Functor (,) where
   fmap f = Nat (Arrow.first f)
 
-instance Functor1 (,) where
-  fmap1 = Arrow.second
+instance Functor ((,) a) where
+  fmap = Arrow.second
 
 -- *** Constraint
 
@@ -438,11 +411,8 @@ instance (p, q) => p & q
 instance Functor (&) where
   fmap f = Nat $ Sub $ Dict \\ f
 
-instance Functor1 (&) where
-  fmap1 p = Sub $ Dict \\ p
-
 instance Functor ((&) p) where
-  fmap = fmap1
+  fmap p = Sub $ Dict \\ p
 
 -- ** Coproducts
 
@@ -454,36 +424,27 @@ instance Functor Either where
 -- ** Homs
 
 -- *** Hask
-instance Functor1 (->) where
-  fmap1 = (.)
+instance Functor ((->) e) where
+  fmap = (.)
 
 -- ** Constraint
-
-instance Functor1 (:-) where
-  fmap1 = dimap Hom runHom . fmap1
 
 instance Contravariant (:-) where
   contramap f = Nat $ dimap Hom runHom (lmap f)
 
-instance Category ((~>) :: x -> x -> *) => Functor1 (Hom :: x -> x -> *) where
-  fmap1 g (Hom h) = Hom (g . h)
+instance Category ((~>) :: x -> x -> *) => Functor (Hom e :: x -> *) where
+  fmap g (Hom h) = Hom (g . h)
 
 -- * Misc
 
 instance Functor Tagged where
   fmap _ = Nat (_Tagged id)
 
-instance Functor1 ((~>) :: j -> j -> *) => Functor1 (Nat :: (i -> j) -> (i -> j) -> *) where
-  fmap1 (Nat ab) (Nat ca) = Nat (fmap1 ab ca)
+instance Functor (Either e) where
+  fmap = Arrow.right
 
-instance Functor1 Either where
-  fmap1 = Arrow.right
-
-instance Functor1 At where
-  fmap1 (Nat f) = _At f
-
-instance Functor1 Tagged where
-  fmap1 = Prelude.fmap
+instance Functor (Tagged e) where
+  fmap = Prelude.fmap
 
 data Via (a :: x) (b :: x) (s :: x) (t :: x) where
   Via :: (s ~> a) -> (b ~> t) -> Via a b s t
@@ -511,12 +472,6 @@ instance Functor1 ((~>) :: x -> x -> *) => Functor (Via a b s :: x -> *) where
 
 instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant (Via a b s :: x -> *) where
   contramap f (Via sa bt) = Via sa (contramap1 f bt)
-
-instance Functor1 ((~>) :: x -> x -> *) => Functor1 (Via a b :: x -> x -> *) where
-  fmap1 f (Via g h) = Via g (fmap1 f h)
-
-instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant1 (Via a b :: x -> x -> *) where
-  contramap1 f (Via g h) = Via g (contramap1 f h)
 
 -- |
 -- @
@@ -548,15 +503,6 @@ instance Contravariant ((~>)::j->j-> *) => Contravariant (Nat::(i->j)->(i->j)-> 
 instance Contravariant Tagged where
   contramap _ = Nat (_Tagged id)
 
-instance Contravariant1 Const1 where
-  contramap1 _ = _Const id
-
-instance Contravariant1 Const2 where
-  contramap1 _ = _Const id
-
-instance Contravariant1 p => Contravariant1 (Lift2 p) where
-  contramap1 (Nat f) = Nat $ _Lift (contramap1 f)
-
 instance Contravariant (Const1 k) where
   contramap _ = _Const id
 
@@ -585,11 +531,11 @@ _Get = dimap runGet Get
 instance Category ((~>)::i->i-> *) => Contravariant (Get (r :: i)) where
   contramap f = Nat (_Get (. f))
 
-instance Contravariant1 (Get r) where
-  contramap1 _ = _Get id
+instance Contravariant (Get r a) where
+  contramap _ = _Get id
 
-instance Functor1 (Get r) where
-  fmap1 _ = _Get id
+instance Functor (Get r a) where
+  fmap _ = _Get id
 
 get :: (Category c, c ~ (~>)) => (Get a a a -> Get a s s) -> c s a
 get l = runGet $ l (Get id)
@@ -606,8 +552,8 @@ instance Functor (Unget r) where
 instance Contravariant (Unget r) where
   contramap _ = Nat $ _Unget id
 
-instance Category ((~>) :: i -> i -> *) => Functor1 (Unget (r :: i)) where
-  fmap1 f = _Unget (f .)
+instance Category ((~>) :: i -> i -> *) => Functor (Unget (r :: i) (a :: k)) where
+  fmap f = _Unget (f .)
 
 unget :: (Category c, c ~ (~>)) => (Unget b b b -> Unget b t t) -> c b t
 unget l = runUnget $ l (Unget id)
@@ -628,11 +574,11 @@ instance (Category ((~>)::j->j-> *), Functor1 p) => Contravariant (Un (p::i->i->
 instance (Category ((~>)::j->j-> *), Contravariant1 p) => Functor (Un (p::i->i->j) a b) where
   fmap f = Nat $ _Un $ dimap Hom runHom $ lmap (contramap1 f)
 
-instance (Category ((~>)::j->j-> *), Contravariant p) => Functor1 (Un (p::i->i->j) a b) where
-  fmap1 g = _Un $ dimap Hom runHom $ lmap (lmap g)
+instance (Category ((~>)::j->j-> *), Contravariant p) => Functor (Un (p::i->i->j) a b s) where
+  fmap g = _Un $ dimap Hom runHom $ lmap (lmap g)
 
-instance (Category ((~>)::j->j-> *), Functor p) => Contravariant1 (Un (p::i->i->j) a b) where
-  contramap1 f = _Un $ dimap Hom runHom $ lmap (first f)
+instance (Category ((~>)::j->j-> *), Functor p) => Contravariant (Un (p::i->i->j) a b s) where
+  contramap f = _Un $ dimap Hom runHom $ lmap (first f)
 
 un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
 un l = runUn $ l (Un id)
@@ -941,7 +887,7 @@ instance Monoid m => Monoid (Dict m) where
   mult = multM
 
 -- lift applicatives for Hask
-instance Applicative.Applicative f => Monoidal f where
+instance (Functor f, Applicative.Applicative f) => Monoidal f where
   ap0 = Applicative.pure
   ap2 = uncurry $ Applicative.liftA2 (,)
 
@@ -1000,7 +946,7 @@ instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
 class Monoidal (m :: x -> x) => Monad (m :: x -> x) where
   join :: m (m a) ~> m a
 
-instance (Applicative.Applicative m, Prelude.Monad m) => Monad m where
+instance (Functor m, Applicative.Applicative m, Prelude.Monad m) => Monad m where
   join = Monad.join
 
 -- * Opmonoidal functors between cocartesian categories
@@ -1009,6 +955,9 @@ class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Fun
   op0 :: f Zero ~> Zero
   op2 :: f (a + b) ~> f a + f b
 
+instance Functor Identity where
+  fmap = Prelude.fmap
+  
 instance Opmonoidal ((,) e) where
   op0 = snd
   op2 (e,ab) = bimap ((,) e) ((,) e) ab
@@ -1153,7 +1102,7 @@ instance Comonoid (Const1 Void) where
 class Functor f => Strength f where
   strength :: a * f b ~> f (a * b)
 
-instance Prelude.Functor f => Strength f where
+instance (Functor f, Prelude.Functor f) => Strength f where
   strength (a,fb) = fmap ((,) a) fb
 
 -- proposition: all right adjoints on Cartesian categories should be strong
@@ -1165,7 +1114,7 @@ instance Prelude.Functor f => Strength f where
 class Functor f => Costrength (f :: x -> x) where
   costrength :: f (a + b) ~> a + f b
 
-instance Traversable.Traversable f => Costrength f where
+instance (Functor f, Traversable.Traversable f) => Costrength f where
   costrength = Traversable.sequence
 
 ap :: (Monoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
@@ -1182,7 +1131,7 @@ class (Functor f, Category (Dom f)) => Comonad (f :: x -> x) where
   extend f = fmap f . duplicate
   extract   :: f a ~> a
 
-instance Comonad.Comonad f => Comonad f where
+instance (Functor f, Comonad.Comonad f) => Comonad f where
   duplicate = Comonad.duplicate
   extend = Comonad.extend
   extract = Comonad.extract
@@ -1206,9 +1155,6 @@ newtype Cokey i a j = Cokey { runCokey :: (i ~ j) => a }
 instance Functor (Cokey i) where
   fmap f = Nat $ \xs -> Cokey $ f (runCokey xs)
 
-instance Functor1 Cokey where
-  fmap1 f = Nat $ \xs -> Cokey $ f (runCokey xs)
-
 instance Monoidal (Cokey i) where
   ap0 = Nat $ \a -> Cokey (getConst a)
   ap2 = Nat $ \ab -> Cokey $ case ab of
@@ -1227,9 +1173,6 @@ data Key i a j where
 
 instance Functor (Key i) where
   fmap f = Nat $ \ (Key a) -> Key (f a)
-
-instance Functor1 Key where
-  fmap1 f = Nat $ \ (Key a) -> Key (f a)
 
 instance Opmonoidal (Key i) where
   op0 = Nat $ \(Key v) -> Const v
@@ -1250,15 +1193,10 @@ instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Cat
   f . Want = f
   Have f f' . Have g g' = Have (f . g) (f' . g')
 
-instance (Functor ((~>) a :: i -> *), Functor ((~>) b :: j -> *)) => Functor (Prod '(a,b) :: (i, j) -> *) where
+instance (Functor ((~>) a :: i -> *), Functor ((~>) b :: j -> *), ab ~ '(a,b)) => Functor (Prod ab :: (i, j) -> *) where
   fmap Want f = f
   fmap f Want = f
   fmap (Have f g) (Have f' g') = Have (fmap f f') (fmap g g')
-
-instance (Functor1 ((~>) :: i -> i -> *), Functor1 ((~>) :: j -> j -> *)) => Functor1 (Prod :: (i, j) -> (i, j) -> *) where
-  fmap1 Want f = f
-  fmap1 f Want = f
-  fmap1 (Have f g) (Have f' g') = Have (fmap1 f f') (fmap1 g g')
 
 instance (Contravariant ((~>) :: i -> i -> *), Contravariant ((~>) :: j -> j -> *)) => Contravariant (Prod :: (i, j) -> (i, j) -> *) where
   contramap Want = id
@@ -1315,23 +1253,14 @@ data Copower1 f x a = Copower (f a) x
 instance Functor Copower1 where
   fmap (Nat f) = Nat $ Nat $ \(Copower fa x) -> Copower (f fa) x
 
-instance Functor1 Copower1 where
-  fmap1 f = Nat $ \(Copower fa x) -> Copower fa (f x)
-
 instance Functor (Copower1 f) where
-  fmap = fmap1
-
-instance Functor f => Functor1 (Copower1 f) where
-  fmap1 f (Copower fa x) = Copower (fmap f fa) x
+  fmap f = Nat $ \(Copower fa x) -> Copower fa (f x)
 
 instance Functor f => Functor  (Copower1 f a) where
-  fmap = fmap1
+  fmap f (Copower fa x) = Copower (fmap f fa) x
 
-instance Contravariant f => Contravariant1 (Copower1 f) where
-  contramap1 f (Copower fa x) = Copower (contramap f fa) x
-
-instance Contravariant f => Contravariant  (Copower1 f a) where
-  contramap = contramap1
+instance Contravariant f => Contravariant (Copower1 f a) where
+  contramap f (Copower fa x) = Copower (contramap f fa) x
 
 instance Copower1 e -| Nat e where
   adj = dimap (\(Nat f) a -> Nat $ \e -> f (Copower e a))
@@ -1343,35 +1272,20 @@ data Copower2 f x a b = Copower2 (f a b) x
 instance Functor Copower2 where
   fmap f = Nat $ Nat $ Nat $ \(Copower2 fab x) -> Copower2 (runNat (runNat f) fab) x
 
-instance Functor1 Copower2 where
-  fmap1 f = Nat $ Nat $ \(Copower2 fab x) -> Copower2 fab (f x)
-
 instance Functor (Copower2 f) where
-  fmap = fmap1
-
-instance Functor f => Functor1 (Copower2 f) where
-  fmap1 f = Nat $ \(Copower2 fa x) -> Copower2 (first f fa) x
+  fmap f = Nat $ Nat $ \(Copower2 fab x) -> Copower2 fab (f x)
 
 instance Functor f => Functor (Copower2 f x) where
-  fmap = fmap1
-
-instance Contravariant f => Contravariant1 (Copower2 f) where
-  contramap1 f = Nat $ \(Copower2 fa x) -> Copower2 (lmap f fa) x
+  fmap f = Nat $ \(Copower2 fa x) -> Copower2 (first f fa) x
 
 instance Contravariant f => Contravariant (Copower2 f x) where
-  contramap = contramap1
-
-instance Functor1 f => Functor1 (Copower2 f x) where
-  fmap1 f (Copower2 fab x) = Copower2 (fmap1 f fab) x
+  contramap f = Nat $ \(Copower2 fa x) -> Copower2 (lmap f fa) x
 
 instance Functor1 f => Functor (Copower2 f x a) where
-  fmap = fmap1
-
-instance Contravariant1 f => Contravariant1 (Copower2 f x) where
-  contramap1 f (Copower2 fab x) = Copower2 (contramap1 f fab) x
-
+  fmap f (Copower2 fab x) = Copower2 (fmap1 f fab) x
+  
 instance Contravariant1 f => Contravariant (Copower2 f x a) where
-  contramap = contramap1
+  contramap f (Copower2 fab x) = Copower2 (contramap1 f fab) x
 
 instance Copower2 e -| Nat e where
   adj = dimap (\f a -> Nat $ Nat $ \e -> runNat (runNat f) (Copower2 e a))
@@ -1403,12 +1317,9 @@ newtype Power1 v f a = Power { runPower :: v -> f a }
 instance Contravariant Power1 where
   contramap f = Nat $ Nat $ Power . lmap f . runPower
 
-instance Functor1 Power1 where
-  fmap1 f = Nat $ Power . fmap1 (runNat f) . runPower
-
 instance Functor (Power1 v) where
-  fmap = fmap1
-
+  fmap f = Nat $ Power . fmap1 (runNat f) . runPower
+  
 instance Monoidal (Power1 v) where
   ap0 = Nat $ \(Const ()) -> Power $ \v -> Const ()
   ap2 = Nat $ \(Lift (Power va, Power vb)) -> Power $ \v -> Lift (va v, vb v)
@@ -1490,11 +1401,8 @@ _Implies = dimap (reify Dict) (\Dict -> implies) where
 instance Contravariant (|-) where
   contramap f = Nat $ unget _Sub $ un _Implies (. f)
 
-instance Functor1 (|-) where
-  fmap1 f = unget _Sub $ un _Implies (f .)
-
 instance Functor ((|-) p) where
-  fmap = fmap1
+  fmap f = unget _Sub $ un _Implies (f .)
 
 instance (&) p -| (|-) p where
   adj = cccAdj
@@ -1525,17 +1433,11 @@ instance Contravariant Unit where
 instance Functor Unit where
   fmap = contramap . inverse
 
-instance Functor1 Unit where
-  fmap1 = (.)
-
-instance Contravariant1 Unit where
-  contramap1 = fmap1 . inverse
-
 instance Functor (Unit a) where
-  fmap = fmap1
+  fmap = (.)
 
 instance Contravariant (Unit a) where
-  contramap = contramap1
+  contramap = fmap . inverse
 
 instance Terminal '() where
   type One = '()
@@ -1571,20 +1473,31 @@ instance Contravariant Empty where
 instance Functor Empty where
   fmap = contramap . inverse
 
-instance Functor1 Empty where
-  fmap1 = (.)
-
-instance Contravariant1 Empty where
-  contramap1 = fmap1 . inverse
-
 instance Functor (Empty a) where
-  fmap = fmap1
+  fmap = (.)
 
 instance Contravariant (Empty a) where
-  contramap = contramap1
+  contramap = fmap . inverse
 
 -- No :: Void -> *
 data No (a :: Void)
 
 instance Functor No where
   fmap !f = Prelude.undefined
+
+
+
+type family (.:) :: (j -> k) -> (i -> j) -> i -> k
+
+class c (f a) => ComposeC c f a
+instance c (f a) => ComposeC c f a
+
+type instance (.:) = ComposeC
+
+type Functor1 p = LimitC (Functor .: p)
+fmap1 :: forall p a b c. Functor1 p => (a ~> b) -> p c a ~> p c b
+fmap1 f = case (limitDict :: Dict ((Functor .: p) c)) of Dict -> fmap f
+
+type Contravariant1 p = LimitC (Contravariant .: p)
+contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
+contramap1 f = case (limitDict :: Dict ((Contravariant .: p) c)) of Dict -> contramap f
