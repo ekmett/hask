@@ -1359,11 +1359,14 @@ instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
 
 -- * Kan extensions
 
+-- Lan g -| Up g -| Ran g
+type family Lan :: (i -> j) -> (i -> k) -> j -> k
 type family Ran :: (i -> j) -> (i -> k) -> j -> k
-type family Lan :: (m -> c) -> (m -> a) -> c -> a
 
 type instance Ran = Ran1
 newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) -> g r }
+
+-- instance Up1 g -| Ran1 g
 
 -- alternately, by universal property
 -- data Ran f g a = forall z. Functor z => Ran (forall x. z (f x) ~> g x) (z a)
@@ -1496,24 +1499,48 @@ data No (a :: Void)
 instance Functor No where
   fmap !f = Prelude.undefined
 
-type family Compose :: (j -> k) -> (i -> j) -> i -> k
 
 infixr 9 ·
-type (·) = Compose
+type g · f = Up f g
 
-class c (f a) => ComposeC c f a
-instance c (f a) => ComposeC c f a
+class (Category ((~>) :: k -> k -> *), Up ~ up) => Composed (up :: (i -> j) -> (j -> k) -> i -> k) | i j k -> up where
+  type Up :: (i -> j) -> (j -> k) -> i -> k
+  -- can't put the iso in here
+  up    :: g (f a) ~> up f g a
+  runUp :: up f g a ~> g (f a)
 
-type instance Compose = ComposeC
+_Up :: Composed up => Iso (up f g a) (up f' g' a') (g (f a)) (g' (f' a'))
+_Up = dimap runUp up
 
-class Limit (Compose Functor p) => Functor1 p
-instance Limit (Compose Functor p) => Functor1 p
+newtype Up1 f g a = Up (g (f a))
+
+instance Composed Up1 where
+  type Up = Up1
+  up = Up
+  runUp (Up a) = a
+
+class g (f a) => UpC f g a
+instance g (f a) => UpC f g a
+
+instance Composed UpC where
+  type Up = UpC
+  up = Sub Dict
+  runUp = Sub Dict
+
+instance Functor (Up1 f) where
+  fmap f = Nat $ _Up (runNat f)
+
+instance Functor (UpC f) where
+  fmap f = Nat $ _Up (runNat f)
+
+class Limit (Up p Functor) => Functor1 p
+instance Limit (Up p Functor) => Functor1 p
 
 fmap1 :: forall p a b c. Functor1 p => (a ~> b) -> p c a ~> p c b
-fmap1 f = case (limitDict :: Dict (Compose Functor p c)) of Dict -> fmap f
+fmap1 f = case (limitDict :: Dict (Up p Functor c)) of Dict -> fmap f
 
-class Limit (Compose Contravariant p) => Contravariant1 p
-instance Limit (Compose Contravariant p) => Contravariant1 p
+class Limit (Up p Contravariant) => Contravariant1 p
+instance Limit (Up p Contravariant) => Contravariant1 p
 
 contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
-contramap1 f = case (limitDict :: Dict (Compose Contravariant p c)) of Dict -> contramap f
+contramap1 f = case (limitDict :: Dict (Up p Contravariant c)) of Dict -> contramap f
