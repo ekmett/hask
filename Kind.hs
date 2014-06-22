@@ -1299,13 +1299,96 @@ sumDiagAdj = dimap (\f -> Have (f . inl) (f . inr)) (uncurry (|||) . runProd)
 
 -- * Work in progress
 
+-- | Copower e -| (~>) e
+type family Copower :: x -> * -> x
+
+type instance Copower = (,)
+type instance Copower = Copower1
+type instance Copower = Copower2
+
+-- Nat :: (i -> *) -> (i -> *) -> * is tensored. (Copowered over Hask)
+data Copower1 f x a = Copower (f a) x
+
+instance Functor Copower1 where
+  fmap (Nat f) = Nat $ Nat $ \(Copower fa x) -> Copower (f fa) x
+
+instance Functor1 Copower1 where
+  fmap1 f = Nat $ \(Copower fa x) -> Copower fa (f x)
+
+instance Functor (Copower1 f) where
+  fmap = fmap1
+
+instance Functor f => Functor1 (Copower1 f) where
+  fmap1 f (Copower fa x) = Copower (fmap f fa) x
+
+instance Functor f => Functor  (Copower1 f a) where
+  fmap = fmap1
+
+instance Contravariant f => Contravariant1 (Copower1 f) where
+  contramap1 f (Copower fa x) = Copower (contramap f fa) x
+
+instance Contravariant f => Contravariant  (Copower1 f a) where
+  contramap = contramap1
+
+instance Copower1 e -| Nat e where
+  adj = dimap (\(Nat f) a -> Nat $ \e -> f (Copower e a))
+              (\f -> Nat $ \(Copower e a) -> runNat (f a) e)
+
+-- Nat :: (i -> j -> *) -> (i -> j -> *) -> * is tensored. (Copowered over Hask)
+data Copower2 f x a b = Copower2 (f a b) x
+
+instance Functor Copower2 where
+  fmap f = Nat $ Nat $ Nat $ \(Copower2 fab x) -> Copower2 (runNat (runNat f) fab) x
+
+instance Functor1 Copower2 where
+  fmap1 f = Nat $ Nat $ \(Copower2 fab x) -> Copower2 fab (f x)
+
+instance Functor (Copower2 f) where
+  fmap = fmap1
+
+instance Functor f => Functor1 (Copower2 f) where
+  fmap1 f = Nat $ \(Copower2 fa x) -> Copower2 (first f fa) x
+
+instance Functor f => Functor (Copower2 f x) where
+  fmap = fmap1
+
+instance Contravariant f => Contravariant1 (Copower2 f) where
+  contramap1 f = Nat $ \(Copower2 fa x) -> Copower2 (lmap f fa) x
+
+instance Contravariant f => Contravariant (Copower2 f x) where
+  contramap = contramap1
+
+instance Functor1 f => Functor1 (Copower2 f x) where
+  fmap1 f (Copower2 fab x) = Copower2 (fmap1 f fab) x
+
+instance Functor1 f => Functor (Copower2 f x a) where
+  fmap = fmap1
+
+instance Contravariant1 f => Contravariant1 (Copower2 f x) where
+  contramap1 f (Copower2 fab x) = Copower2 (contramap1 f fab) x
+
+instance Contravariant1 f => Contravariant (Copower2 f x a) where
+  contramap = contramap1
+
+instance Copower2 e -| Nat e where
+  adj = dimap (\f a -> Nat $ Nat $ \e -> runNat (runNat f) (Copower2 e a))
+              (\f -> Nat $ Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
+              -- Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
+
 -- * Kan extensions
 
 type family Ran :: (i -> j) -> (i -> k) -> j -> k
 type family Lan :: (i -> j) -> (i -> k) -> j -> k
 
-type instance Ran = Ran1 -- :: (i -> j) -> (i -> *) -> j -> *
+type instance Ran = Ran1
+
 newtype Ran1 f g a = Ran { runRan :: forall r. f r^a ~> g r }
+
+-- instance Category ((~>) :: j -> j -> *) => Contravariant (Ran1 :: (i -> j) -> (i -> *) -> j -> *) where
+--   contramap (Nat f) = Nat $ Nat $ \(Ran k) -> Ran $ k . fmap1 f
+
+instance Category (Cod f) => Functor (Ran1 f) where
+  fmap (Nat f) = Nat $ \(Ran k) -> Ran $ f . k
 
 type instance Lan = Lan1 -- :: (i -> j) -> (i -> *) -> j -> *
 data Lan1 f g a where
