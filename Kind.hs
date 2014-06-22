@@ -867,15 +867,13 @@ class (h ~ (~>), Symmetric ((*)::i->i->i), Pretensor ((*)::i->i->i)) => Precarte
   (&&&) :: forall (a::i) (b::i) (c::i). (a ~> b) -> (a ~> c) -> a ~> b * c
 
 class    (h ~ (~>), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *) | i -> h
--- instance (h ~ (~>), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i),Precartesian h) => Cartesian (h ::i->i-> *)
+instance (h ~ (~>), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *)
 
 instance Precartesian (->) where
   type (*) = (,)
   fst   = Prelude.fst
   snd   = Prelude.snd
   (&&&) = (Arrow.&&&)
-
-instance Cartesian (->)
 
 instance Precartesian (:-) where
   type (*) = (&)
@@ -884,23 +882,17 @@ instance Precartesian (:-) where
   p &&& q = Sub $ Dict \\ p \\ q
 
 
-instance Cartesian (:-)
-
 instance Precartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (*) = Lift (,)
   fst = Nat $ fst . lower
   snd = Nat $ snd . lower
   Nat f &&& Nat g = Nat $ Lift . (f &&& g)
 
-instance Cartesian (Nat :: (i -> *) -> (i -> *) -> *)
-
 instance Precartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
   type (*) = LiftC (&)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
-
-instance Cartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *)
 
 -- todo make this a pre-req to Tensor?
 class (Precartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where
@@ -939,7 +931,7 @@ class (h ~ (~>), Symmetric ((+)::i->i->i), Pretensor ((+)::i->i->i)) => Precocar
   (|||)  :: forall (a :: i) (b :: i) (c :: i). (a ~> c) -> (b ~> c) -> a + b ~> c
 
 class    (h ~ (~>), Tensor ((+)::i->i->i), Initial (Id ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *) | i -> h
--- instance (h ~ (~>), Tensor ((+)::i->i->i), Initial (Id ((+))::i->i->i), Id ((+)) ~ (Zero :: i), Precocartesian h) => Cocartesian (h ::i->i-> *)
+instance (h ~ (~>), Tensor ((+)::i->i->i), Initial (Id ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *)
 
 instance Precocartesian (->) where
   type (+) = Either
@@ -947,15 +939,11 @@ instance Precocartesian (->) where
   inr = Right
   (|||) = either
 
-instance Cocartesian (->)
-
 instance Precocartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (+) = Lift Either
   inl = Nat (Lift . Left)
   inr = Nat (Lift . Right)
   Nat f ||| Nat g = Nat $ either f g . lower
-
-instance Cocartesian (Nat :: (i -> *) -> (i -> *) -> *)
 
 class (Precocartesian ((~>) :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
   {-# MINIMAL _Left | _Right #-}
@@ -1880,6 +1868,7 @@ instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
 
 -- a semigroupoid/semicategory looks like a "self-enriched" profunctor
 -- when we put no other constraints on p
--- class    (Profunctor p, p ~ (~>)) => Semicategory p
--- instance (Profunctor p, p ~ (~>)) => Semicategory p
+
+class    (Profunctor p, p ~ (~>)) => Semicategory p
+instance (Profunctor p, p ~ (~>)) => Semicategory p
 
