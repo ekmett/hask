@@ -214,6 +214,14 @@ type instance Limit = LimitValue
 instance Functor LimitValue where
   fmap (Nat f) (Limit g) = Limit (f g)
 
+instance Monoidal LimitValue where
+  ap0 () = Limit $ Const ()
+  ap2 (Limit f, Limit g) = Limit (Lift (f, g))
+
+instance Monoid m => Monoid (LimitValue m) where
+  one = oneM
+  mult = multM
+
 instance ConstValue -| LimitValue where
   adj = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
 
@@ -222,6 +230,8 @@ type instance Limit = LimitValue2
 
 instance Functor LimitValue2 where
   fmap f = Nat $ \(Limit2 g) -> Limit2 (runNat (runNat f) g)
+
+-- instance Monoidal LimitValue2
 
 instance ConstValue2 -| LimitValue2 where
   adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> Nat $ Nat $ getLimit2 . h . getConst2
@@ -1047,6 +1057,10 @@ class Functor f => Strength f where
 
 instance Prelude.Functor f => Strength f where
   strength (a,fb) = fmap ((,) a) fb
+
+-- proposition: all right adjoints on Cartesian categories should be strong
+-- strengthR   :: (f -| u, Cartesian (Dom u)) => a * u b ~> u (a * b)
+-- costrengthL :: (f -| u, Cartesian (Dom f)) => f (a + b) ~> a + f b
 
 -- what is usually called 'costrength' is more like a 'left strength' or a 'right strength'
 -- repurposing this term for a real 'co'-strength
