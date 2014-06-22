@@ -631,32 +631,46 @@ bimap f g = first f . fmap1 g
 dimap :: Profunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . fmap1 g
 
--- tensor for a (skew) monoidal category
+-- tensor for a monoidal category
 class Bifunctor p => Tensor (p :: x -> x -> x) where
   type Id p :: x
-  associate :: p (p a b) c ~> p a (p b c)
-  lambda    :: p (Id p) a ~> a
-  rho       :: a ~> p a (Id p)
+  associate   :: p (p a b) c ~> p a (p b c)
+  unassociate :: p a (p b c) ~> p (p a b) c
+  lambda      :: p (Id p) a ~> a
+  unlambda    :: a ~> p (Id p) a
+  rho         :: p a (Id p) ~> a
+  unrho       :: a ~> p a (Id p)
 
 instance Tensor (,) where
   type Id (,) = ()
-  associate ((a,b),c) = (a,(b,c))
-  lambda    ((),a)    = a
-  rho       a         = (a ,())
+  associate   ((a,b),c) = (a,(b,c))
+  unassociate (a,(b,c)) = ((a,b),c)
+  lambda      ((), a)   = a
+  unlambda    a         = ((), a)
+  rho         (a, ())   = a
+  unrho       a         = (a ,())
 
 instance Tensor Either where
   type Id Either = Void
   associate (Left (Left a)) = Left a
   associate (Left (Right b)) = Right (Left b)
   associate (Right c) = Right (Right c)
+  unassociate (Left a) = Left (Left a)
+  unassociate (Right (Left b)) = Left (Right b)
+  unassociate (Right (Right c)) = Right c
   lambda (Right a) = a
-  rho = Left
+  unlambda = Right
+  rho (Left a) = a
+  unrho = Left
 
 instance Tensor (&) where
   type Id (&) = (() :: Constraint)
-  associate = Sub Dict
-  lambda    = Sub Dict
-  rho       = Sub Dict
+  associate   = Sub Dict
+  unassociate = Sub Dict
+  lambda      = Sub Dict
+  unlambda    = Sub Dict
+  rho         = Sub Dict
+  unrho       = Sub Dict
 
 {-
 instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
@@ -669,30 +683,47 @@ instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -
 associateLift :: (Profunctor (Cod2 p), Lifted s, Tensor p) => s p (s p f g) h ~> s p f (s p g h)
 associateLift = Nat $ _Lift $ fmap1 (unget _Lift) . associate . first (get _Lift)
 
-lambdaLift :: (Contravariant (Cod2 p), Constant k, Lifted s, Tensor p) => s p (k (Id p)) g ~> g
+unassociateLift :: (Profunctor (Cod2 p), Lifted s, Tensor p) => s p f (s p g h) ~> s p (s p f g) h
+unassociateLift = undefined
+
+lambdaLift :: (Contravariant (Cod2 p), Constant k, Lifted s, Tensor p) => s p (k (Id p)) f ~> f
 lambdaLift = Nat $ lmap (first (get _Const) . get _Lift) lambda
 
-rhoLift :: (Functor1 (Cod2 p), Constant k, Lifted s, Tensor p) => Nat f (s p f (k (Id p)))
-rhoLift = Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) rho
+unlambdaLift :: (Functor1 (Cod2 p), Constant k, Lifted s, Tensor p) => f ~> s p (k (Id p)) f
+unlambdaLift = undefined
+
+rhoLift :: (Contravariant (Cod2 p), Constant k, Lifted s, Tensor p) => s p f (k (Id p)) ~> f
+rhoLift = undefined -- TODO
+
+unrhoLift :: (Functor1 (Cod2 p), Constant k, Lifted s, Tensor p) => f ~> s p f (k (Id p))
+unrhoLift = Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) unrho
 
 instance Tensor p => Tensor (Lift1 p) where
   type Id (Lift1 p) = Const1 (Id p)
-  associate = associateLift
-  lambda    = lambdaLift
-  rho       = rhoLift
+  associate   = associateLift
+  unassociate = unassociateLift
+  lambda      = lambdaLift
+  unlambda    = unlambdaLift
+  rho         = rhoLift
+  unrho       = unrhoLift
 
 instance Tensor p => Tensor (Lift2 p) where
   type Id (Lift2 p) = Const2 (Id p)
-  associate = associateLift
-  lambda    = lambdaLift
-  rho       = rhoLift
+  associate   = associateLift
+  unassociate = unassociateLift
+  lambda      = lambdaLift
+  unlambda    = unlambdaLift
+  rho         = rhoLift
+  unrho       = unrhoLift
 
 instance Tensor p => Tensor (LiftC p) where
   type Id (LiftC p) = ConstC (Id p)
-  associate = associateLift
-  lambda    = lambdaLift
-  rho       = rhoLift
-
+  associate   = associateLift
+  unassociate = unassociateLift
+  lambda      = lambdaLift
+  unlambda    = unlambdaLift
+  rho         = rhoLift
+  unrho       = unrhoLift
 
 -- symmetric monoidal category
 class Bifunctor p => Symmetric p where
@@ -1220,7 +1251,7 @@ ap :: (Monoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
 return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
-return = fmap (lambda . swap) . strength . fmap1 ap0 . rho
+return = fmap (lambda . swap) . strength . fmap1 ap0 . unrho
 
 class (Functor f, Category (Dom f)) => Comonad (f :: x -> x) where
   {-# MINIMAL extract, (duplicate | extend) #-}
