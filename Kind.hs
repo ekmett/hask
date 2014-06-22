@@ -44,6 +44,10 @@ type instance (~>) = (->) -- @* -> * -> *@
 type instance (~>) = Nat  -- @(i -> j) -> (i -> j) -> *@
 type instance (~>) = (:-) -- @Constraint -> Constraint -> *@
 
+type Dom (f :: x -> y) = ((~>) :: x -> x -> *)
+type Cod (f :: x -> y) = ((~>) :: y -> y -> *)
+type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
+type Arr (a :: x) = ((~>) :: x -> x -> *)
 
 infixr 2 &
 -- needed because we can't partially apply (,) in the world of constraints
@@ -91,35 +95,26 @@ leftAdjunct = get adj
 rightAdjunct :: (f -| u) => (a ~> u b) -> f a ~> b
 rightAdjunct = unget adj
 
-type Dom (f :: x -> y) = ((~>) :: x -> x -> *)
-type Cod (f :: x -> y) = ((~>) :: y -> y -> *)
+ap2R :: (f -| u, Cartesian (Dom u), Cartesian (Cod u)) => (u a * u b) ~> u (a * b)
+ap2R = get adj (unget adj fst &&& unget adj snd)
 
-ap2R :: forall (f :: y -> x) (u :: x -> y) (a :: x) (b :: x).
-        (f -| u, Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *) )
-     => (u a * u b) ~> u (a * b)
-ap2R = leftAdjunct (rightAdjunct fst &&& rightAdjunct snd)
-
-unitAdj :: forall (f :: y -> x) (u :: x -> y) (a :: y).
-           (f -| u, Category ((~>) :: y -> y -> *), Category ((~>) :: x -> x -> *))
-        => a ~> u (f a)
+unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
 
-counitAdj :: forall (f :: y -> x) (u :: x -> y) (b :: x).
-             (f -| u, Category ((~>) :: x -> x -> *), Category ((~>) :: y -> y -> *))
-          => f (u b) ~> b
+counitAdj :: (f -| u, Category (Dom f)) => f (u b) ~> b
 counitAdj = unget adj id
 
 -- * common aliases
 --
-class (Functor p, Functor1 p, Category ((~>)::z->z-> *)) => Bifunctor (p :: x -> y -> z)
-instance (Functor p, Functor1 p, Category ((~>)::z->z -> *)) => Bifunctor (p :: x -> y -> z)
+class (Functor p, Functor1 p, Category (Cod2 p)) => Bifunctor p
+instance (Functor p, Functor1 p, Category (Cod2 p)) => Bifunctor p
 
-class (Contravariant p, Contravariant1 p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
-instance (Contravariant p, Contravariant1 p, Category ((~>)::z->z-> *)) => Bicontravariant (p::x->y->z)
+class (Contravariant p, Contravariant1 p, Category (Cod2 p)) => Bicontravariant p
+instance (Contravariant p, Contravariant1 p, Category (Cod2 p)) => Bicontravariant p
 
 -- enriched profuncors C^op * D -> E
-class (Contravariant p, Functor1 p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
-instance (Contravariant p, Functor1 p, Cartesian ((~>)::z->z-> *)) => Profunctor (p::x->y->z)
+class (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
+instance (Contravariant p, Functor1 p, Cartesian (Cod2 p)) => Profunctor p
 
 -- Lift Prelude instances of Functor without overlap, using the kind index to say
 -- these are all the instances of kind * -> *
@@ -151,9 +146,9 @@ instance Monoidal (At x) where
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
   type Const :: j -> i -> j
-  _Const :: forall (a :: i) (b :: j) (a' :: i) (b' :: j). Iso (Const b a) (Const b' a') b b'
+  _Const :: Iso (k b a) (k b' a') b b'
 
-newtype ConstValue (b :: *) (a :: i) = Const { getConst :: b }
+newtype ConstValue b a = Const { getConst :: b }
 
 instance Constant ConstValue where
   type Const = ConstValue
@@ -276,9 +271,9 @@ instance Functor Dict where
 
 class Lift ~ s => Lifted (s :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l) | i j k l -> s where
   type Lift :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l
-  _Lift :: forall (q :: j -> k -> l) (r :: j -> k -> l) (f :: i -> j) (g :: i -> k) (h :: i -> j) (e :: i -> k) (a :: i) (b :: i). Iso (Lift q f g a)  (Lift r h e b) (q (f a) (g a)) (r (h b) (e b))
+  _Lift :: Iso (s q f g a) (s r h e b) (q (f a) (g a)) (r (h b) (e b))
 
-newtype LiftValue (p :: j -> k -> *) (f :: i -> j) (g :: i -> k) (a :: i) = Lift { lower :: p (f a) (g a) }
+newtype LiftValue p f g a = Lift { lower :: p (f a) (g a) }
 
 instance Lifted LiftValue where
   type Lift = LiftValue
@@ -302,7 +297,7 @@ instance Functor1 p => Functor (LiftValue p f) where
 instance (Functor p, Functor1 p, Functor f, Functor g) => Functor (LiftValue p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
 
-class r (p a) (q a) => LiftConstraint (r :: j -> k -> Constraint) (p :: i -> j) (q :: i -> k) (a :: i)
+class r (p a) (q a) => LiftConstraint r p q a
 instance r (p a) (q a) => LiftConstraint r p q a
 
 instance Functor p => Functor (LiftConstraint p) where
@@ -321,7 +316,7 @@ instance Lifted LiftConstraint where
   type Lift = LiftConstraint
   _Lift = dimap (Sub Dict) (Sub Dict)
 
-newtype LiftValue2 (p :: (l -> j) -> (l -> k) -> l -> *) (f :: i -> l -> j) (g :: i -> l -> k) (a :: i) (b :: l) = Lift2 { lower2 :: p (f a) (g a) b }
+newtype LiftValue2 p f g a b = Lift2 { lower2 :: p (f a) (g a) b }
 
 instance Lifted LiftValue2 where
   type Lift = LiftValue2
@@ -440,10 +435,7 @@ via :: forall (a :: *) (b :: *) (r :: *) (p :: x -> x -> *) (c :: x) (t :: *) (u
 via l m = case l (Via id id) of
   Via csa dbt -> csa $ m (dbt id)
 
-mapping
-   :: forall (f :: x -> y) (a :: x) (b :: x) (s :: x) (t :: x).
-      (Category ((~>) :: x -> x -> *), Functor f)
-   => (Via a b a b -> Via a b s t) -> Iso (f s) (f t) (f a) (f b)
+mapping :: (Functor f, Category (Dom f)) => (Via a b a b -> Via a b s t) -> Iso (f s) (f t) (f a) (f b)
 mapping l = case l (Via id id) of
   Via csa dbt -> dimap (fmap csa) (fmap dbt)
 
@@ -510,7 +502,7 @@ instance Contravariant1 (Get r) where
 instance Functor1 (Get r) where
   fmap1 _ = _Get id
 
-get :: forall (s::i) (a::i). Category ((~>)::i->i-> *) => (Get a a a -> Get a s s) -> s ~> a
+get :: (Category c, c ~ (~>)) => (Get a a a -> Get a s s) -> c s a
 get l = runGet $ l (Get id)
 -- get = via _Get
 
@@ -528,7 +520,7 @@ instance Contravariant (Unget r) where
 instance Category ((~>) :: i -> i -> *) => Functor1 (Unget (r :: i)) where
   fmap1 f = _Unget (f .)
 
-unget :: forall (t::i) (b::i). Category ((~>)::i->i-> *) => (Unget b b b -> Unget b t t) -> b ~> t
+unget :: (Category c, c ~ (~>)) => (Unget b b b -> Unget b t t) -> c b t
 unget l = runUnget $ l (Unget id)
 -- unget = via _Unget
 
@@ -537,6 +529,7 @@ unget l = runUnget $ l (Unget id)
 
 -- * Un
 
+-- signatures needed to require endoprofunctors
 newtype Un (p::i->i->j) (a::i) (b::i) (s::i) (t::i) = Un { runUn :: p t s ~> p b a }
 _Un = dimap runUn Un
 
@@ -565,10 +558,10 @@ instance (Contravariant1 p, Functor1 p) => QPhantom (p :: x -> y -> z)
 rmap :: Functor1 p => (a ~> b) -> p c a ~> p c b
 rmap = fmap1
 
-bimap :: (Category ((~>)::z->z-> *), Bifunctor (p::x->y->z)) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
+bimap :: Bifunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
 bimap f g = first f . fmap1 g
 
-dimap :: (Category ((~>)::z->z-> *), Profunctor (p::x->y->z)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
+dimap :: Profunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . rmap g
 
 -- tensor for a skew monoidal category
@@ -640,15 +633,15 @@ instance Symmetric p => Symmetric (LiftConstraint p) where
 
 -- profunctor composition forms a weak category.
 data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
-  Prof :: forall (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: j) (c :: k). p b c -> q a b -> Prof p q a c
+  Prof :: p b c -> q a b -> Prof p q a c
 
-associateProf :: forall (p :: k -> l -> *) (q :: j -> k -> *) (r :: i -> j -> *) (a :: i) (c :: l). Prof (Prof p q) r a c -> Prof p (Prof q r) a c
+associateProf :: Prof (Prof p q) r a c -> Prof p (Prof q r) a c
 associateProf (Prof (Prof a b) c) = Prof a (Prof b c)
 
-lambdaProf :: forall (p :: i -> j -> *) (a :: i) (b :: j). Functor1 p => Prof (~>) p a b -> p a b
+lambdaProf :: Functor1 p => Prof (~>) p a b -> p a b
 lambdaProf (Prof h p) = rmap h p
 
-rhoProf :: forall (p :: i -> k -> *) (a :: i) (b :: k). Category ((~>) :: i -> i -> *) => p a b -> Prof p (~>) a b
+rhoProf :: (Category q, q ~ (~>)) => p a b -> Prof p q a b
 rhoProf p = Prof p id
 
 class One ~ t => Terminal (t :: i) | i -> t where
@@ -953,10 +946,10 @@ instance Monoid (() :: Constraint) where
   one = id
   mult = lambda
 
-mappend :: forall (m :: i). (CCC ((~>) :: i -> i -> *), Monoid m) => m ~> m^m
+mappend :: (Monoid m, CCC (Arr m)) => m ~> m^m
 mappend = curry mult
 
-class Cocartesian ((~>) :: i -> i -> *) => Comonoid (m :: i) where
+class Cocartesian (Arr m) => Comonoid m where
   zero   :: m ~> Zero
   comult :: m ~> m + m
 
@@ -970,7 +963,7 @@ instance Comonoid (ConstValue Void) where
 
 -- instance Comonoid (ConstValue2 (ConstValue Void)) where
 
-class Functor f => Strength (f :: x -> x) where
+class Functor f => Strength f where
   strength :: a * f b ~> f (a * b)
 
 instance Prelude.Functor f => Strength f where
@@ -984,16 +977,13 @@ class Functor f => Costrength (f :: x -> x) where
 instance Traversable.Traversable f => Costrength f where
   costrength = Traversable.sequence
 
-ap :: forall (f :: x -> y) (a :: x) (b :: x).
-      (Monoidal f, CCC ((~>) :: x -> x -> *), CCC ((~>) :: y -> y -> *))
-   => f (b ^ a) ~> f b ^ f a
+ap :: (Monoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
-return :: forall (f :: x -> x) (a :: x). (Monoidal f, Strength f, CCC ((~>) :: x -> x -> *))
-      => a ~> f a
+return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
 return = fmap (lambda . swap) . strength . fmap1 ap0 . rho
 
-class (Functor f, Category ((~>) :: x -> x -> *)) => Comonad (f :: x -> x) where
+class (Functor f, Category (Dom f)) => Comonad (f :: x -> x) where
   {-# MINIMAL extract, (duplicate | extend) #-}
   duplicate :: f a ~> f (f a)
   duplicate = extend id
@@ -1007,7 +997,7 @@ instance Comonad.Comonad f => Comonad f where
   extract = Comonad.extract
 
 -- indexed store
-data Store (s :: x -> *) (a :: x -> *) (i :: x) = Store (s ~> a) (s i)
+data Store s a i = Store (s ~> a) (s i)
 
 instance Functor (Store s) where
   fmap f = Nat $ \(Store g s) -> Store (f . g) s
@@ -1037,7 +1027,7 @@ instance Monoidal (Cokey i) where
 --
 -- Key i :: Hask -> Nat
 -- Key :: x -> * -> x -> *
-data Key (i :: x) (a :: *) (j :: x) where
+data Key i a j where
   Key :: a -> Key i a i
 
 instance Functor (Key i) where
@@ -1054,7 +1044,7 @@ instance Opmonoidal (Key i) where
 type instance (~>) = Prod -- (i,j) -> (i, j) -> *
 data Prod :: (i,j) -> (i,j) -> * where
   Want :: Prod a a
-  Have :: forall (a :: i) (b :: i) (c :: j) (d :: j). (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
+  Have :: (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
 
 instance (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Category (Prod :: (i,j) -> (i,j) -> *) where
   id = Want
@@ -1078,15 +1068,23 @@ instance (Contravariant ((~>) :: i -> i -> *), Contravariant ((~>) :: j -> j -> 
     Want       -> Have f g
     Have f' g' -> Have (lmap f f') (lmap g g')
 
-runProd :: forall (a :: i) (b :: i) (c :: j) (d :: j). (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *)) => Prod '(a,c) '(b,d) -> (a ~> b, c ~> d)
+runProd :: forall (a :: i) (b :: i) (c :: j) (d :: j).
+           (Category ((~>) :: i -> i -> *), Category ((~>) :: j -> j -> *))
+        => Prod '(a,c) '(b,d) -> (a ~> b, c ~> d)
 runProd Want       = (id,id)
 runProd (Have f g) = (f,g)
 
-runFst :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: i -> i -> *) => Prod '(a,c) '(b,d) -> a ~> b
+runFst
+  :: forall (a :: i) (b :: i) (c :: j) (d :: j).
+     Category ((~>) :: i -> i -> *)
+  => Prod '(a,c) '(b,d) -> a ~> b
 runFst Want       = id
 runFst (Have f _) = f
 
-runSnd :: forall (a :: i) (b :: i) (c :: j) (d :: j). Category ((~>) :: j -> j -> *) => Prod '(a,c) '(b,d) -> c ~> d
+runSnd
+  :: forall (a :: i) (b :: i) (c :: j) (d :: j).
+     Category ((~>) :: j -> j -> *)
+  => Prod '(a,c) '(b,d) -> c ~> d
 runSnd Want       = id
 runSnd (Have _ g) = g
 
@@ -1130,14 +1128,14 @@ class p |- q where
 
 -- convert to and from the internal representation of dictionaries
 
-_Sub :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict p -> Dict q) (Dict p' -> Dict q')
+_Sub :: Iso (p :- q) (p' :- q') (Dict p -> Dict q) (Dict p' -> Dict q')
 _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
 
 newtype Magic p q r = Magic ((p |- q) => r)
 reify :: forall p q r. ((p |- q) => r) -> (p :- q) -> r
 reify k = unsafeCoerce (Magic k :: Magic p q r)
 
-_Implies :: forall p q p' q'. Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
+_Implies :: Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
 _Implies = dimap (reify Dict) (\Dict -> implies)
 
 instance Contravariant (|-) where
