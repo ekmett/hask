@@ -625,9 +625,6 @@ un l = runUn $ l (Un id)
 class (Contravariant p, Functor p) => Phantom p
 instance (Contravariant p, Functor p) => Phantom p
 
-class (Contravariant1 p, Functor1 p) => Phantom1 p
-instance (Contravariant1 p, Functor1 p) => Phantom1 p
-
 bimap :: Bifunctor (p::x->y->z) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
 bimap f g = first f . fmap1 g
 
@@ -1634,6 +1631,9 @@ instance Limit (Up p Contravariant) => Contravariant1 p
 
 contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
 contramap1 f = case (limitDict :: Dict (Up p Contravariant c)) of Dict -> contramap f
+
+class (Contravariant1 p, Functor1 p) => Phantom1 p
+instance (Contravariant1 p, Functor1 p) => Phantom1 p
 
 -- indexed monoidal functors
 
