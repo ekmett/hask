@@ -688,18 +688,60 @@ instance Symmetric p => Symmetric (Lift2 p) where
 instance Symmetric p => Symmetric (LiftC p) where
   swap = Nat $ _Lift swap
 
--- profunctor composition forms a weak category.
-data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
-  Prof :: p b c -> q a b -> Prof p q a c
+-- forward profunctor composition forms a weak category.
+data Prof :: (i -> j -> *) -> (j -> k -> *) -> i -> k -> * where
+  Prof :: p a b -> q b c -> Prof p q a c
+
+instance Functor Prof where
+  fmap f = Nat $ Nat $ Nat $ \(Prof p q) -> Prof (runNat (runNat f) p) q
+
+instance Functor (Prof p) where
+  fmap f = Nat $ Nat $ \(Prof p q) -> Prof p (runNat (runNat f) q)
+
+instance Contravariant p => Contravariant (Prof p q) where
+  contramap f = Nat $ \(Prof p q) -> Prof (runNat (contramap f) p) q
+
+instance Functor1 q => Functor (Prof p q a) where
+  fmap f (Prof p q) = Prof p (fmap1 f q)
 
 associateProf :: Prof (Prof p q) r a c -> Prof p (Prof q r) a c
 associateProf (Prof (Prof a b) c) = Prof a (Prof b c)
 
-lambdaProf :: Functor1 p => Prof (~>) p a b -> p a b
-lambdaProf (Prof h p) = rmap h p
+lambdaProf :: Contravariant p => Prof (~>) p a b -> p a b
+lambdaProf (Prof h p) = lmap h p
 
 rhoProf :: (Category q, q ~ (~>)) => p a b -> Prof p q a b
 rhoProf p = Prof p id
+
+newtype ProfR p q a b = ProfR { runProfR :: forall x. p x a -> q x b }
+
+-- ProfL =| Prof =| ProfR
+
+instance Contravariant ProfR where
+  contramap f = Nat $ Nat $ Nat $ \(ProfR pq) -> ProfR $ \p -> pq (runNat (runNat f) p)
+
+instance Functor (ProfR p) where
+  fmap f = Nat $ Nat $ \(ProfR pq) -> ProfR $ \p -> runNat (runNat f) (pq p)
+
+instance Functor1 p => Contravariant (ProfR p q) where
+  contramap f = Nat $ \(ProfR pq) -> ProfR $ \p -> pq (fmap1 f p)
+
+instance Functor1 q => Functor (ProfR p q a) where
+  fmap f (ProfR pq) = ProfR $ \p -> fmap1 f (pq p)
+
+instance Contravariant1 p => Functor (ProfR p q) where
+  fmap f = Nat $ \(ProfR pq) -> ProfR $ \p -> pq (contramap1 f p)
+
+instance Contravariant1 q => Contravariant (ProfR p q a) where
+  contramap f (ProfR pq) = ProfR $ \p -> contramap1 f (pq p)
+
+instance Prof =| ProfR where
+-- adj1 :: Iso (Prof p q ~> r) (Prof p' q' ~> r') (q ~> ProfR p r) (q' ~> ProfR p' r')
+  adj1 = dimap (\k -> Nat $ Nat $ \p -> ProfR $ \q -> runNat (runNat k) (Prof q p))
+               (\k -> Nat $ Nat $ \(Prof p q) -> runProfR (runNat (runNat k) q) p) -- runR (runNat (runNat k) p) q)
+
+instance Prof e -| ProfR e where
+  adj = adj1
 
 class One ~ t => Terminal (t :: i) | i -> t where
   type One :: i
@@ -1285,9 +1327,12 @@ instance Functor f => Functor  (Copower1 f a) where
 instance Contravariant f => Contravariant (Copower1 f a) where
   contramap f (Copower fa x) = Copower (contramap f fa) x
 
-instance Copower1 e -| Nat e where
-  adj = dimap (\(Nat f) a -> Nat $ \e -> f (Copower e a))
+instance Copower1 =| Nat where
+  adj1 = dimap (\(Nat f) a -> Nat $ \e -> f (Copower e a))
               (\f -> Nat $ \(Copower e a) -> runNat (f a) e)
+
+instance Copower1 e -| Nat e where
+  adj = adj1
 
 -- Nat :: (i -> j -> *) -> (i -> j -> *) -> * is tensored. (Copowered over Hask)
 data Copower2 f x a b = Copower2 (f a b) x
@@ -1310,10 +1355,12 @@ instance Functor1 f => Functor (Copower2 f x a) where
 instance Contravariant1 f => Contravariant (Copower2 f x a) where
   contramap f (Copower2 fab x) = Copower2 (contramap1 f fab) x
 
-instance Copower2 e -| Nat e where
-  adj = dimap (\f a -> Nat $ Nat $ \e -> runNat (runNat f) (Copower2 e a))
+instance Copower2 =| Nat where
+  adj1 = dimap (\f a -> Nat $ Nat $ \e -> runNat (runNat f) (Copower2 e a))
               (\f -> Nat $ Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
-              -- Nat $ \(Copower2 e a) -> runNat (runNat (f a)) e)
+
+instance Copower2 e -| Nat e where
+  adj = adj1
 
 class (Profunctor (Power :: * -> j -> j), k ~ (~>)) => Powered (k :: j -> j -> *) | j -> k where
   type Power :: * -> j -> j
@@ -1372,8 +1419,8 @@ instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
 -- * Kan extensions
 
 -- Lan g -| Up g -| Ran g
-type family Lan :: (i -> j) -> (i -> k) -> j -> k
-type family Ran :: (i -> j) -> (i -> k) -> j -> k
+type family Lan  :: (i -> j) -> (i -> k) -> j -> k
+type family Ran  :: (i -> j) -> (i -> k) -> j -> k
 
 type instance Ran = Ran1
 newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) -> g r }
@@ -1513,7 +1560,6 @@ data No (a :: Void)
 
 instance Functor No where
   fmap !f = Prelude.undefined
-
 
 infixr 9 ·
 type g · f = Up f g
