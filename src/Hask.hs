@@ -448,16 +448,16 @@ instance Const2 -| Lim2 where
 
 -- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
 class LimC (p :: i -> Constraint) where
-  limitDict :: Dict (p a)
+  limDict :: Dict (p a)
 
 instance p Any => LimC (p :: i -> Constraint) where
-  limitDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
+  limDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
     Sub d -> d
 
 type instance Lim = LimC
 
 instance Functor LimC where
-  fmap f = dimap (Sub limitDict) (Sub Dict) (runAny f) where
+  fmap f = dimap (Sub limDict) (Sub Dict) (runAny f) where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
 
@@ -473,7 +473,7 @@ instance Monoid m => Monoid (LimC m) where
   one = oneM
 
 instance ConstC -| LimC where
-  adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
+  adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limDict) b) where
     hither :: (ConstC a Any :- f Any) -> a :- LimC f
     hither = dimap (Sub Dict) (Sub Dict)
 
@@ -518,7 +518,18 @@ instance Colim2 -| Const2 where
                \ f -> Nat $ \ xs -> case xs of
                  Colim2 fyx -> getConst2 $ runNat2 f fyx
 
+--class ColimC (f :: i -> Constraint) where
+--  colimDict :: Colim (Up f Dict)
+--    p (f a) :- ColimC f
+
+
 -- * Support for Tagged and Proxy
+
+instance Functor Tagged where
+  fmap _ = Nat (_Tagged id)
+
+instance Functor (Tagged e) where
+  fmap = Prelude.fmap
 
 _Tagged :: Iso (Tagged s a) (Tagged t b) a b
 _Tagged = dimap unTagged Tagged
@@ -661,14 +672,8 @@ instance Contravariant (:-) where
 
 -- * Misc
 
-instance Functor Tagged where
-  fmap _ = Nat (_Tagged id)
-
 instance Functor (Either e) where
   fmap = Arrow.right
-
-instance Functor (Tagged e) where
-  fmap = Prelude.fmap
 
 data Via (a :: x) (b :: x) (s :: x) (t :: x) where
   Via :: (s ~> a) -> (b ~> t) -> Via a b s t
@@ -2062,7 +2067,7 @@ class Lim (Up p Functor) => Functor1 p
 instance Lim (Up p Functor) => Functor1 p
 
 fmap1 :: forall p a b c. Functor1 p => (a ~> b) -> p c a ~> p c b
-fmap1 f = case limitDict :: Dict (Up p Functor c) of Dict -> fmap f
+fmap1 f = case limDict :: Dict (Up p Functor c) of Dict -> fmap f
 
 -- contravariant functors over the second argument as indexed functors
 
@@ -2070,7 +2075,7 @@ class Lim (Up p Contravariant) => Contravariant1 p
 instance Lim (Up p Contravariant) => Contravariant1 p
 
 contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
-contramap1 f = case limitDict :: Dict (Up p Contravariant c) of Dict -> contramap f
+contramap1 f = case limDict :: Dict (Up p Contravariant c) of Dict -> contramap f
 
 class (Contravariant1 p, Functor1 p) => Phantom1 p
 instance (Contravariant1 p, Functor1 p) => Phantom1 p
@@ -2081,25 +2086,25 @@ class Lim (Up p Semimonoidal) => Semimonoidal1 p
 instance Lim (Up p Semimonoidal) => Semimonoidal1 p
 
 ap2_1 :: forall p e a b. Semimonoidal1 p => p e a * p e b ~> p e (a * b)
-ap2_1 = case limitDict :: Dict (Up p Semimonoidal e) of Dict -> ap2
+ap2_1 = case limDict :: Dict (Up p Semimonoidal e) of Dict -> ap2
 
 class Lim (Up p Monoidal) => Monoidal1 p
 instance Lim (Up p Monoidal) => Monoidal1 p
 
 ap0_1 :: forall p e. Monoidal1 p => One ~> p e One
-ap0_1 = case limitDict :: Dict (Up p Monoidal e) of Dict -> ap0
+ap0_1 = case limDict :: Dict (Up p Monoidal e) of Dict -> ap0
 
 class Lim (Up p Cosemimonoidal) => Cosemimonoidal1 p
 instance Lim (Up p Cosemimonoidal) => Cosemimonoidal1 p
 
 op2_1 :: forall p e a b. Cosemimonoidal1 p => p e (a + b) ~> p e a + p e b
-op2_1 = case limitDict :: Dict (Up p Cosemimonoidal e) of Dict -> op2
+op2_1 = case limDict :: Dict (Up p Cosemimonoidal e) of Dict -> op2
 
 class Lim (Up p Comonoidal) => Comonoidal1 p
 instance Lim (Up p Comonoidal) => Comonoidal1 p
 
 op0_1 :: forall p e. Comonoidal1 p => p e Zero ~> Zero
-op0_1 = case limitDict :: Dict (Up p Comonoidal e) of Dict -> op0
+op0_1 = case limDict :: Dict (Up p Comonoidal e) of Dict -> op0
 
 -- * Groupoids
 
