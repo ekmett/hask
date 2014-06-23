@@ -41,6 +41,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 infixr 0 ~>
 
+-- to play with enriched categories, change to (~>) :: i -> i -> j
 type family (~>) :: i -> i -> *
 type instance (~>) = (->)  -- @* -> * -> *@
 type instance (~>) = Nat   -- @(i -> j) -> (i -> j) -> *@
@@ -152,7 +153,7 @@ instance (Contravariant p, Contravariant1 p) => Bicontravariant p
 -- enriched profuncors C^op * D -> E
 --
 -- note: due to the fact that we use the variances in the other order, this is technically a
--- correspondence, not a profunctor
+-- correspondence or distributor, not a profunctor
 class (Contravariant p, Functor1 p) => Profunctor p
 instance (Contravariant p, Functor1 p) => Profunctor p
 
@@ -174,7 +175,7 @@ instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) wher
 instance Functor ((:-) f) where
   fmap = fmap1
 
--- We can defne a functor from the category of natural transformations to Hask
+-- We can define a functor from the category of natural transformations to Hask
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
 _At = dimap getAt At
 
