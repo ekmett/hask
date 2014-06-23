@@ -206,6 +206,15 @@ instance Functor Const1 where
 instance Functor (Const1 b) where
   fmap _ = _Const id
 
+instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (Const1 b :: i -> *) where
+  ap2 = unget _Const . mult . bimap (get _Const) (get _Const)
+
+instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (Const1 b :: i -> *) where
+  ap0 = unget _Const . one
+
+instance Semigroup b => Semigroup (Const1 b a) where
+  mult = unget _Const . mult . bimap (get _Const) (get _Const)
+
 newtype Const2 (f :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: f c }
 
 instance Constant Const2 where
