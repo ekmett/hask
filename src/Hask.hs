@@ -88,6 +88,8 @@ type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> 
 class (Functor f, Functor u) => (f::y->x) -| (u::x->y) | f -> u, u -> f where
   adj :: f -: u
 
+-- todo composition of adjunctions
+
 type (f :: i -> y -> x) =: (u :: i -> x -> y) = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
 
 -- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
@@ -205,6 +207,9 @@ instance Functor Const1 where
 
 instance Functor (Const1 b) where
   fmap _ = _Const id
+
+instance Contravariant (Const1 b) where
+  contramap _ = _Const id
 
 instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (Const1 b :: i -> *) where
   ap2 = unget _Const . mult . bimap (get _Const) (get _Const)
@@ -364,113 +369,113 @@ type instance Coend = Coend2
 instance Functor Coend2 where
   fmap f = Nat $ \(Coend2 fcc) -> Coend2 $ runNat3 f fcc
 
--- * -^J -| Limit
+-- * -^J -| Lim
 
-type family Limit :: (i -> j) -> j
+type family Lim :: (i -> j) -> j
 
-newtype Limit1 (f :: i -> *) = Limit { getLimit :: forall x. f x }
-type instance Limit = Limit1
+newtype Lim1 (f :: i -> *) = Lim { getLim :: forall x. f x }
+type instance Lim = Lim1
 
-instance Functor Limit1 where
-  fmap (Nat f) (Limit g) = Limit (f g)
+instance Functor Lim1 where
+  fmap (Nat f) (Lim g) = Lim (f g)
 
-instance Semimonoidal Limit1 where
-  ap2 (Limit f, Limit g) = Limit (Lift (f, g))
+instance Semimonoidal Lim1 where
+  ap2 (Lim f, Lim g) = Lim (Lift (f, g))
 
-instance Monoidal Limit1 where
-  ap0 () = Limit $ Const ()
+instance Monoidal Lim1 where
+  ap0 () = Lim $ Const ()
 
-instance Semigroup m => Semigroup (Limit1 m) where
+instance Semigroup m => Semigroup (Lim1 m) where
   mult = multM
 
-instance Monoid m => Monoid (Limit1 m) where
+instance Monoid m => Monoid (Lim1 m) where
   one = oneM
 
-instance Const1 -| Limit1 where
-  adj = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
+instance Const1 -| Lim1 where
+  adj = dimap (\f a -> Lim (runNat f (Const a))) $ \h -> Nat $ getLim . h . getConst
 
-newtype Limit2 (f :: i -> j -> *) (y :: j) = Limit2 { getLimit2 :: forall x. f x y }
-type instance Limit = Limit2
+newtype Lim2 (f :: i -> j -> *) (y :: j) = Lim2 { getLim2 :: forall x. f x y }
+type instance Lim = Lim2
 
-instance Functor Limit2 where
-  fmap f = Nat $ \(Limit2 g) -> Limit2 (runNat (runNat f) g)
+instance Functor Lim2 where
+  fmap f = Nat $ \(Lim2 g) -> Lim2 (runNat (runNat f) g)
 
--- instance Monoidal Limit2 -- instantiate when Nat on 2 arguments is made Cartesian
+-- instance Monoidal Lim2 -- instantiate when Nat on 2 arguments is made Cartesian
 
-instance Const2 -| Limit2 where
-  adj = dimap (\(Nat f) -> Nat $ \ a -> Limit2 (runNat f (Const2 a))) $ \(Nat h) -> nat2 $ getLimit2 . h . getConst2
+instance Const2 -| Lim2 where
+  adj = dimap (\(Nat f) -> Nat $ \ a -> Lim2 (runNat f (Const2 a))) $ \(Nat h) -> nat2 $ getLim2 . h . getConst2
 
 -- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
-class LimitC (p :: i -> Constraint) where
+class LimC (p :: i -> Constraint) where
   limitDict :: Dict (p a)
 
-instance p Any => LimitC (p :: i -> Constraint) where
+instance p Any => LimC (p :: i -> Constraint) where
   limitDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
     Sub d -> d
 
-type instance Limit = LimitC
+type instance Lim = LimC
 
-instance Functor LimitC where
+instance Functor LimC where
   fmap f = dimap (Sub limitDict) (Sub Dict) (runAny f) where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
 
-instance Semimonoidal LimitC where
+instance Semimonoidal LimC where
   ap2 = get zipR
 
-instance Monoidal LimitC where
+instance Monoidal LimC where
   ap0 = Sub Dict
 
--- instance Semigroup m => Semigroup (LimitC m) where mult = multM
+-- instance Semigroup m => Semigroup (LimC m) where mult = multM
 
-instance Monoid m => Monoid (LimitC m) where
+instance Monoid m => Monoid (LimC m) where
   one = oneM
 
-instance ConstC -| LimitC where
+instance ConstC -| LimC where
   adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
-    hither :: (ConstC a Any :- f Any) -> a :- LimitC f
+    hither :: (ConstC a Any :- f Any) -> a :- LimC f
     hither = dimap (Sub Dict) (Sub Dict)
 
--- * Colimit -| -^J
+-- * Colim -| -^J
 
-type family Colimit :: (i -> j) -> j
-type instance Colimit = Colimit1
-type instance Colimit = Colimit2
+type family Colim :: (i -> j) -> j
+type instance Colim = Colim1
+type instance Colim = Colim2
 
-data Colimit1 (f :: i -> *) where
-  Colimit :: f x -> Colimit1 f
+data Colim1 (f :: i -> *) where
+  Colim :: f x -> Colim1 f
 
-instance Functor Colimit1 where
-  fmap (Nat f) (Colimit g)= Colimit (f g)
+instance Functor Colim1 where
+  fmap (Nat f) (Colim g)= Colim (f g)
 
-instance Cosemimonoidal Colimit1 where
-  op2 (Colimit (Lift ab)) = bimap Colimit Colimit ab
+instance Cosemimonoidal Colim1 where
+  op2 (Colim (Lift ab)) = bimap Colim Colim ab
 
-instance Comonoidal Colimit1 where
-  op0 (Colimit (Const a)) = a
+instance Comonoidal Colim1 where
+  op0 (Colim (Const a)) = a
 
-instance Cosemigroup m => Cosemigroup (Colimit1 m) where
+instance Cosemigroup m => Cosemigroup (Colim1 m) where
   comult = comultOp
 
-instance Comonoid m => Comonoid (Colimit1 m) where
+instance Comonoid m => Comonoid (Colim1 m) where
   zero = zeroOp
 
-instance Colimit1 -| Const1 where
-  adj = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
+instance Colim1 -| Const1 where
+  adj = dimap (\f -> Nat $ Const . f . Colim) $ \(Nat g2cb) (Colim g) -> getConst (g2cb g)
 
-data Colimit2 (f :: i -> j -> *) (x :: j) where
-  Colimit2 :: f y x -> Colimit2 f x
+data Colim2 (f :: i -> j -> *) (x :: j) where
+  Colim2 :: f y x -> Colim2 f x
 
-instance Functor Colimit2 where
-  fmap f = Nat $ \(Colimit2 g) -> Colimit2 (runNat (runNat f) g)
+instance Functor Colim2 where
+  fmap f = Nat $ \(Colim2 g) -> Colim2 (runNat (runNat f) g)
 
--- instance Comonoidal Colimit2
--- instance Comonoid m => Comonoid (Colimit1 m)
+-- instance Comonoidal Colim2
+-- instance Comonoid m => Comonoid (Colim1 m)
 
-instance Colimit2 -| Const2 where
-  adj = dimap (\(Nat f) -> nat2 $ Const2 . f . Colimit2) $
+instance Colim2 -| Const2 where
+  adj = dimap (\(Nat f) -> nat2 $ Const2 . f . Colim2) $
                \ f -> Nat $ \ xs -> case xs of
-                 Colimit2 fyx -> getConst2 $ runNat2 f fyx
+                 Colim2 fyx -> getConst2 $ runNat2 f fyx
 
 -- * Support for Tagged and Proxy
 
@@ -692,9 +697,6 @@ instance Contravariant ((~>)::j->j-> *) => Contravariant (Nat::(i->j)->(i->j)-> 
 
 instance Contravariant Tagged where
   contramap _ = Nat (_Tagged id)
-
-instance Contravariant (Const1 k) where
-  contramap _ = _Const id
 
 instance Contravariant (Const2 k) where
   contramap _ = _Const id
@@ -2018,45 +2020,45 @@ instance Functor (UpC f) where fmap f = Nat $ _Up (runNat f)
 
 -- functors over the second argument as indexed functors
 
-class Limit (Up p Functor) => Functor1 p
-instance Limit (Up p Functor) => Functor1 p
+class Lim (Up p Functor) => Functor1 p
+instance Lim (Up p Functor) => Functor1 p
 
 fmap1 :: forall p a b c. Functor1 p => (a ~> b) -> p c a ~> p c b
-fmap1 f = case (limitDict :: Dict (Up p Functor c)) of Dict -> fmap f
+fmap1 f = case limitDict :: Dict (Up p Functor c) of Dict -> fmap f
 
 -- contravariant functors over the second argument as indexed functors
 
-class Limit (Up p Contravariant) => Contravariant1 p
-instance Limit (Up p Contravariant) => Contravariant1 p
+class Lim (Up p Contravariant) => Contravariant1 p
+instance Lim (Up p Contravariant) => Contravariant1 p
 
 contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
-contramap1 f = case (limitDict :: Dict (Up p Contravariant c)) of Dict -> contramap f
+contramap1 f = case limitDict :: Dict (Up p Contravariant c) of Dict -> contramap f
 
 class (Contravariant1 p, Functor1 p) => Phantom1 p
 instance (Contravariant1 p, Functor1 p) => Phantom1 p
 
 -- indexed monoidal functors
 
-class Limit (Up p Semimonoidal) => Semimonoidal1 p
-instance Limit (Up p Semimonoidal) => Semimonoidal1 p
+class Lim (Up p Semimonoidal) => Semimonoidal1 p
+instance Lim (Up p Semimonoidal) => Semimonoidal1 p
 
 ap2_1 :: forall p e a b. Semimonoidal1 p => p e a * p e b ~> p e (a * b)
 ap2_1 = case limitDict :: Dict (Up p Semimonoidal e) of Dict -> ap2
 
-class Limit (Up p Monoidal) => Monoidal1 p
-instance Limit (Up p Monoidal) => Monoidal1 p
+class Lim (Up p Monoidal) => Monoidal1 p
+instance Lim (Up p Monoidal) => Monoidal1 p
 
 ap0_1 :: forall p e. Monoidal1 p => One ~> p e One
 ap0_1 = case limitDict :: Dict (Up p Monoidal e) of Dict -> ap0
 
-class Limit (Up p Cosemimonoidal) => Cosemimonoidal1 p
-instance Limit (Up p Cosemimonoidal) => Cosemimonoidal1 p
+class Lim (Up p Cosemimonoidal) => Cosemimonoidal1 p
+instance Lim (Up p Cosemimonoidal) => Cosemimonoidal1 p
 
 op2_1 :: forall p e a b. Cosemimonoidal1 p => p e (a + b) ~> p e a + p e b
 op2_1 = case limitDict :: Dict (Up p Cosemimonoidal e) of Dict -> op2
 
-class Limit (Up p Comonoidal) => Comonoidal1 p
-instance Limit (Up p Comonoidal) => Comonoidal1 p
+class Lim (Up p Comonoidal) => Comonoidal1 p
+instance Lim (Up p Comonoidal) => Comonoidal1 p
 
 op0_1 :: forall p e. Comonoidal1 p => p e Zero ~> Zero
 op0_1 = case limitDict :: Dict (Up p Comonoidal e) of Dict -> op0
