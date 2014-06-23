@@ -1,20 +1,54 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LiberalTypeSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+--------------------------------------------------------------------
+-- |
+-- Copyright :  (c) Edward Kmett 2014 and Sjoerd Visscher
+-- License   :  BSD3
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- This package explores category theory via a couple of non-standard
+-- tricks.
+--
+-- First, we use lens-style isomorphism-families to talk about
+-- most operations.
+--
+-- Second, we heavily abuse parametricity as a proxy for naturality.
+-- This means that the category Nat that gets used throughout is a
+-- particularly well-behaved. An inhabitant of @Nat :: (i -> j) -> (i -> j) -> *@
+-- is required to be polymorphic in its argument.
+--
+-- Parametricity is a very strong notion of naturality. Notably, we
+-- don't have to care if i or j are co -or- contravariant. (forall a. f a ~> g a)
+-- respects _both_.
+--
+-- Third, we use kind-indexing to pick the category. This means it
+-- is harder to talk about Kleisli categories, etc. but in exchange
+-- most of the category selection _just works_. A central working
+-- hypothesis of this code is that this is sufficient to talk about
+-- interesting categories, and it certainly results in less verbose
+-- code than more explicit encodings which clutter up every type class
+-- talking about the choice of category.
+--
+-- Here, much of the time the selection is implicit.
+--------------------------------------------------------------------
 module Hask where
 
 import qualified Control.Applicative as Applicative
