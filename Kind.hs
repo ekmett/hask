@@ -1944,14 +1944,25 @@ class Limit (Up p Semimonoidal) => Semimonoidal1 p
 instance Limit (Up p Semimonoidal) => Semimonoidal1 p
 
 ap2_1 :: forall p e a b. Semimonoidal1 p => p e a * p e b ~> p e (a * b)
-ap2_1 = case (limitDict :: Dict (Up p Semimonoidal e)) of Dict -> ap2
+ap2_1 = case limitDict :: Dict (Up p Semimonoidal e) of Dict -> ap2
 
 class Limit (Up p Monoidal) => Monoidal1 p
 instance Limit (Up p Monoidal) => Monoidal1 p
 
 ap0_1 :: forall p e. Monoidal1 p => One ~> p e One
-ap0_1 = case (limitDict :: Dict (Up p Monoidal e)) of Dict -> ap0
+ap0_1 = case limitDict :: Dict (Up p Monoidal e) of Dict -> ap0
 
+class Limit (Up p Cosemimonoidal) => Cosemimonoidal1 p
+instance Limit (Up p Cosemimonoidal) => Cosemimonoidal1 p
+
+op2_1 :: forall p e a b. Cosemimonoidal1 p => p e (a + b) ~> p e a + p e b
+op2_1 = case limitDict :: Dict (Up p Cosemimonoidal e) of Dict -> op2
+
+class Limit (Up p Comonoidal) => Comonoidal1 p
+instance Limit (Up p Comonoidal) => Comonoidal1 p
+
+op0_1 :: forall p e. Comonoidal1 p => p e Zero ~> Zero
+op0_1 = case limitDict :: Dict (Up p Comonoidal e) of Dict -> op0
 
 -- * Groupoids
 
