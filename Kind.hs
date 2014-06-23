@@ -1959,6 +1959,10 @@ instance Representable (Nat :: (i -> *) -> (i -> *) -> *) where
   type Rep (Nat :: (i -> *) -> (i -> *) -> *) = Id
   _Rep = un (mapping _Id)
 
+instance Representable (:-) where
+  type Rep (:-) = Id
+  _Rep = un (mapping _Id)
+
 class Corepresentable (p :: x -> y -> *) where
   type Corep p :: x -> y
   _Corep :: Iso (p a b) (p a' b') (Corep p a ~> b) (Corep p a' ~> b')
@@ -1969,6 +1973,10 @@ instance Corepresentable (->) where
 
 instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
   type Corep (Nat :: (i -> *) -> (i -> *) -> *) = Id
+  _Corep = lmapping _Id
+
+instance Corepresentable (:-) where
+  type Corep (:-) = Id
   _Corep = lmapping _Id
 
 -- a semigroupoid/semicategory looks like a "self-enriched" profunctor
