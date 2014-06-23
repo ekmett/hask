@@ -545,9 +545,6 @@ instance Functor ((->) e) where
 instance Contravariant (:-) where
   contramap f = Nat $ dimap Hom runHom (lmap f)
 
-instance Category ((~>) :: x -> x -> *) => Functor (Hom e :: x -> *) where
-  fmap g (Hom h) = Hom (g . h)
-
 -- * Misc
 
 instance Functor Tagged where
@@ -613,11 +610,14 @@ swapping l = case l (Via id id) of
 newtype Hom a b = Hom { runHom :: a ~> b }
 _Hom = dimap runHom Hom
 
-instance Contravariant (->) where
-  contramap f = Nat (. f)
-
 instance Category ((~>) :: x -> x -> *) => Contravariant (Hom :: x -> x -> *) where
   contramap f = Nat (_Hom (.f))
+
+instance Category ((~>) :: x -> x -> *) => Functor (Hom e :: x -> *) where
+  fmap g (Hom h) = Hom (g . h)
+
+instance Contravariant (->) where
+  contramap f = Nat (. f)
 
 instance Contravariant ((~>)::j->j-> *) => Contravariant (Nat::(i->j)->(i->j)-> *) where
   contramap (Nat f) = Nat $ \g -> Nat $ lmap f $ runNat g
@@ -650,7 +650,7 @@ to f = bicontramap f f
 newtype Get r a b = Get { runGet :: a ~> r }
 _Get = dimap runGet Get
 
-instance Category ((~>)::i->i-> *) => Contravariant (Get (r :: i)) where
+instance Category (Arr r) => Contravariant (Get r) where
   contramap f = Nat (_Get (. f))
 
 instance Contravariant (Get r a) where
