@@ -288,6 +288,14 @@ type instance Coend = Coend1
 instance Functor Coend1 where
   fmap f (Coend fcc) = Coend $ runNat2 f fcc
 
+data Coend2 f y where
+  Coend2 :: f x x y -> Coend2 f y
+
+type instance Coend = Coend2
+
+instance Functor Coend2 where
+  fmap f = Nat $ \(Coend2 fcc) -> Coend2 $ runNat3 f fcc
+
 -- * -^J -| Limit
 
 type family Limit :: (i -> j) -> j
