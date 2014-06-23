@@ -15,7 +15,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-module Kind where
+module Hask where
 
 import qualified Control.Applicative as Applicative
 import qualified Control.Arrow as Arrow
