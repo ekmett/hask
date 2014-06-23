@@ -1431,12 +1431,12 @@ instance Functor IdC where
 instance IdC -| IdC where
   adj = un (mapping _Id . lmapping _Id)
 
--- a monoid object in a cartesian category
-class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
-  one  :: One ~> m
-
-class Precartesian ((~>) :: i -> i -> *) => Semigroup (m :: i) where
+class Precartesian (Arr m) => Semigroup m where
   mult :: m * m ~> m
+
+-- a monoid object in a cartesian category
+class (Semigroup m, Cartesian (Arr m)) => Monoid m where
+  one  :: One ~> m
 
 -- monoidal functors take monoids to monoids
 
