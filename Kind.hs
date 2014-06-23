@@ -2088,6 +2088,12 @@ instance Functor EnvC where
 instance Functor (EnvC p) where
   fmap f (EnvC p q) = EnvC p (f q)
 
+instance Cosemimonad (EnvC p) where
+  duplicate q@(EnvC p _) = EnvC p q
+
+instance Comonad (EnvC p) where
+  extract (EnvC _ q) = q
+
 instance Cosemimonoidal (EnvC p) where
   op2 (EnvC p eab) = bimap (EnvC p) (EnvC p) eab
 
@@ -2100,6 +2106,9 @@ instance Semimonoidal (EnvC p) where
 
 instance Monoid p => Monoidal (EnvC p) where
   ap0 = EnvC (Dict \\ (one :: () :- p))
+
+instance Semimonad (EnvC p) where
+  join (EnvC Dict p) = p
 
 instance EnvC =| (|=) where
   adj1 = dimap (\eab a -> Constrained $ eab (EnvC Dict a))
