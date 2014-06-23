@@ -1116,6 +1116,10 @@ instance Strong (Nat::(i-> Constraint)->(i-> Constraint)-> *) where
 instance Precartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
   _1 = _Get (. fst)
 
+-- A Freyd category over a category is an arrow
+class (Strong p, Category p) => Freyd p
+instance (Strong p, Category p) => Freyd p
+
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
 infixl 6 +
