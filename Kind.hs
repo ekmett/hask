@@ -2051,3 +2051,59 @@ instance Corepresentable (:-) where
 
 class    (Profunctor p, p ~ (~>)) => Semicategory p
 instance (Profunctor p, p ~ (~>)) => Semicategory p
+
+infixr |=
+
+-- |
+-- @(|=) :: Constrained -> * -> *@
+
+-- This is a corepresentable functor
+newtype p |= q = Constrained { runConstrained :: p => q }
+
+instance Contravariant (|=) where
+  contramap ab = Nat $ \bc -> Constrained $ case ab of
+    Sub Dict -> runConstrained bc
+
+instance Functor ((|=) e) where
+  fmap bc ab = Constrained $ bc (runConstrained ab)
+
+instance Semimonoidal ((|=) e) where
+  ap2 (ea,eb) = Constrained $ (runConstrained ea, runConstrained eb)
+
+instance Monoidal ((|=) e) where
+  ap0 () = Constrained ()
+
+-- we can make an indexed adjunction for this
+instance Corepresentable (|=) where
+  type Corep (|=) = Dict
+  _Corep = dimap (\ab Dict -> case ab of Constrained b -> b) (\ab -> Constrained $ ab Dict)
+
+data EnvC p q = EnvC (Dict p) q
+
+-- EnvC p (Either a b) -> Either (EnvC p a) (EnvC p b)
+
+instance Functor EnvC where
+  fmap f = Nat $ \(EnvC p q) -> EnvC (fmap f p) q
+
+instance Functor (EnvC p) where
+  fmap f (EnvC p q) = EnvC p (f q)
+
+instance Cosemimonoidal (EnvC p) where
+  op2 (EnvC p eab) = bimap (EnvC p) (EnvC p) eab
+
+instance Comonoidal (EnvC p) where
+  op0 (EnvC _ v) = v
+
+-- all constraints are semimonoids
+instance Semimonoidal (EnvC p) where
+  ap2 (EnvC Dict p, EnvC Dict q) = EnvC Dict (p, q)
+
+instance Monoid p => Monoidal (EnvC p) where
+  ap0 = EnvC (Dict \\ (one :: () :- p))
+
+instance EnvC =| (|=) where
+  adj1 = dimap (\eab a -> Constrained $ eab (EnvC Dict a))
+               (\aeb (EnvC Dict a) -> runConstrained (aeb a))
+
+instance EnvC e -| (|=) e where
+  adj = adj1
