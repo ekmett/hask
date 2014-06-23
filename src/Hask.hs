@@ -829,14 +829,14 @@ bimap f g = first f . fmap1 g
 dimap :: (Profunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . fmap1 g
 
-class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Pretensor p where
+class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Semitensor p where
   associate :: Iso (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
 
-instance Pretensor (,) where
+instance Semitensor (,) where
   associate   = dimap (\((a,b),c) -> (a,(b,c)))
                       (\(a,(b,c)) -> ((a,b),c))
 
-instance Pretensor Either where
+instance Semitensor Either where
   associate = dimap hither yon where
     hither (Left (Left a)) = Left a
     hither (Left (Right b)) = Right (Left b)
@@ -845,14 +845,14 @@ instance Pretensor Either where
     yon (Right (Left b)) = Left (Right b)
     yon (Right (Right c)) = Right c
 
-instance Pretensor (&) where
+instance Semitensor (&) where
   associate   = dimap (Sub Dict) (Sub Dict)
 
-instance Category ((~>) :: i -> i -> *) => Pretensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
+instance Category ((~>) :: i -> i -> *) => Semitensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
   associate = associateProf
 
 -- tensor for a monoidal category
-class Pretensor p => Tensor (p :: x -> x -> x) where
+class Semitensor p => Tensor (p :: x -> x -> x) where
   type I p :: x
   lambda    :: Iso (p (I p) a) (p (I p) a') a a'
   rho       :: Iso (p a (I p)) (p a' (I p)) a a'
@@ -872,7 +872,7 @@ instance Tensor (&) where
   lambda      = dimap (Sub Dict) (Sub Dict)
   rho         = dimap (Sub Dict) (Sub Dict)
 
-associateLift :: (Lifted s, Pretensor p)
+associateLift :: (Lifted s, Semitensor p)
   => Iso (s p (s p f g) h) (s p (s p f' g') h')
          (s p f (s p g h)) (s p f' (s p g' h'))
 associateLift = dimap
@@ -891,7 +891,7 @@ rhoLift =
   dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
         (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
 
-instance Pretensor p => Pretensor (Lift1 p) where
+instance Semitensor p => Semitensor (Lift1 p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (Lift1 p) where
@@ -899,7 +899,7 @@ instance Tensor p => Tensor (Lift1 p) where
   lambda      = lambdaLift
   rho         = rhoLift
 
-instance Pretensor p => Pretensor (Lift2 p) where
+instance Semitensor p => Semitensor (Lift2 p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (Lift2 p) where
@@ -907,7 +907,7 @@ instance Tensor p => Tensor (Lift2 p) where
   lambda      = lambdaLift
   rho         = rhoLift
 
-instance Pretensor p => Pretensor (LiftC p) where
+instance Semitensor p => Semitensor (LiftC p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (LiftC p) where
@@ -1051,7 +1051,7 @@ instance Initial i => Initial (ConstC i) where
   initial = Nat $ initial . get _Const
 
 infixl 7 *
-class (h ~ (~>), Symmetric ((*)::i->i->i), Pretensor ((*)::i->i->i)) => Precartesian (h :: i -> i -> *) | i -> h where
+class (h ~ (~>), Symmetric ((*)::i->i->i), Semitensor ((*)::i->i->i)) => Precartesian (h :: i -> i -> *) | i -> h where
   type (*) :: i -> i -> i
   fst   :: forall (a::i) (b::i). a * b ~> a
   snd   :: forall (a::i) (b::i). a * b ~> b
@@ -1124,7 +1124,7 @@ instance (Strong p, Category p) => Freyd p
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
 infixl 6 +
-class (h ~ (~>), Symmetric ((+)::i->i->i), Pretensor ((+)::i->i->i)) => Precocartesian (h :: i -> i -> *) | i -> h where
+class (h ~ (~>), Symmetric ((+)::i->i->i), Semitensor ((+)::i->i->i)) => Precocartesian (h :: i -> i -> *) | i -> h where
   type (+) :: i -> i -> i
   inl    :: forall (a :: i) (b :: i). a ~> a + b
   inr    :: forall (a :: i) (b :: i). b ~> a + b
