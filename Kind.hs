@@ -25,7 +25,7 @@ import qualified Control.Monad as Monad
 import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Data.Functor.Contravariant as Contravariant
-import Data.Functor.Identity
+import qualified Data.Functor.Identity as Identity
 import qualified Data.Monoid as Monoid
 import Data.Proxy
 import Data.Tagged
@@ -522,9 +522,18 @@ via :: forall (a :: *) (b :: *) (r :: *) (p :: x -> x -> *) (c :: x) (t :: *) (u
 via l m = case l (Via id id) of
   Via csa dbt -> csa $ m (dbt id)
 
-mapping :: (Functor f, Category (Dom f)) => (Via a b a b -> Via a b s t) -> Iso (f s) (f t) (f a) (f b)
+mapping :: (Functor f, Functor f', Category (Dom f)) => (Via a b a b -> Via a b s t) -> Iso (f s) (f' t) (f a) (f' b)
 mapping l = case l (Via id id) of
   Via csa dbt -> dimap (fmap csa) (fmap dbt)
+
+lmapping :: (Contravariant f, Contravariant f', Category (Dom f)) => (Via s t s t -> Via s t a b) -> Iso (f s x) (f' t y) (f a x) (f' b y)
+lmapping l = case l (Via id id) of
+  Via csa dbt -> dimap (lmap csa) (lmap dbt)
+
+swapping :: (Profunctor f, Profunctor f', Category (Dom f), Category (Cod2 f), Category (Cod2 f')) 
+         => (Via a b a b -> Via a b s t) -> Iso (f a s) (f' b t) (f s a) (f' t b)
+swapping l = case l (Via id id) of
+  Via csa dbt -> dimap (dimap csa csa) (dimap dbt dbt)
 
 newtype Hom a b = Hom { runHom :: a ~> b }
 _Hom = dimap runHom Hom
@@ -1078,11 +1087,19 @@ class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Fun
   op0 :: f Zero ~> Zero
   op2 :: f (a + b) ~> f a + f b
 
-instance Functor Identity where
+class Ident ~ f => Identity (f :: i -> i) | i -> f where
+  type Ident :: i -> i
+  _Ident :: Iso (f a) (f a') a a'
+
+instance Identity Identity.Identity where
+  type Ident = Identity.Identity
+  _Ident = dimap Identity.runIdentity Identity.Identity
+
+instance Functor Identity.Identity where
   fmap = Prelude.fmap
 
-instance Identity -| Identity where
-  adj = dimap (dimap Identity Identity) (dimap runIdentity runIdentity)
+instance Identity.Identity -| Identity.Identity where
+  adj = un (mapping _Ident . lmapping _Ident)
 
 instance Opmonoidal ((,) e) where
   op0 = snd
@@ -1092,11 +1109,11 @@ instance Comonoid m => Comonoid (e, m) where
   zero = zeroOp
   comult = comultOp
 
-instance Opmonoidal Identity where
-  op0 = runIdentity
-  op2 = bimap Identity Identity . runIdentity
+instance Opmonoidal Identity.Identity where
+  op0 = Identity.runIdentity
+  op2 = bimap Identity.Identity Identity.Identity . Identity.runIdentity
 
-instance Comonoid m => Comonoid (Identity m) where
+instance Comonoid m => Comonoid (Identity.Identity m) where
   zero = zeroOp
   comult = comultOp
 
@@ -1128,6 +1145,10 @@ instance Comonoid m => Comonoid (Tagged s m) where
 newtype An (f :: i -> *) (a :: i) = An { runAn :: f a }
 _An = dimap runAn An
 
+instance Identity An where
+  type Ident = An
+  _Ident = dimap (Nat runAn) (Nat An)
+
 instance Functor f => Functor (An f) where
   fmap = _An . fmap
 
@@ -1155,13 +1176,13 @@ instance Comonoid m => Comonoid (An m) where
   comult = comultOp
 
 instance An -| An where
-  adj = dimap (dimap (Nat An) (Nat An)) (dimap (Nat runAn) (Nat runAn))
+  adj = un (mapping _Ident . lmapping _Ident)
 
 instance Contravariant f => Contravariant (An f) where
   contramap = _An . contramap
 
 instance Functor An where
-  fmap (Nat f) = Nat $ _An f
+  fmap = _Ident
 
 instance Monoidal f => Monoidal (An f) where
   ap0 = An . ap0
@@ -1175,6 +1196,19 @@ instance (Opmonoidal f, Comonoid m) => Comonoid (An f m) where
   zero = zeroOp
   comult = comultOp
 
+class c => IdentC c
+instance c => IdentC c
+
+instance Identity IdentC where
+  type Ident = IdentC
+  _Ident = dimap (Sub Dict) (Sub Dict)
+
+instance Functor IdentC where
+  fmap = _Ident
+  
+instance IdentC -| IdentC where
+  adj = un (mapping _Ident . lmapping _Ident)
+  
 -- a monoid object in a cartesian category
 class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
   one  :: One ~> m
@@ -1710,21 +1744,21 @@ class Representable (p :: x -> y -> *) where
   _Rep :: Iso (p a b) (p a' b') (a ~> Rep p b) (a' ~> Rep p b')
 
 instance Representable (->) where
-  type Rep (->) = Identity
-  _Rep = dimap (Identity.) (runIdentity.)
+  type Rep (->) = Ident
+  _Rep = un (mapping _Ident)
 
 instance Representable (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Rep Nat = An
-  _Rep = dimap (Nat An.) (Nat runAn.)
+  type Rep (Nat :: (i -> *) -> (i -> *) -> *) = Ident
+  _Rep = un (mapping _Ident)
 
 class Corepresentable (p :: x -> y -> *) where
   type Corep p :: x -> y
   _Corep :: Iso (p a b) (p a' b') (Corep p a ~> b) (Corep p a' ~> b')
 
 instance Corepresentable (->) where
-  type Corep (->) = Identity
-  _Corep = dimap (.runIdentity) (.Identity)
+  type Corep (->) = Ident
+  _Corep = lmapping _Ident
 
 instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Corep Nat = An
-  _Corep = dimap (.Nat runAn) (.Nat An)
+  type Corep (Nat :: (i -> *) -> (i -> *) -> *) = Ident
+  _Corep = lmapping _Ident
