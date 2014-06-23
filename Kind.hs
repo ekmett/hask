@@ -1626,7 +1626,7 @@ type family Lan  :: (i -> j) -> (i -> k) -> j -> k
 type family Ran  :: (i -> j) -> (i -> k) -> j -> k
 
 type instance Ran = Ran1
-newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) -> g r }
+newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) ⋔ g r }
 
 -- instance Up1 g -| Ran1 g
 
@@ -1640,7 +1640,7 @@ instance Category (Cod f) => Functor (Ran1 f) where
   fmap (Nat f) = Nat $ \(Ran k) -> Ran $ f . k
 
 type instance Ran = Ran2
-newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. (a ~> f r) -> g r x }
+newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. ((a ~> f r) ⋔ g r) x }
 
 type instance Lan = Lan1
 data Lan1 f g a where
