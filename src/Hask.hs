@@ -85,6 +85,11 @@ type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
 type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
 type Arr  (a :: x)           = ((~>) :: x -> x -> *)
 
+-- 'setters' are functorial. With liberal type synonyms this can be usefully employed even with type aliases
+type Co f     = forall a b. (a ~> b) -> f a ~> f b
+type Contra f = forall a b. (b ~> a) -> f a ~> f b
+type (?) f a b = f b a
+
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
 
 nat2 :: (forall a b. f a b ~> g a b) -> f ~> g
@@ -103,31 +108,48 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
 
 -- * Functors between these kind-indexed categories
 
-class Functor (f :: x -> y) where
-  fmap :: (a ~> b) -> f a ~> f b
+class Functor f where
+  fmap :: Co f -- :: (a ~> b) -> f a ~> f b
 
-class Contravariant (f :: x -> y) where
-  contramap :: (b ~> a) -> f a ~> f b
+class Contravariant f where
+  contramap :: Contra f -- :: (b ~> a) -> f a ~> f b
 
-first :: Functor p => (a ~> b) -> p a c ~> p b c
+-- Functor1 and Contravariant1 are defined later using limits
+
+class (Functor p, Functor1 p) => Bifunctor p
+instance (Functor p, Functor1 p) => Bifunctor p
+
+class (Contravariant p, Contravariant1 p) => Bicontravariant p
+instance (Contravariant p, Contravariant1 p) => Bicontravariant p
+
+class (Contravariant p, Functor1 p) => Profunctor p
+instance (Contravariant p, Functor1 p) => Profunctor p
+
+type Iso s t a b = forall p. Profunctor p => p a b -> p s t
+
+-- Lift Prelude instances of Functor without overlap, using the kind index to say
+
+-- first :: Functor p => (a ~> b) -> p a c ~> p b c
+first :: Functor f => Co (f ? a)
 first = runNat . fmap
 
-lmap :: Contravariant p => (a ~> b) -> p b c ~> p a c
+-- lmap :: Contravariant p => (a ~> b) -> p b c ~> p a c
+lmap :: Contravariant f => Contra (f ? a)
 lmap = runNat . contramap
 
--- | the isomorphism that witnesses f -| u
-type (f :: y -> x) -: (u :: x -> y) = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
+-- | the type of an isomorphism that witnesses f -| u
+type f -: u = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
 
 -- | @f -| u@ indicates f is left adjoint to u
-class (Functor f, Functor u) => (f::y->x) -| (u::x->y) | f -> u, u -> f where
+class (Functor f, Functor u) => f -| u | f -> u, u -> f where
   adj :: f -: u
 
 -- todo composition of adjunctions
 
-type (f :: i -> y -> x) =: (u :: i -> x -> y) = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
+type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
 
 -- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
-class (Functor1 f, Functor1 u) => (f::i->y->x) =| (u::i->x->y) | f -> u, u -> f where
+class (Functor1 f, Functor1 u) => f =| u | f -> u, u -> f where
   adj1 :: f =: u
 
 unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
@@ -153,10 +175,10 @@ zipR1 :: (f =| u, Cartesian (Cod2 u), Cartesian (Cod2 f))
 zipR1 = dimap (get adj1 (unget adj1 fst &&& unget adj1 snd))
               (fmap1 fst &&& fmap1 snd)
 
-absurdL :: (f -| u, Initial z) => Iso' z (f z)
+absurdL :: (f -| u, Initial z) => Iso z z (f z) (f z)
 absurdL = dimap initial (unget adj initial)
 
-absurdL1 :: (f =| u, Initial z) => Iso' z (f e z)
+absurdL1 :: (f =| u, Initial z) => Iso z z (f e z) (f e' z)
 absurdL1 = dimap initial (unget adj1 initial)
 
 cozipL :: (f -| u, Cocartesian (Cod u), Cocartesian (Cod f))
@@ -174,21 +196,6 @@ cozipL1 = dimap
 -- tabulated :: (f -| u) => Iso (a ^ f One) (b ^ f One) (u a) (u b)
 -- splitL :: (f -| u) => Iso (f a) (f a') (a * f One) (a' * f One)
 
--- * common aliases
-class (Functor p, Functor1 p) => Bifunctor p
-instance (Functor p, Functor1 p) => Bifunctor p
-
-class (Contravariant p, Contravariant1 p) => Bicontravariant p
-instance (Contravariant p, Contravariant1 p) => Bicontravariant p
-
--- enriched profuncors C^op * D -> E
---
--- note: due to the fact that we use the variances in the other order, this is technically a
--- correspondence or distributor, not a profunctor
-class (Contravariant p, Functor1 p) => Profunctor p
-instance (Contravariant p, Functor1 p) => Profunctor p
-
--- Lift Prelude instances of Functor without overlap, using the kind index to say
 -- these are all the instances of kind * -> *
 --
 -- Unfortunately that isn't true, as functors to/from k -> * that are polymorphic in k
@@ -739,9 +746,6 @@ type Ungetter t b = forall p. (Choice p, Functor p) => p b b -> p t t
 
 unto :: (b ~> t) -> Ungetter t b
 unto f = bimap f f
-
-type Iso s t a b = forall p. Profunctor p => p a b -> p s t
-type Iso' s a = Iso s s a a
 
 bicontramap :: (Bicontravariant p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b d ~> p a c
 bicontramap f g = lmap f . contramap1 g
