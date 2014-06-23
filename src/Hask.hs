@@ -282,6 +282,31 @@ instance Functor ConstC where
 instance Functor (ConstC b) where
   fmap _ = Sub Dict
 
+instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (ConstC b :: i -> Constraint) where
+  ap2 = unget _Const . mult . bimap (get _Const) (get _Const)
+
+instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (ConstC b :: i -> Constraint) where
+  ap0 = unget _Const . one
+
+-- instance Semigroup b => Semigroup (ConstC b a) -- all constraints form a semigroup already
+
+instance Monoid b => Monoid (ConstC b a) where
+  one = unget _Const . one
+
+instance (Cosemigroup b, Precocartesian ((~>) :: i -> i -> *)) => Cosemimonoidal (ConstC b :: i -> Constraint) where
+  op2 = bimap (unget _Const) (unget _Const) . comult . get _Const
+
+instance (Comonoid b, Cocartesian ((~>) :: i -> i -> *)) => Comonoidal (ConstC b :: i -> Constraint) where
+  op0 = zero . get _Const
+
+instance Cosemigroup b => Cosemigroup (ConstC b a) where
+  comult = bimap (unget _Const) (unget _Const) . comult . get _Const
+
+instance Comonoid b => Comonoid (ConstC b a) where
+  zero = zero . get _Const
+
+
+
 -- * Ends
 
 type family End :: (i -> i -> j) -> j
