@@ -2014,7 +2014,7 @@ instance Groupoid Unit where
 
 -- * Representability
 
-class Representable (p :: x -> y -> *) where
+class Functor (Rep p) => Representable (p :: x -> y -> *) where
   type Rep p :: y -> x
   _Rep :: Iso (p a b) (p a' b') (a ~> Rep p b) (a' ~> Rep p b')
 
@@ -2029,6 +2029,9 @@ instance Representable (Nat :: (i -> *) -> (i -> *) -> *) where
 instance Representable (:-) where
   type Rep (:-) = Id
   _Rep = un (mapping _Id)
+
+-- instance (Representable p, Representable q) => Representable (Prof p q :: i -> j -> *) where
+--  type Rep (Prof p q) = Up (Rep q) (Rep p)
 
 class Corepresentable (p :: x -> y -> *) where
   type Corep p :: x -> y
