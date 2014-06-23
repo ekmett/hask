@@ -1721,30 +1721,30 @@ instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
 type family Lan  :: (i -> j) -> (i -> k) -> j -> k
 type family Ran  :: (i -> j) -> (i -> k) -> j -> k
 
-type instance Ran = Ran1
-newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) ⋔ g r }
+type instance Ran = Ran0
+newtype Ran0 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) ⋔ g r }
 
 -- instance Up1 g -| Ran1 g
 
 -- alternately, by universal property
 -- data Ran f g a = forall z. Functor z => Ran (forall x. z (f x) ~> g x) (z a)
 
-instance Category ((~>) :: j -> j -> *) => Contravariant (Ran1 :: (i -> j) -> (i -> *) -> j -> *) where
+instance Category ((~>) :: j -> j -> *) => Contravariant (Ran0 :: (i -> j) -> (i -> *) -> j -> *) where
   contramap (Nat f) = nat2 $ \(Ran k) -> Ran $ k . (f .)
 
-instance Category (Cod f) => Functor (Ran1 f) where
+instance Category (Cod f) => Functor (Ran0 f) where
   fmap (Nat f) = Nat $ \(Ran k) -> Ran $ f . k
 
-type instance Ran = Ran2
-newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. ((a ~> f r) ⋔ g r) x }
+type instance Ran = Ran1
+newtype Ran1 f g a x = Ran1 { runRan2 :: forall r. ((a ~> f r) ⋔ g r) x }
+
+type instance Lan = Lan0
+data Lan0 f g a where
+  Lan :: Copower (g b) (f b ~> a) -> Lan0 f g a
 
 type instance Lan = Lan1
-data Lan1 f g a where
-  Lan :: Copower (g b) (f b ~> a) -> Lan1 f g a
-
-type instance Lan = Lan2
-data Lan2 f g a x where
-  Lan2 :: Copower (g b) (f b ~> a) x -> Lan2 f g a x
+data Lan1 f g a x where
+  Lan1 :: Copower (g b) (f b ~> a) x -> Lan1 f g a x
 
 -- newtype Codensity f a = Codensity { runCodensity :: forall r. f r^a ~> f r }
 -- newtype Yoneda f a = Yoneda { runYoneda :: forall r. r^a ~> f r }
