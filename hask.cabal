@@ -1,0 +1,46 @@
+name:          hask
+category:      Control
+version:       0
+license:       BSD3
+cabal-version: >= 1.10
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     experimental
+homepage:      http://github.com/ekmett/categories
+bug-reports:   http://github.com/ekmett/categories/issues
+synopsis:      Categories
+copyright:     Copyright (C) 2008-2014, Edward A. Kmett
+description:   Kind-indexed category theory in Haskell
+build-type:    Simple
+tested-with:   GHC == 7.8.2
+extra-source-files:
+  .ghci
+  .gitignore
+  .travis.yml
+  .vim.custom
+  README.markdown
+  CHANGELOG.markdown
+
+flag Optimize
+  description: Enable optimizations
+  default:     False
+
+library
+  default-language: Haskell2010
+
+  exposed-modules:
+    Hask
+
+  build-depends:
+    base >= 4       && < 5,
+    constraints,
+    transformers,
+    tagged,
+    void >= 0.5.4.2 && < 1
+
+  hs-source-dirs: src
+  ghc-options: -Wall
+
+  if flag(Optimize)
+    ghc-options: -funbox-strict-fields -O2

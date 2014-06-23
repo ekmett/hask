@@ -20,11 +20,11 @@ module Hask where
 import qualified Control.Applicative as Applicative
 import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
-import qualified Control.Comonad as Comonad
-import qualified Control.Monad as Monad
+-- import qualified Control.Comonad as Comonad
+-- import qualified Control.Monad as Monad
 import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
-import qualified Data.Functor.Contravariant as Contravariant
+-- import qualified Data.Functor.Contravariant as Contravariant
 import qualified Data.Functor.Identity as Identity
 -- import qualified Data.Monoid as Monoid
 import Data.Proxy
