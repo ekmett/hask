@@ -2073,6 +2073,15 @@ instance Semimonoidal ((|=) e) where
 instance Monoidal ((|=) e) where
   ap0 () = Constrained ()
 
+instance Semimonad ((|=) e) where
+  join cc = Constrained (runConstrained (runConstrained cc))
+
+instance Cosemimonad ((|=) e) where
+  duplicate cc = Constrained cc
+
+instance Monoid e => Comonad ((|=) e) where
+  extract cc = runConstrained cc \\ (one :: () :- e)
+
 -- we can make an indexed adjunction for this
 instance Corepresentable (|=) where
   type Corep (|=) = Dict
