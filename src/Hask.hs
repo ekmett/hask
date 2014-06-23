@@ -79,6 +79,7 @@ type instance (~>) = Unit  -- @() -> () -> *@
 type instance (~>) = Empty -- @Void -> Void -> *@
 type instance (~>) = Prod  -- @(i,j) -> (i, j) -> *@
 
+
 -- * convenience types that make it so we can avoid explicitly talking about the kinds as much as possible
 type Dom  (f :: x -> y)      = ((~>) :: x -> x -> *)
 type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
@@ -2247,3 +2248,19 @@ instance EnvC =| (|=) where
 
 instance EnvC e -| (|=) e where
   adj = adj1
+
+-- * Playing with Dual
+
+infixr 0 <~
+type instance (~>) = (<~) -- @Op a -> Op b -> *@
+newtype Op a = Op a
+
+data (<~) :: Op i -> Op i -> * where
+  Dual :: (b ~> a) -> (('Op a) <~ ('Op b))
+
+instance Category ((~>) :: i -> i -> *) => Category ((<~) :: Op i -> Op i -> *) where
+  id = unsafeCoerce (Dual id :: 'Op (Any :: i) ~> 'Op Any)
+  Dual f . Dual g = Dual (g . f)
+
+runDual :: k ~ (~>) => ('Op a <~ 'Op b) -> k b a
+runDual (Dual x) = x
