@@ -989,6 +989,7 @@ instance Contravariant1 p => Functor (ProfR p q) where
 instance Contravariant1 q => Contravariant (ProfR p q a) where
   contramap f (ProfR pq) = ProfR $ \p -> contramap1 f (pq p)
 
+-- TODO: flip the argument order on Prof so we can Curry instead
 instance Prof =| ProfR where
 -- adj1 :: Iso (Prof p q ~> r) (Prof p' q' ~> r') (q ~> ProfR p r) (q' ~> ProfR p' r')
   adj1 = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof q p))
@@ -1910,12 +1911,19 @@ instance (Monoidal f, Monoid m) => Monoid (Power1 v f m) where
 instance Functor f => Functor (Power1 v f) where
   fmap f = Power . fmap1 (fmap f) . runPower
 
--- Nat :: (i -> *) is powered over Hask
+-- (i -> *) is powered over Hask
 instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
   type Power = Power1
   _Power = dimap
      (\k v -> Nat $ \f -> runPower (runNat k f) v)
      (\k -> Nat $ \a' -> Power $ \u' -> runNat (k u') a')
+
+-- (i -> *) is bipowered over Hask
+instance Curry Copower1 Power1 where
+  type Cur Copower1 = Power1
+  type Uncur Power1 = Copower1
+  curry (Nat f) = Nat $ \a -> Power $ \b -> f (Copower a b)
+  uncurry (Nat f) = Nat $ \(Copower a b) -> runPower (f a) b
 
 -- * Kan extensions
 
