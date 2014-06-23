@@ -2076,6 +2076,12 @@ instance Monoidal ((|=) e) where
 instance Semimonad ((|=) e) where
   join cc = Constrained (runConstrained (runConstrained cc))
 
+instance Semigroup p => Semigroup (e |= p) where
+  mult = multM
+
+instance Monoid p => Monoid (e |= p) where
+  one = oneM
+
 instance Cosemimonad ((|=) e) where
   duplicate cc = Constrained cc
 
