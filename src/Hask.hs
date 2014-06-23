@@ -215,6 +215,21 @@ instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (Const1 b :: i 
 instance Semigroup b => Semigroup (Const1 b a) where
   mult = unget _Const . mult . bimap (get _Const) (get _Const)
 
+instance Monoid b => Monoid (Const1 b a) where
+  one = unget _Const . one
+
+instance (Cosemigroup b, Precocartesian ((~>) :: i -> i -> *)) => Cosemimonoidal (Const1 b :: i -> *) where
+  op2 = bimap (unget _Const) (unget _Const) . comult . get _Const
+
+instance (Comonoid b, Cocartesian ((~>) :: i -> i -> *)) => Comonoidal (Const1 b :: i -> *) where
+  op0 = zero . get _Const
+
+instance Cosemigroup b => Cosemigroup (Const1 b a) where
+  comult = bimap (unget _Const) (unget _Const) . comult . get _Const
+
+instance Comonoid b => Comonoid (Const1 b a) where
+  zero = zero . get _Const
+
 newtype Const2 (f :: j -> *) (a :: i) (c :: j) = Const2 { getConst2 :: f c }
 
 instance Constant Const2 where
