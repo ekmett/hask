@@ -275,7 +275,6 @@ instance Functor EndC where
     runAny :: (p ~> q) -> p Any Any ~> q Any Any
     runAny = runNat2
 
-
 -- * Coends
 
 type family Coend :: (i -> i -> j) -> j
@@ -605,7 +604,7 @@ lmapping :: (Contravariant f, Contravariant f', Category (Dom f)) => (Via s t s 
 lmapping l = case l (Via id id) of
   Via csa dbt -> dimap (lmap csa) (lmap dbt)
 
-swapping :: (Profunctor f, Profunctor f', Category (Dom f), Category (Cod2 f), Category (Cod2 f')) 
+swapping :: (Profunctor f, Profunctor f', Category (Dom f), Category (Cod2 f), Category (Cod2 f'))
          => (Via a b a b -> Via a b s t) -> Iso (f a s) (f' b t) (f s a) (f' t b)
 swapping l = case l (Via id id) of
   Via csa dbt -> dimap (dimap csa csa) (dimap dbt dbt)
@@ -739,22 +738,22 @@ instance Category ((~>) :: i -> i -> *) => Pretensor (Prof :: (i -> i -> *) -> (
 
 -- tensor for a monoidal category
 class Pretensor p => Tensor (p :: x -> x -> x) where
-  type Id p :: x
-  lambda    :: Iso (p (Id p) a) (p (Id p) a') a a'
-  rho       :: Iso (p a (Id p)) (p a' (Id p)) a a'
+  type I p :: x
+  lambda    :: Iso (p (I p) a) (p (I p) a') a a'
+  rho       :: Iso (p a (I p)) (p a' (I p)) a a'
 
 instance Tensor (,) where
-  type Id (,) = ()
+  type I (,) = ()
   lambda = dimap (\((), a) -> a) ((,) ())
   rho    = dimap (\(a, ()) -> a) (\a -> (a, ()))
 
 instance Tensor Either where
-  type Id Either = Void
+  type I Either = Void
   lambda = dimap (\(Right a) -> a) Right
   rho = dimap (\(Left a) -> a) Left
 
 instance Tensor (&) where
-  type Id (&) = (() :: Constraint)
+  type I (&) = (() :: Constraint)
   lambda      = dimap (Sub Dict) (Sub Dict)
   rho         = dimap (Sub Dict) (Sub Dict)
 
@@ -766,13 +765,13 @@ associateLift = dimap
   (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
 
 lambdaLift :: (Constant k, Lifted s, Tensor p) =>
-   Iso (s p (k (Id p)) f) (s p (k (Id p)) g) f g
+   Iso (s p (k (I p)) f) (s p (k (I p)) g) f g
 lambdaLift   = dimap
    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
    (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
 
 rhoLift :: (Constant k, Lifted s, Tensor p) =>
-   Iso (s p f (k (Id p))) (s p g (k (Id p))) f g
+   Iso (s p f (k (I p))) (s p g (k (I p))) f g
 rhoLift =
   dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
         (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
@@ -781,7 +780,7 @@ instance Pretensor p => Pretensor (Lift1 p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (Lift1 p) where
-  type Id (Lift1 p) = Const1 (Id p)
+  type I (Lift1 p) = Const1 (I p)
   lambda      = lambdaLift
   rho         = rhoLift
 
@@ -789,7 +788,7 @@ instance Pretensor p => Pretensor (Lift2 p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (Lift2 p) where
-  type Id (Lift2 p) = Const2 (Id p)
+  type I (Lift2 p) = Const2 (I p)
   lambda      = lambdaLift
   rho         = rhoLift
 
@@ -797,7 +796,7 @@ instance Pretensor p => Pretensor (LiftC p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (LiftC p) where
-  type Id (LiftC p) = ConstC (Id p)
+  type I (LiftC p) = ConstC (I p)
   lambda      = lambdaLift
   rho         = rhoLift
 
@@ -934,8 +933,8 @@ class (h ~ (~>), Symmetric ((*)::i->i->i), Pretensor ((*)::i->i->i)) => Precarte
   snd   :: forall (a::i) (b::i). a * b ~> b
   (&&&) :: forall (a::i) (b::i) (c::i). (a ~> b) -> (a ~> c) -> a ~> b * c
 
-class    (h ~ (~>), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *) | i -> h
-instance (h ~ (~>), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *)
+class    (h ~ (~>), Tensor ((*)::i->i->i), Terminal (I ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *) | i -> h
+instance (h ~ (~>), Tensor ((*)::i->i->i), Terminal (I ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *)
 
 instance Precartesian (->) where
   type (*) = (,)
@@ -998,8 +997,8 @@ class (h ~ (~>), Symmetric ((+)::i->i->i), Pretensor ((+)::i->i->i)) => Precocar
   inr    :: forall (a :: i) (b :: i). b ~> a + b
   (|||)  :: forall (a :: i) (b :: i) (c :: i). (a ~> c) -> (b ~> c) -> a + b ~> c
 
-class    (h ~ (~>), Tensor ((+)::i->i->i), Initial (Id ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *) | i -> h
-instance (h ~ (~>), Tensor ((+)::i->i->i), Initial (Id ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *)
+class    (h ~ (~>), Tensor ((+)::i->i->i), Initial (I ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *) | i -> h
+instance (h ~ (~>), Tensor ((+)::i->i->i), Initial (I ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *)
 
 instance Precocartesian (->) where
   type (+) = Either
@@ -1276,106 +1275,106 @@ instance Comonoid m => Comonoid (Tagged s m) where
 
 -- * Identity functors
 
-class Ident ~ f => Identity (f :: i -> i) | i -> f where
-  type Ident :: i -> i
-  _Ident :: Iso (f a) (f a') a a'
+class (f -| f, Id ~ f) => Identity (f :: i -> i) | i -> f where
+  type Id :: i -> i
+  _Id :: Iso (f a) (f a') a a'
 
 instance Identity Identity.Identity where
-  type Ident = Identity.Identity
-  _Ident = dimap Identity.runIdentity Identity.Identity
+  type Id = Identity.Identity
+  _Id = dimap Identity.runIdentity Identity.Identity
 
 instance Functor Identity.Identity where
   fmap = Prelude.fmap
 
 instance Identity.Identity -| Identity.Identity where
-  adj = un (mapping _Ident . lmapping _Ident)
+  adj = un (mapping _Id . lmapping _Id)
 
--- * An = Identity for Nat (i -> *)
-newtype An (f :: i -> *) (a :: i) = An { runAn :: f a }
-_An = dimap runAn An
+-- * Id1 = Identity for Nat (i -> *)
+newtype Id1 (f :: i -> *) (a :: i) = Id1 { runId1 :: f a }
+_Id1 = dimap runId1 Id1
 
-instance Identity An where
-  type Ident = An
-  _Ident = dimap (Nat runAn) (Nat An)
+instance Identity Id1 where
+  type Id = Id1
+  _Id = dimap (Nat runId1) (Nat Id1)
 
-instance Functor f => Functor (An f) where
-  fmap = _An . fmap
+instance Functor f => Functor (Id1 f) where
+  fmap = _Id1 . fmap
 
-instance Cosemimonad An where
-  duplicate = Nat An
+instance Cosemimonad Id1 where
+  duplicate = Nat Id1
 
-instance Comonad An where
-  extract = Nat runAn
+instance Comonad Id1 where
+  extract = Nat runId1
 
-instance Semimonoidal An where
-  ap2 = Nat $ \(Lift (An x, An y)) -> An (Lift (x, y))
+instance Semimonoidal Id1 where
+  ap2 = Nat $ \(Lift (Id1 x, Id1 y)) -> Id1 (Lift (x, y))
 
-instance Monoidal An where
-  ap0 = Nat An
+instance Monoidal Id1 where
+  ap0 = Nat Id1
 
-instance Semigroup m => Semigroup (An m) where
+instance Semigroup m => Semigroup (Id1 m) where
   mult = multM
 
-instance Monoid m => Monoid (An m) where
+instance Monoid m => Monoid (Id1 m) where
   one = oneM
 
-instance Semimonad An where
-  join = Nat runAn
+instance Semimonad Id1 where
+  join = Nat runId1
 
-instance Monad An
+instance Monad Id1
 
-instance Cosemimonoidal An where
-  op2 = Nat $ \(An (Lift ea)) -> Lift (bimap An An ea)
+instance Cosemimonoidal Id1 where
+  op2 = Nat $ \(Id1 (Lift ea)) -> Lift (bimap Id1 Id1 ea)
 
-instance Comonoidal An where
-  op0 = Nat runAn
+instance Comonoidal Id1 where
+  op0 = Nat runId1
 
-instance Cosemigroup m => Cosemigroup (An m) where
+instance Cosemigroup m => Cosemigroup (Id1 m) where
   comult = comultOp
 
-instance Comonoid m => Comonoid (An m) where
+instance Comonoid m => Comonoid (Id1 m) where
   zero = zeroOp
 
-instance An -| An where
-  adj = un (mapping _Ident . lmapping _Ident)
+instance Id1 -| Id1 where
+  adj = un (mapping _Id . lmapping _Id)
 
-instance Contravariant f => Contravariant (An f) where
-  contramap = _An . contramap
+instance Contravariant f => Contravariant (Id1 f) where
+  contramap = _Id1 . contramap
 
-instance Functor An where
-  fmap = _Ident
+instance Functor Id1 where
+  fmap = _Id
 
-instance Semimonoidal f => Semimonoidal (An f) where
-  ap2 = An . ap2 . bimap runAn runAn
+instance Semimonoidal f => Semimonoidal (Id1 f) where
+  ap2 = Id1 . ap2 . bimap runId1 runId1
 
-instance Monoidal f => Monoidal (An f) where
-  ap0 = An . ap0
+instance Monoidal f => Monoidal (Id1 f) where
+  ap0 = Id1 . ap0
 
-instance Cosemimonoidal f => Cosemimonoidal (An f) where
-  op2 = bimap An An . op2 . runAn
+instance Cosemimonoidal f => Cosemimonoidal (Id1 f) where
+  op2 = bimap Id1 Id1 . op2 . runId1
 
-instance Comonoidal f => Comonoidal (An f) where
-  op0 = op0 . runAn
+instance Comonoidal f => Comonoidal (Id1 f) where
+  op0 = op0 . runId1
 
-instance (Cosemimonoidal f, Cosemigroup m) => Cosemigroup (An f m) where
+instance (Cosemimonoidal f, Cosemigroup m) => Cosemigroup (Id1 f m) where
   comult = comultOp
 
-instance (Comonoidal f, Comonoid m) => Comonoid (An f m) where
+instance (Comonoidal f, Comonoid m) => Comonoid (Id1 f m) where
   zero = zeroOp
 
-class c => IdentC c
-instance c => IdentC c
+class c => IdC c
+instance c => IdC c
 
-instance Identity IdentC where
-  type Ident = IdentC
-  _Ident = dimap (Sub Dict) (Sub Dict)
+instance Identity IdC where
+  type Id = IdC
+  _Id = dimap (Sub Dict) (Sub Dict)
 
-instance Functor IdentC where
-  fmap = _Ident
-  
-instance IdentC -| IdentC where
-  adj = un (mapping _Ident . lmapping _Ident)
-  
+instance Functor IdC where
+  fmap = _Id
+
+instance IdC -| IdC where
+  adj = un (mapping _Id . lmapping _Id)
+
 -- a monoid object in a cartesian category
 class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
   one  :: One ~> m
@@ -1953,24 +1952,24 @@ class Representable (p :: x -> y -> *) where
   _Rep :: Iso (p a b) (p a' b') (a ~> Rep p b) (a' ~> Rep p b')
 
 instance Representable (->) where
-  type Rep (->) = Ident
-  _Rep = un (mapping _Ident)
+  type Rep (->) = Id
+  _Rep = un (mapping _Id)
 
 instance Representable (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Rep (Nat :: (i -> *) -> (i -> *) -> *) = Ident
-  _Rep = un (mapping _Ident)
+  type Rep (Nat :: (i -> *) -> (i -> *) -> *) = Id
+  _Rep = un (mapping _Id)
 
 class Corepresentable (p :: x -> y -> *) where
   type Corep p :: x -> y
   _Corep :: Iso (p a b) (p a' b') (Corep p a ~> b) (Corep p a' ~> b')
 
 instance Corepresentable (->) where
-  type Corep (->) = Ident
-  _Corep = lmapping _Ident
+  type Corep (->) = Id
+  _Corep = lmapping _Id
 
 instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Corep (Nat :: (i -> *) -> (i -> *) -> *) = Ident
-  _Corep = lmapping _Ident
+  type Corep (Nat :: (i -> *) -> (i -> *) -> *) = Id
+  _Corep = lmapping _Id
 
 -- a semigroupoid/semicategory looks like a "self-enriched" profunctor
 -- when we put no other constraints on p
