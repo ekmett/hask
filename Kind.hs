@@ -949,12 +949,17 @@ instance Precartesian (:-) where
   snd = Sub Dict
   p &&& q = Sub $ Dict \\ p \\ q
 
-
 instance Precartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (*) = Lift (,)
-  fst = Nat $ fst . lower
-  snd = Nat $ snd . lower
+  fst = Nat $ fst . get _Lift
+  snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ Lift . (f &&& g)
+
+instance Precartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
+  type (*) = Lift2 (*)
+  fst = Nat $ fst . get _Lift
+  snd = Nat $ snd . get _Lift
+  Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
 
 instance Precartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
   type (*) = LiftC (&)
@@ -1008,10 +1013,16 @@ instance Precocartesian (->) where
   (|||) = either
 
 instance Precocartesian (Nat :: (i -> *) -> (i -> *) -> *) where
-  type (+) = Lift Either
-  inl = Nat (Lift . Left)
-  inr = Nat (Lift . Right)
-  Nat f ||| Nat g = Nat $ either f g . lower
+  type (+) = Lift1 (+)
+  inl = Nat (unget _Lift . inl)
+  inr = Nat (unget _Lift . inr)
+  Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
+
+instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
+  type (+) = Lift2 (+)
+  inl = Nat (unget _Lift . inl)
+  inr = Nat (unget _Lift . inr)
+  Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
 
 class (Precocartesian ((~>) :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
   {-# MINIMAL _Left | _Right #-}
@@ -1025,6 +1036,10 @@ instance Choice (->) where
   _Right = Arrow.right
 
 instance Choice (Nat :: (i -> *) -> (i -> *) -> *) where
+  _Left (Nat f) = Nat $ _Lift (_Left f)
+  _Right (Nat g) = Nat $ _Lift (_Right g)
+
+instance Choice (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
   _Left (Nat f) = Nat $ _Lift (_Left f)
   _Right (Nat g) = Nat $ _Lift (_Right g)
 
