@@ -1510,16 +1510,16 @@ class Cosemimonad f => Comonad f where
   extract :: f a ~> a
 
 -- indexed store
-data Store s a i = Store (s ~> a) (s i)
+data Store1 s a i = Store1 (s ~> a) (s i)
 
-instance Functor (Store s) where
-  fmap f = Nat $ \(Store g s) -> Store (f . g) s
+instance Functor (Store1 s) where
+  fmap f = Nat $ \(Store1 g s) -> Store1 (f . g) s
 
-instance Cosemimonad (Store s) where
-  duplicate = Nat $ \(Store f s) -> Store (Nat $ Store f) s
+instance Cosemimonad (Store1 s) where
+  duplicate = Nat $ \(Store1 f s) -> Store1 (Nat $ Store1 f) s
 
-instance Comonad (Store s) where
-  extract = Nat $ \(Store f s) -> runNat f s
+instance Comonad (Store1 s) where
+  extract = Nat $ \(Store1 f s) -> runNat f s
 
 -- The dual of Conor McBride's "Atkey" adapted to this formalism
 --
