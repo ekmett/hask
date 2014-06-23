@@ -894,9 +894,13 @@ instance Terminal () where
   terminal _ = ()
 
 -- we can only offer the terminal object for Nat :: (i -> *), not Nat :: (i -> j)
-instance Terminal (Const1 ()) where
-  type One = Const1 ()
-  terminal = Nat (Const . terminal)
+instance Terminal t => Terminal (Const1 t) where
+  type One = Const1 One
+  terminal = Nat (unget _Const . terminal)
+
+instance Terminal t => Terminal (Const2 t) where
+  type One = Const2 One
+  terminal = Nat (unget _Const . terminal)
 
 instance Terminal (() :: Constraint) where
   type One = (() :: Constraint)
@@ -915,16 +919,20 @@ instance Initial Void where
   initial = absurd
 
 -- we can only offer the initial object for Nat :: (i -> *), not Nat :: (i -> j)
-instance Initial (Const1 Void) where
-  type Zero = Const1 Void
-  initial = Nat $ initial . getConst
+instance Initial i => Initial (Const1 i) where
+  type Zero = Const1 Zero
+  initial = Nat $ initial . get _Const
+
+instance Initial i => Initial (Const2 i) where
+  type Zero = Const2 Zero
+  initial = Nat $ initial . get _Const
 
 instance Initial (() ~ Bool) where
   type Zero = () ~ Bool
   initial = Constraint.bottom
 
-instance Initial (ConstC (() ~ Bool)) where
-  type Zero = ConstC (() ~ Bool)
+instance Initial i => Initial (ConstC i) where
+  type Zero = ConstC Zero
   initial = Nat $ initial . get _Const
 
 infixl 7 *
@@ -1076,6 +1084,12 @@ instance Distributive (Nat :: (i -> *) -> (i -> *) -> *) where
   distribute = dimap factor $ Nat $ \case
     Lift (a, Lift (Left b)) -> Lift (Left (Lift (a, b)))
     Lift (a, Lift (Right b)) -> Lift (Right (Lift (a, b)))
+
+instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
+  distribute = dimap factor $ Nat $ Nat $ \case
+     Lift2 (Lift (a, Lift2 (Lift (Left b)))) -> Lift2 (Lift (Left (Lift2 (Lift (a, b)))))
+     Lift2 (Lift (a, Lift2 (Lift (Right b)))) -> Lift2 (Lift (Right (Lift2 (Lift (a, b)))))
+
 
 -- * CCCs
 
