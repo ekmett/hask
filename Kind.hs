@@ -1038,6 +1038,32 @@ instance Precocartesian ((~>) :: i -> i -> *) => Choice (Unget (r :: i)) where
 
 type Prism s t a b = forall p. Choice p => p a b -> p s t
 
+-- * Factoring
+
+factor :: (Functor1 (f :: j -> i -> i), Precocartesian (Cod2 f)) => f e b + f e c ~> f e (b + c)
+factor = fmap1 inl ||| fmap1 inr
+
+-- TODO: play fancy combinator games to figure out how to make
+
+-- distributive always a getter capable of factoring, while make it only require an instance
+-- to get the inverses.
+class (Cartesian k, Cocartesian k) => Distributive (k :: i -> i -> *) | i -> k where
+  distribute :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
+             Iso ((a * b) + (a * c)) ((a' * b') + (a' * c'))
+                 (a * (b + c))       (a' * (b' + c'))
+
+instance Distributive (->) where
+  distribute = dimap factor $ \case
+    (a, Left b) -> Left (a, b)
+    (a, Right c) -> Right (a, c)
+
+instance Distributive (Nat :: (i -> *) -> (i -> *) -> *) where
+  distribute = dimap factor $ Nat $ \case
+    Lift (a, Lift (Left b)) -> Lift (Left (Lift (a, b)))
+    Lift (a, Lift (Right b)) -> Lift (Right (Lift (a, b)))
+
+-- * CCCs
+
 type a ^ b = Exp b a
 infixr 8 ^
 
