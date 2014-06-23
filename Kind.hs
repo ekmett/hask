@@ -26,8 +26,9 @@ import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Data.Functor.Contravariant as Contravariant
 import qualified Data.Functor.Identity as Identity
-import qualified Data.Monoid as Monoid
+-- import qualified Data.Monoid as Monoid
 import Data.Proxy
+-- import qualified Data.Semigroup as Semigroup
 import Data.Tagged
 import qualified Data.Traversable as Traversable
 import Data.Void
@@ -64,6 +65,7 @@ nat3 f = Nat (Nat (Nat f))
 
 runNat2 = runNat . runNat
 runNat3 = runNat . runNat . runNat
+runNat4 = runNat . runNat . runNat . runNat
 
 instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j) -> *) where
   id = Nat id
@@ -179,13 +181,17 @@ _At = dimap getAt At
 instance Functor (At x) where
   fmap (Nat f) = _At f
 
+instance Semimonoidal (At x) where
+  ap2 (At fx, At fy) = At (Lift (fx, fy))
+
 instance Monoidal (At x) where
   ap0 = At . Const
-  ap2 (At fx, At fy) = At (Lift (fx, fy))
+
+instance Semigroup m => Semigroup (At x m) where
+  mult = multM
 
 instance Monoid m => Monoid (At x m) where
   one = oneM
-  mult = multM
 
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
@@ -232,6 +238,64 @@ instance Functor ConstC where
 instance Functor (ConstC b) where
   fmap _ = Sub Dict
 
+-- * Ends
+
+type family End :: (i -> i -> j) -> j
+
+newtype End1 f = End { getEnd :: forall x. f x x }
+type instance End = End1
+
+instance Functor End1 where
+  fmap f (End fcc) = End $ runNat2 f fcc
+
+newtype End2 f y = End2 { getEnd2 :: forall x. f x x y }
+type instance End = End2
+
+instance Functor End2 where
+  fmap f = Nat $ \(End2 fcc) -> End2 $ runNat3 f fcc
+
+newtype End3 f y z = End3 { getEnd3 :: forall x. f x x y z }
+type instance End = End3
+
+instance Functor End3 where
+  fmap f = nat2 $ \(End3 fcc) -> End3 $ runNat4 f fcc
+
+-- assumes p is contravariant in its first argument, covariant in its second
+class EndC (p :: i -> i -> Constraint) where
+  endDict :: Dict (p a a)
+
+type instance End = EndC
+
+instance p Any Any => EndC (p :: i -> i -> Constraint) where
+  endDict = case unsafeCoerce (id :: p Any Any :- p Any Any) :: p Any Any :- p a a of
+    Sub d -> d
+
+instance Functor EndC where
+  fmap f = dimap (Sub endDict) (Sub Dict) (runAny f) where
+    runAny :: (p ~> q) -> p Any Any ~> q Any Any
+    runAny = runNat2
+
+
+-- * Coends
+
+type family Coend :: (i -> i -> j) -> j
+
+data Coend1 f where
+  Coend :: f x x -> Coend1 f
+
+type instance Coend = Coend1
+
+instance Functor Coend1 where
+  fmap f (Coend fcc) = Coend $ runNat2 f fcc
+
+data Coend2 f y where
+  Coend2 :: f x x y -> Coend2 f y
+
+type instance Coend = Coend2
+
+instance Functor Coend2 where
+  fmap f = Nat $ \(Coend2 fcc) -> Coend2 $ runNat3 f fcc
+
 -- * -^J -| Limit
 
 type family Limit :: (i -> j) -> j
@@ -242,13 +306,17 @@ type instance Limit = Limit1
 instance Functor Limit1 where
   fmap (Nat f) (Limit g) = Limit (f g)
 
+instance Semimonoidal Limit1 where
+  ap2 (Limit f, Limit g) = Limit (Lift (f, g))
+
 instance Monoidal Limit1 where
   ap0 () = Limit $ Const ()
-  ap2 (Limit f, Limit g) = Limit (Lift (f, g))
+
+instance Semigroup m => Semigroup (Limit1 m) where
+  mult = multM
 
 instance Monoid m => Monoid (Limit1 m) where
   one = oneM
-  mult = multM
 
 instance Const1 -| Limit1 where
   adj = dimap (\f a -> Limit (runNat f (Const a))) $ \h -> Nat $ getLimit . h . getConst
@@ -279,13 +347,16 @@ instance Functor LimitC where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
 
+instance Semimonoidal LimitC where
+  ap2 = get zipR
+
 instance Monoidal LimitC where
   ap0 = Sub Dict
-  ap2 = get zipR
+
+-- instance Semigroup m => Semigroup (LimitC m) where mult = multM
 
 instance Monoid m => Monoid (LimitC m) where
   one = oneM
-  mult = multM
 
 instance ConstC -| LimitC where
   adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limitDict) b) where
@@ -304,13 +375,17 @@ data Colimit1 (f :: i -> *) where
 instance Functor Colimit1 where
   fmap (Nat f) (Colimit g)= Colimit (f g)
 
-instance Opmonoidal Colimit1 where
-  op0 (Colimit (Const a)) = a
+instance Cosemimonoidal Colimit1 where
   op2 (Colimit (Lift ab)) = bimap Colimit Colimit ab
+
+instance Comonoidal Colimit1 where
+  op0 (Colimit (Const a)) = a
+
+instance Cosemigroup m => Cosemigroup (Colimit1 m) where
+  comult = comultOp
 
 instance Comonoid m => Comonoid (Colimit1 m) where
   zero = zeroOp
-  comult = comultOp
 
 instance Colimit1 -| Const1 where
   adj = dimap (\f -> Nat $ Const . f . Colimit) $ \(Nat g2cb) (Colimit g) -> getConst (g2cb g)
@@ -321,7 +396,7 @@ data Colimit2 (f :: i -> j -> *) (x :: j) where
 instance Functor Colimit2 where
   fmap f = Nat $ \(Colimit2 g) -> Colimit2 (runNat (runNat f) g)
 
--- instance Opmonoidal Colimit2
+-- instance Comonoidal Colimit2
 -- instance Comonoid m => Comonoid (Colimit1 m)
 
 instance Colimit2 -| Const2 where
@@ -640,14 +715,14 @@ bimap f g = first f . fmap1 g
 dimap :: (Profunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
 dimap f g = lmap f . fmap1 g
 
-class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Associative p where
+class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Pretensor p where
   associate :: Iso (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
 
-instance Associative (,) where
+instance Pretensor (,) where
   associate   = dimap (\((a,b),c) -> (a,(b,c)))
                       (\(a,(b,c)) -> ((a,b),c))
 
-instance Associative Either where
+instance Pretensor Either where
   associate = dimap hither yon where
     hither (Left (Left a)) = Left a
     hither (Left (Right b)) = Right (Left b)
@@ -656,14 +731,14 @@ instance Associative Either where
     yon (Right (Left b)) = Left (Right b)
     yon (Right (Right c)) = Right c
 
-instance Associative (&) where
+instance Pretensor (&) where
   associate   = dimap (Sub Dict) (Sub Dict)
 
-instance Category ((~>) :: i -> i -> *) => Associative (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
+instance Category ((~>) :: i -> i -> *) => Pretensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
   associate = associateProf
 
 -- tensor for a monoidal category
-class Associative p => Tensor (p :: x -> x -> x) where
+class Pretensor p => Tensor (p :: x -> x -> x) where
   type Id p :: x
   lambda    :: Iso (p (Id p) a) (p (Id p) a') a a'
   rho       :: Iso (p a (Id p)) (p a' (Id p)) a a'
@@ -683,7 +758,7 @@ instance Tensor (&) where
   lambda      = dimap (Sub Dict) (Sub Dict)
   rho         = dimap (Sub Dict) (Sub Dict)
 
-associateLift :: (Lifted s, Associative p)
+associateLift :: (Lifted s, Pretensor p)
   => Iso (s p (s p f g) h) (s p (s p f' g') h')
          (s p f (s p g h)) (s p f' (s p g' h'))
 associateLift = dimap
@@ -702,7 +777,7 @@ rhoLift =
   dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
         (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
 
-instance Associative p => Associative (Lift1 p) where
+instance Pretensor p => Pretensor (Lift1 p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (Lift1 p) where
@@ -710,7 +785,7 @@ instance Tensor p => Tensor (Lift1 p) where
   lambda      = lambdaLift
   rho         = rhoLift
 
-instance Associative p => Associative (Lift2 p) where
+instance Pretensor p => Pretensor (Lift2 p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (Lift2 p) where
@@ -718,7 +793,7 @@ instance Tensor p => Tensor (Lift2 p) where
   lambda      = lambdaLift
   rho         = rhoLift
 
-instance Associative p => Associative (LiftC p) where
+instance Pretensor p => Pretensor (LiftC p) where
   associate   = associateLift
 
 instance Tensor p => Tensor (LiftC p) where
@@ -853,38 +928,42 @@ instance Initial (ConstC (() ~ Bool)) where
   initial = Nat $ initial . get _Const
 
 infixl 7 *
-class (h ~ (~>), Symmetric ((*)::i->i->i), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i))) => Cartesian (h :: i -> i -> *) | i -> h where
+class (h ~ (~>), Symmetric ((*)::i->i->i), Pretensor ((*)::i->i->i)) => Precartesian (h :: i -> i -> *) | i -> h where
   type (*) :: i -> i -> i
   fst   :: forall (a::i) (b::i). a * b ~> a
   snd   :: forall (a::i) (b::i). a * b ~> b
   (&&&) :: forall (a::i) (b::i) (c::i). (a ~> b) -> (a ~> c) -> a ~> b * c
 
-instance Cartesian (->) where
+class    (h ~ (~>), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *) | i -> h
+instance (h ~ (~>), Tensor ((*)::i->i->i), Terminal (Id ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *)
+
+instance Precartesian (->) where
   type (*) = (,)
   fst   = Prelude.fst
   snd   = Prelude.snd
   (&&&) = (Arrow.&&&)
 
-instance Cartesian (:-) where
+instance Precartesian (:-) where
   type (*) = (&)
   fst = Sub Dict
   snd = Sub Dict
   p &&& q = Sub $ Dict \\ p \\ q
 
-instance Cartesian (Nat :: (i -> *) -> (i -> *) -> *) where
+
+instance Precartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (*) = Lift (,)
   fst = Nat $ fst . lower
   snd = Nat $ snd . lower
   Nat f &&& Nat g = Nat $ Lift . (f &&& g)
 
-instance Cartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
+instance Precartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
   type (*) = LiftC (&)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
 
 -- todo make this a pre-req to Tensor?
-class (Cartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where
+class (Precartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where
   {-# MINIMAL _1 | _2 #-}
   _1 :: p a b -> p (a * c) (b * c)
   _1 = dimap swap swap . _2
@@ -907,31 +986,34 @@ instance Strong (Nat::(i-> Constraint)->(i-> Constraint)-> *) where
   _1 = first
   _2 = fmap1
 
-instance Cartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
+instance Precartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
   _1 = _Get (. fst)
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
 infixl 6 +
-class (h ~ (~>), Symmetric ((+)::i->i->i), Tensor ((+)::i->i->i),Initial (Id ((+)::i->i->i))) => Cocartesian (h :: i -> i -> *) | i -> h where
+class (h ~ (~>), Symmetric ((+)::i->i->i), Pretensor ((+)::i->i->i)) => Precocartesian (h :: i -> i -> *) | i -> h where
   type (+) :: i -> i -> i
   inl    :: forall (a :: i) (b :: i). a ~> a + b
   inr    :: forall (a :: i) (b :: i). b ~> a + b
   (|||)  :: forall (a :: i) (b :: i) (c :: i). (a ~> c) -> (b ~> c) -> a + b ~> c
 
-instance Cocartesian (->) where
+class    (h ~ (~>), Tensor ((+)::i->i->i), Initial (Id ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *) | i -> h
+instance (h ~ (~>), Tensor ((+)::i->i->i), Initial (Id ((+)::i->i->i)), Precocartesian h) => Cocartesian (h ::i->i-> *)
+
+instance Precocartesian (->) where
   type (+) = Either
   inl = Left
   inr = Right
   (|||) = either
 
-instance Cocartesian (Nat :: (i -> *) -> (i -> *) -> *) where
+instance Precocartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (+) = Lift Either
   inl = Nat (Lift . Left)
   inr = Nat (Lift . Right)
   Nat f ||| Nat g = Nat $ either f g . lower
 
-class (Cocartesian ((~>) :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
+class (Precocartesian ((~>) :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
   {-# MINIMAL _Left | _Right #-}
   _Left  :: p a b -> p (a + c) (b + c)
   _Left = dimap swap swap . _Right
@@ -950,7 +1032,7 @@ instance Choice Tagged where
   _Left  = bimap inl inl
   _Right = bimap inr inr
 
-instance Cocartesian ((~>) :: i -> i -> *) => Choice (Unget (r :: i)) where
+instance Precocartesian ((~>) :: i -> i -> *) => Choice (Unget (r :: i)) where
   _Left = bimap inl inl
   _Right = bimap inr inr
 
@@ -1000,19 +1082,25 @@ instance Lift1 (,) =| Lift1 (->) where
 instance Lift1 (,) e -| Lift1 (->) e where
   adj = ccc
 
--- monoidal functors preserve the structure of our tensor and take monoid objects to monoid objects
-
-class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Functor f) => Monoidal (f :: x -> y) where
-  ap0 :: One ~> f One
+-- semimonoidal functors preserve the structure of our pretensor and take semimonoid objects to semimonoid objects
+class (Precartesian ((~>) :: x -> x -> *), Precartesian ((~>) :: y -> y -> *), Functor f) => Semimonoidal (f :: x -> y) where
   ap2 :: f a * f b ~> f (a * b)
+
+-- monoidal functors preserve the structure of our tensor and take monoid objects to monoid objects
+class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Semimonoidal f) => Monoidal (f :: x -> y) where
+  ap0 :: One ~> f One
+
+instance Semimonoidal Dict where
+  ap2 (Dict, Dict) = Dict
 
 instance Monoidal Dict where
   ap0 () = Dict
-  ap2 (Dict, Dict) = Dict
+
+instance Semigroup (Dict m) where
+  mult (Dict, Dict) = Dict
 
 instance Monoid m => Monoid (Dict m) where
   one = oneM
-  mult = multM
 
 -- lift applicatives for Hask
 --
@@ -1023,69 +1111,170 @@ instance Monoid m => Monoid (Dict m) where
 ap2Applicative :: Applicative.Applicative f => f a * f b -> f (a * b)
 ap2Applicative = uncurry $ Applicative.liftA2 (,)
 
+instance Semimonoidal ((:-) f) where
+  ap2 = uncurry (&&&)
+
 instance Monoidal ((:-) f) where
   ap0 () = terminal
-  ap2 = uncurry (&&&)
+
+instance Semigroup (f :- m) where -- every m is a semimonoid
+  mult = multM
 
 instance Monoid m => Monoid (f :- m) where
   one = oneM
-  mult = multM
+
+instance Semimonoidal (Lift1 (->) f) where
+  ap2 = get zipR
 
 instance Monoidal (Lift1 (->) f) where
   ap0 = curry fst
-  ap2 = get zipR
+
+instance Semigroup m => Semigroup (Lift1 (->) f m) where
+  mult = multM
 
 instance Monoid m => Monoid (Lift1 (->) f m) where
   one = oneM
-  mult = multM
 
 -- instance Monoidal (LiftC (|-) f) where
 --  ap0 = curry fst
 --  ap2 = get zipR
 
+instance Semimonoidal ((|-) f) where
+  ap2 = get zipR
+
 instance Monoidal ((|-) f) where
   ap0 = curry fst
-  ap2 = get zipR
+
+-- instance Semigroup m => Semigroup (f |- m) where mult = multM -- all constraints are semimonoids!
 
 instance Monoid m => Monoid (f |- m) where
   one = oneM
-  mult = multM
+
+instance Semimonoidal (Nat f :: (i -> *) -> *) where
+  ap2 = uncurry (&&&)
 
 instance Monoidal (Nat f :: (i -> *) -> *) where
   ap0 () = terminal
+
+instance Semimonoidal (Nat f :: (i -> Constraint) -> *) where
   ap2 = uncurry (&&&)
 
 instance Monoidal (Nat f :: (i -> Constraint) -> *) where
   ap0 () = terminal
-  ap2 = uncurry (&&&)
+
+instance (Semimonoidal (Nat f), Semigroup m) => Semigroup (Nat f m) where
+  mult = multM
 
 instance (Monoidal (Nat f), Monoid m) => Monoid (Nat f m) where
   one = oneM
-  mult = multM
 
 -- inherited from base
--- instance Monoidal (Tagged s)
--- instance Monoid m => Monoid (Tagged s m)
+instance Semimonoidal (Tagged s) where
+  ap2 = Tagged . bimap unTagged unTagged
+
+instance Monoidal (Tagged s) where
+  ap0  = Tagged
+
+instance Semigroup m => Semigroup (Tagged s m) where
+  mult = Tagged . mult . bimap unTagged unTagged
+
+instance Monoid m => Monoid (Tagged s m) where
+  one = Tagged . one
+
+instance Precartesian ((~>) :: i -> i -> *) => Semimonoidal (Proxy :: i -> *) where
+  ap2 (Proxy, Proxy) = Proxy
 
 instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
   ap0 () = Proxy
-  ap2 (Proxy, Proxy) = Proxy
 
 -- instance Monoid (Proxy a) -- from base
 
 -- * Monads over our kind-indexed categories
 
-class Monoidal (m :: x -> x) => Monad (m :: x -> x) where
+class Semimonoidal (m :: x -> x) => Semimonad (m :: x -> x) where
   join :: m (m a) ~> m a
 
-instance (Monoidal m, Prelude.Monad m) => Monad m where
-  join = Monad.join
+-- todo: prove join must respect this?
+class (Monoidal m, Semimonad m) => Monad m
+instance (Monoidal m, Semimonad m) => Monad m
 
--- * Opmonoidal functors between cocartesian categories
+-- instance (Semimonoidal m, Prelude.Monad m) => Semimonad m where
+-- instance (Monoidal m, Prelude.Monad m) => Monad m where
+--   join = Monad.join
 
-class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Functor f) => Opmonoidal (f :: x -> y) where
-  op0 :: f Zero ~> Zero
+-- * Comonoidal functors between cocartesian categories
+
+class (Precocartesian ((~>) :: x -> x -> *), Precocartesian ((~>) :: y -> y -> *), Functor f) => Cosemimonoidal (f :: x -> y) where
   op2 :: f (a + b) ~> f a + f b
+
+class (Cocartesian ((~>) :: x -> x -> *), Cocartesian ((~>) :: y -> y -> *), Cosemimonoidal f) => Comonoidal (f :: x -> y) where
+  op0 :: f Zero ~> Zero
+
+instance Cosemimonoidal ((,) e) where
+  op2 (e,ab) = bimap ((,) e) ((,) e) ab
+
+instance Comonoidal ((,) e) where
+  op0 = snd
+
+instance Cosemigroup m => Cosemigroup (e, m) where
+  comult = comultOp
+
+instance Comonoid m => Comonoid (e, m) where
+  zero = zeroOp
+
+instance Cosemimonoidal Identity.Identity where
+  op2 = bimap Identity.Identity Identity.Identity . Identity.runIdentity
+
+instance Comonoidal Identity.Identity where
+  op0 = Identity.runIdentity
+
+instance Cosemigroup m => Cosemigroup (Identity.Identity m) where
+  comult = comultOp
+
+instance Comonoid m => Comonoid (Identity.Identity m) where
+  zero = zeroOp
+
+instance Cosemimonoidal (At x) where
+  op2 (At (Lift eab))= bimap At At eab
+
+instance Comonoidal (At x) where
+  op0 (At (Const x)) = x
+
+instance Cosemigroup m => Cosemigroup (At x m) where
+  comult = comultOp
+
+instance Comonoid m => Comonoid (At x m) where
+  zero = zeroOp
+
+-- lift all of these through Lift? its a limit
+
+-- instance Cosemimonoidal p => Cosemimonoidal (Lift1 p e) where
+instance Cosemimonoidal (Lift1 (,) e) where
+  op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
+
+instance Comonoidal (Lift1 (,) e) where
+  op0 = snd
+
+instance Cosemigroup m => Cosemigroup (Lift1 (,) e m) where
+  comult = comultOp
+
+instance Comonoid m => Comonoid (Lift1 (,) e m) where
+  zero = zeroOp
+
+instance Cosemimonoidal (Tagged s) where
+  op2 = bimap Tagged Tagged . unTagged
+
+instance Comonoidal (Tagged s) where
+  op0 = unTagged
+
+instance Cosemigroup m => Cosemigroup (Tagged s m) where
+  comult = comultOp
+
+instance Comonoid m => Comonoid (Tagged s m) where
+  zero = zeroOp
+
+
+-- * Identity functors
 
 class Ident ~ f => Identity (f :: i -> i) | i -> f where
   type Ident :: i -> i
@@ -1101,46 +1290,6 @@ instance Functor Identity.Identity where
 instance Identity.Identity -| Identity.Identity where
   adj = un (mapping _Ident . lmapping _Ident)
 
-instance Opmonoidal ((,) e) where
-  op0 = snd
-  op2 (e,ab) = bimap ((,) e) ((,) e) ab
-
-instance Comonoid m => Comonoid (e, m) where
-  zero = zeroOp
-  comult = comultOp
-
-instance Opmonoidal Identity.Identity where
-  op0 = Identity.runIdentity
-  op2 = bimap Identity.Identity Identity.Identity . Identity.runIdentity
-
-instance Comonoid m => Comonoid (Identity.Identity m) where
-  zero = zeroOp
-  comult = comultOp
-
-instance Opmonoidal (At x) where
-  op0 (At (Const x)) = x
-  op2 (At (Lift eab))= bimap At At eab
-
-instance Comonoid m => Comonoid (At x m) where
-  zero = zeroOp
-  comult = comultOp
-
-instance Opmonoidal (Lift1 (,) e) where
-  op0 = snd
-  op2 = Nat $ Lift . bimap Lift Lift . op2 . fmap lower . lower
-
-instance Comonoid m => Comonoid (Lift1 (,) e m) where
-  zero = zeroOp
-  comult = comultOp
-
-instance Opmonoidal (Tagged s) where
-  op0 = unTagged
-  op2 = bimap Tagged Tagged . unTagged
-
-instance Comonoid m => Comonoid (Tagged s m) where
-  zero = zeroOp
-  comult = comultOp
-
 -- * An = Identity for Nat (i -> *)
 newtype An (f :: i -> *) (a :: i) = An { runAn :: f a }
 _An = dimap runAn An
@@ -1152,28 +1301,40 @@ instance Identity An where
 instance Functor f => Functor (An f) where
   fmap = _An . fmap
 
+instance Cosemimonad An where
+  duplicate = Nat An
+
 instance Comonad An where
   extract = Nat runAn
-  duplicate = Nat An
+
+instance Semimonoidal An where
+  ap2 = Nat $ \(Lift (An x, An y)) -> An (Lift (x, y))
 
 instance Monoidal An where
   ap0 = Nat An
-  ap2 = Nat $ \(Lift (An x, An y)) -> An (Lift (x, y))
+
+instance Semigroup m => Semigroup (An m) where
+  mult = multM
 
 instance Monoid m => Monoid (An m) where
   one = oneM
-  mult = multM
 
-instance Monad An where
+instance Semimonad An where
   join = Nat runAn
 
-instance Opmonoidal An where
-  op0 = Nat runAn
+instance Monad An
+
+instance Cosemimonoidal An where
   op2 = Nat $ \(An (Lift ea)) -> Lift (bimap An An ea)
+
+instance Comonoidal An where
+  op0 = Nat runAn
+
+instance Cosemigroup m => Cosemigroup (An m) where
+  comult = comultOp
 
 instance Comonoid m => Comonoid (An m) where
   zero = zeroOp
-  comult = comultOp
 
 instance An -| An where
   adj = un (mapping _Ident . lmapping _Ident)
@@ -1184,17 +1345,23 @@ instance Contravariant f => Contravariant (An f) where
 instance Functor An where
   fmap = _Ident
 
-instance Monoidal f => Monoidal (An f) where
-  ap0 = An . ap0
+instance Semimonoidal f => Semimonoidal (An f) where
   ap2 = An . ap2 . bimap runAn runAn
 
-instance Opmonoidal f => Opmonoidal (An f) where
-  op0 = op0 . runAn
+instance Monoidal f => Monoidal (An f) where
+  ap0 = An . ap0
+
+instance Cosemimonoidal f => Cosemimonoidal (An f) where
   op2 = bimap An An . op2 . runAn
 
-instance (Opmonoidal f, Comonoid m) => Comonoid (An f m) where
-  zero = zeroOp
+instance Comonoidal f => Comonoidal (An f) where
+  op0 = op0 . runAn
+
+instance (Cosemimonoidal f, Cosemigroup m) => Cosemigroup (An f m) where
   comult = comultOp
+
+instance (Comonoidal f, Comonoid m) => Comonoid (An f m) where
+  zero = zeroOp
 
 class c => IdentC c
 instance c => IdentC c
@@ -1212,6 +1379,8 @@ instance IdentC -| IdentC where
 -- a monoid object in a cartesian category
 class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
   one  :: One ~> m
+
+class Precartesian ((~>) :: i -> i -> *) => Semigroup (m :: i) where
   mult :: m * m ~> m
 
 -- monoidal functors take monoids to monoids
@@ -1219,50 +1388,69 @@ class Cartesian ((~>) :: i -> i -> *) => Monoid (m :: i) where
 oneM :: (Monoidal u, Monoid m) => One ~> u m
 oneM = fmap one . ap0
 
-multM :: (Monoidal u, Monoid m) => u m * u m ~> u m
+multM :: (Semimonoidal u, Semigroup m) => u m * u m ~> u m
 multM = fmap mult . ap2
 
-instance Monoid.Monoid m => Monoid m where
-  one () = Monoid.mempty
-  mult = uncurry Monoid.mappend
+-- instance Semigroup.Semigroup m => Semigroup m where
+--   mult = uncurry Monoid.mappend
+
+-- instance (Semigroup.Semigroup m, Monoid.Monoid m) => Monoid m where
+--   one () = Monoid.mempty
+
+instance Semigroup (Const1 ()) where
+  mult = get lambda
 
 instance Monoid (Const1 ()) where
   one = id
-  mult = get lambda
+
+instance Semigroup (p :: Constraint) where
+  mult = Sub Dict
 
 instance Monoid (() :: Constraint) where
   one = id
-  mult = get lambda
 
-mappend :: (Monoid m, CCC (Arr m)) => m ~> m^m
+mappend :: (Semigroup m, CCC (Arr m)) => m ~> m^m
 mappend = curry mult
 
-class Cocartesian (Arr m) => Comonoid m where
-  zero   :: m ~> Zero
+class Precocartesian (Arr m) => Cosemigroup m where
   comult :: m ~> m + m
+
+class (Cosemigroup m, Cocartesian (Arr m)) => Comonoid m where
+  zero   :: m ~> Zero
 
 -- opmonoidal functors take comonoids to comonoids
 
-zeroOp :: (Opmonoidal f, Comonoid m) => f m ~> Zero
+zeroOp :: (Comonoidal f, Comonoid m) => f m ~> Zero
 zeroOp = op0 . fmap zero
 
-comultOp :: (Opmonoidal f, Comonoid m) => f m ~> f m + f m
+comultOp :: (Cosemimonoidal f, Cosemigroup m) => f m ~> f m + f m
 comultOp = op2 . fmap comult
+
+instance Cosemigroup Void where
+  comult = initial
 
 instance Comonoid Void where
   zero = id
-  comult = absurd
+
+instance Semigroup Void where
+  mult = fst
+
+instance Cosemigroup (Const1 Void) where
+  comult = Nat $ absurd . getConst
 
 instance Comonoid (Const1 Void) where
   zero = id
-  comult = Nat $ absurd . getConst
+
+instance Semigroup (Const1 Void) where
+  mult = fst
 
 -- instance Comonoid (Const2 (Const1 Void)) where
 
 class Functor f => Strength f where
   strength :: a * f b ~> f (a * b)
 
-instance (Functor f, Prelude.Functor f) => Strength f where
+-- instance (Functor f, Prelude.Functor f) => Strength f where
+instance Functor f => Strength (f :: * -> *) where
   strength (a,fb) = fmap ((,) a) fb
 
 -- proposition: all right adjoints on Cartesian categories should be strong
@@ -1277,24 +1465,23 @@ class Functor f => Costrength (f :: x -> x) where
 instance (Functor f, Traversable.Traversable f) => Costrength f where
   costrength = Traversable.sequence
 
-ap :: (Monoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
+ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
 return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
 return = fmap (get lambda . swap) . strength . fmap1 ap0 . unget rho
 
-class (Functor f, Category (Dom f)) => Comonad (f :: x -> x) where
-  {-# MINIMAL extract, (duplicate | extend) #-}
+class (Functor f, Category (Dom f)) => Cosemimonad f where
+  {-# MINIMAL (duplicate | extend) #-}
   duplicate :: f a ~> f (f a)
+  default duplicate :: Category (Dom f) => f a ~> f (f a)
   duplicate = extend id
+
   extend :: (f a ~> b) -> f a ~> f b
   extend f = fmap f . duplicate
-  extract   :: f a ~> a
 
-instance (Functor f, Comonad.Comonad f) => Comonad f where
-  duplicate = Comonad.duplicate
-  extend = Comonad.extend
-  extract = Comonad.extract
+class Cosemimonad f => Comonad f where
+  extract :: f a ~> a
 
 -- indexed store
 data Store s a i = Store (s ~> a) (s i)
@@ -1302,9 +1489,11 @@ data Store s a i = Store (s ~> a) (s i)
 instance Functor (Store s) where
   fmap f = Nat $ \(Store g s) -> Store (f . g) s
 
+instance Cosemimonad (Store s) where
+  duplicate = Nat $ \(Store f s) -> Store (Nat $ Store f) s
+
 instance Comonad (Store s) where
   extract = Nat $ \(Store f s) -> runNat f s
-  duplicate = Nat $ \(Store f s) -> Store (Nat $ Store f) s
 
 -- The dual of Conor McBride's "Atkey" adapted to this formalism
 --
@@ -1315,14 +1504,18 @@ newtype Cokey i a j = Cokey { runCokey :: (i ~ j) => a }
 instance Functor (Cokey i) where
   fmap f = Nat $ \xs -> Cokey $ f (runCokey xs)
 
-instance Monoidal (Cokey i) where
-  ap0 = Nat $ \a -> Cokey (getConst a)
+instance Semimonoidal (Cokey i) where
   ap2 = Nat $ \ab -> Cokey $ case ab of
     Lift (Cokey a, Cokey b) -> (a, b)
 
+instance Monoidal (Cokey i) where
+  ap0 = Nat $ \a -> Cokey (getConst a)
+
+instance Semigroup m => Semigroup (Cokey i m) where
+  mult = multM
+
 instance Monoid m => Monoid (Cokey i m) where
   one = oneM
-  mult = multM
 
 -- Conor McBride's "Atkey" adapted to this formalism
 --
@@ -1334,13 +1527,17 @@ data Key i a j where
 instance Functor (Key i) where
   fmap f = Nat $ \ (Key a) -> Key (f a)
 
-instance Opmonoidal (Key i) where
-  op0 = Nat $ \(Key v) -> Const v
+instance Cosemimonoidal (Key i) where
   op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
+
+instance Comonoidal (Key i) where
+  op0 = Nat $ \(Key v) -> Const v
+
+instance Cosemigroup m => Cosemigroup (Key i m) where
+  comult = comultOp
 
 instance Comonoid m => Comonoid (Key i m) where
   zero = zeroOp
-  comult = comultOp
 
 -- * Traditional product categories w/ adjoined identities
 data Prod :: (i,j) -> (i,j) -> * where
@@ -1485,21 +1682,29 @@ instance Contravariant Power1 where
 instance Functor (Power1 v) where
   fmap f = Nat $ Power . fmap1 (runNat f) . runPower
 
+instance Semimonoidal (Power1 v) where
+  ap2 = Nat $ \(Lift (Power va, Power vb)) -> Power $ \v -> Lift (va v, vb v)
+
 instance Monoidal (Power1 v) where
   ap0 = Nat $ \(Const ()) -> Power $ \v -> Const ()
-  ap2 = Nat $ \(Lift (Power va, Power vb)) -> Power $ \v -> Lift (va v, vb v)
+
+instance Semigroup m => Semigroup (Power1 v m) where
+  mult = multM
 
 instance Monoid m => Monoid (Power1 v m) where
   one = oneM
-  mult = multM
+
+instance Semimonoidal f => Semimonoidal (Power1 v f) where
+  ap2 (Power vfa, Power vfb) = Power $ \v -> ap2 (vfa v, vfb v)
 
 instance Monoidal f => Monoidal (Power1 v f) where
   ap0 () = Power $ \_ -> ap0 ()
-  ap2 (Power vfa, Power vfb) = Power $ \v -> ap2 (vfa v, vfb v)
+
+instance (Semimonoidal f, Semigroup m) => Semigroup (Power1 v f m) where
+  mult = multM
 
 instance (Monoidal f, Monoid m) => Monoid (Power1 v f m) where
   one = oneM
-  mult = multM
 
 instance Functor f => Functor (Power1 v f) where
   fmap f = Power . fmap1 (fmap f) . runPower
@@ -1518,7 +1723,7 @@ type family Lan  :: (i -> j) -> (i -> k) -> j -> k
 type family Ran  :: (i -> j) -> (i -> k) -> j -> k
 
 type instance Ran = Ran1
-newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) -> g r }
+newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) ⋔ g r }
 
 -- instance Up1 g -| Ran1 g
 
@@ -1532,7 +1737,7 @@ instance Category (Cod f) => Functor (Ran1 f) where
   fmap (Nat f) = Nat $ \(Ran k) -> Ran $ f . k
 
 type instance Ran = Ran2
-newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. (a ~> f r) -> g r x }
+newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. ((a ~> f r) ⋔ g r) x }
 
 type instance Lan = Lan1
 data Lan1 f g a where
@@ -1709,14 +1914,18 @@ instance (Contravariant1 p, Functor1 p) => Phantom1 p
 
 -- indexed monoidal functors
 
+class Limit (Up p Semimonoidal) => Semimonoidal1 p
+instance Limit (Up p Semimonoidal) => Semimonoidal1 p
+
+ap2_1 :: forall p e a b. Semimonoidal1 p => p e a * p e b ~> p e (a * b)
+ap2_1 = case (limitDict :: Dict (Up p Semimonoidal e)) of Dict -> ap2
+
 class Limit (Up p Monoidal) => Monoidal1 p
 instance Limit (Up p Monoidal) => Monoidal1 p
 
 ap0_1 :: forall p e. Monoidal1 p => One ~> p e One
 ap0_1 = case (limitDict :: Dict (Up p Monoidal e)) of Dict -> ap0
 
-ap2_1 :: forall p e a b. Monoidal1 p => p e a * p e b ~> p e (a * b)
-ap2_1 = case (limitDict :: Dict (Up p Monoidal e)) of Dict -> ap2
 
 -- * Groupoids
 
@@ -1762,3 +1971,9 @@ instance Corepresentable (->) where
 instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
   type Corep (Nat :: (i -> *) -> (i -> *) -> *) = Ident
   _Corep = lmapping _Ident
+
+-- a semigroupoid/semicategory looks like a "self-enriched" profunctor
+-- when we put no other constraints on p
+
+class    (Profunctor p, p ~ (~>)) => Semicategory p
+instance (Profunctor p, p ~ (~>)) => Semicategory p
