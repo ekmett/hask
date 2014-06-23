@@ -245,6 +245,30 @@ instance Functor (Const2 f) where
 instance Functor f => Functor (Const2 f a) where
   fmap f = Const2 . fmap f . getConst2
 
+instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (Const2 b :: i -> j -> *) where
+  ap2 = unget _Const . mult . bimap (get _Const) (get _Const)
+
+instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (Const2 b :: i -> j -> *) where
+  ap0 = unget _Const . one
+
+instance Semigroup b => Semigroup (Const2 b a) where
+  mult = unget _Const . mult . bimap (get _Const) (get _Const)
+
+instance Monoid b => Monoid (Const2 b a) where
+  one = unget _Const . one
+
+instance (Cosemigroup b, Precocartesian ((~>) :: i -> i -> *)) => Cosemimonoidal (Const2 b :: i -> j -> *) where
+  op2 = bimap (unget _Const) (unget _Const) . comult . get _Const
+
+instance (Comonoid b, Cocartesian ((~>) :: i -> i -> *)) => Comonoidal (Const2 b :: i -> j -> *) where
+  op0 = zero . get _Const
+
+instance Cosemigroup b => Cosemigroup (Const2 b a) where
+  comult = bimap (unget _Const) (unget _Const) . comult . get _Const
+
+instance Comonoid b => Comonoid (Const2 b a) where
+  zero = zero . get _Const
+
 class b => ConstC b a
 instance b => ConstC b a
 
