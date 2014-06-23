@@ -65,6 +65,7 @@ nat3 f = Nat (Nat (Nat f))
 
 runNat2 = runNat . runNat
 runNat3 = runNat . runNat . runNat
+runNat4 = runNat . runNat . runNat . runNat
 
 instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j) -> *) where
   id = Nat id
@@ -236,6 +237,56 @@ instance Functor ConstC where
 
 instance Functor (ConstC b) where
   fmap _ = Sub Dict
+
+-- * Ends
+
+type family End :: (i -> i -> j) -> j
+
+newtype End1 f = End { getEnd :: forall x. f x x }
+type instance End = End1
+
+instance Functor End1 where
+  fmap f (End fcc) = End $ runNat2 f fcc
+
+newtype End2 f y = End2 { getEnd2 :: forall x. f x x y }
+type instance End = End2
+
+instance Functor End2 where
+  fmap f = Nat $ \(End2 fcc) -> End2 $ runNat3 f fcc
+
+newtype End3 f y z = End3 { getEnd3 :: forall x. f x x y z }
+type instance End = End3
+
+instance Functor End3 where
+  fmap f = nat2 $ \(End3 fcc) -> End3 $ runNat4 f fcc
+
+-- assumes p is contravariant in its first argument, covariant in its second
+class EndC (p :: i -> i -> Constraint) where
+  endDict :: Dict (p a a)
+
+type instance End = EndC
+
+instance p Any Any => EndC (p :: i -> i -> Constraint) where
+  endDict = case unsafeCoerce (id :: p Any Any :- p Any Any) :: p Any Any :- p a a of
+    Sub d -> d
+
+instance Functor EndC where
+  fmap f = dimap (Sub endDict) (Sub Dict) (runAny f) where
+    runAny :: (p ~> q) -> p Any Any ~> q Any Any
+    runAny = runNat2
+
+
+-- * Coends
+
+type family Coend :: (i -> i -> j) -> j
+
+data Coend1 f where
+  Coend :: f x x -> Coend1 f
+
+type instance Coend = Coend1
+
+instance Functor Coend1 where
+  fmap f (Coend fcc) = Coend $ runNat2 f fcc
 
 -- * -^J -| Limit
 
@@ -1880,4 +1931,3 @@ instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
 
 class    (Profunctor p, p ~ (~>)) => Semicategory p
 instance (Profunctor p, p ~ (~>)) => Semicategory p
-
