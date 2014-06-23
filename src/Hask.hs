@@ -1208,40 +1208,59 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
      Lift2 (Lift (a, Lift2 (Lift (Left b)))) -> Lift2 (Lift (Left (Lift2 (Lift (a, b)))))
      Lift2 (Lift (a, Lift2 (Lift (Right b)))) -> Lift2 (Lift (Right (Lift2 (Lift (a, b)))))
 
+-- gives us a notion of a closed category when applied to the exponential
+--
+-- this is just another convenient indexed adjunction with the args flipped around
+
+-- p has some notion of association we'd need poly kinds to talk about properly
+class (Bifunctor p, Profunctor e, Cur p ~ e, Uncur e ~ p) => Curry (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
+  type Cur p :: y -> z -> x
+  type Uncur e :: x -> y -> z
+  {-# MINIMAL curried | (uncurry, curry) #-}
+
+  curried :: Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
+  curried = dimap curry uncurry
+
+  curry :: (p a b ~> c) -> a ~> e b c
+  curry = get curried
+
+  uncurry :: (a ~> e b c) -> p a b ~> c
+  uncurry = unget curried
+
+  apply :: Category (Cod2 e) => p (e a b) a ~> b
+  apply = uncurry id
+
+  unapply :: Category (Cod2 p) => a ~> e b (p a b)
+  unapply = curry id
+
+class Curry p (Cur p) => Curried p
+instance Curry p (Cur p) => Curried p
+
+class Curry (Uncur e) e => Uncurried e
+instance Curry (Uncur e) e => Uncurried e
+
+-- (*) =| Exp from currying
+ccc :: CCC ((~>) :: i -> i -> *) => (*) =: (Exp :: i -> i -> i)
+ccc = dimap (. swap) (. swap) . curried
 
 -- * CCCs
 
 type a ^ b = Exp b a
 infixr 8 ^
 
-class (Cartesian k, (*) =| (Exp :: x -> x -> x), Profunctor (Exp :: x -> x -> x)) => CCC (k :: x -> x -> *) | x -> k where
+class Closed (k :: x -> x -> *) where
+
+class (Cartesian k, (*) =| (Exp :: x -> x -> x), Curry (*) (Exp :: x -> x -> x), Profunctor (Exp :: x -> x -> x)) => CCC (k :: x -> x -> *) | x -> k where
   type Exp :: x -> x -> x
-  curried :: forall (a :: x) (b :: x) (c :: x) (a' :: x) (b' :: x) (c' :: x). Iso (a * b ~> c) (a' * b' ~> c') (a ~> c^b) (a' ~> c'^b')
+
+instance Curry (,) (->) where
+  type Uncur (->) = (,)
+  type Cur (,) = (->)
+  curry = Prelude.curry
+  uncurry = Prelude.uncurry
 
 instance CCC (->) where
   type Exp = (->)
-  curried = dimap Prelude.curry Prelude.uncurry
-
-instance CCC (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Exp = Lift (->)
-  curried = dimap hither yon where
-    hither (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
-    yon (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
-
-curry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => ((a * b) ~> c) -> a ~> c^b
-curry = get curried
-
-uncurry :: forall (a :: i) (b :: i) (c :: i). CCC ((~>)::i -> i -> *) => (a ~> c^b) -> (a * b) ~> c
-uncurry = unget curried
-
-apply :: forall (a :: i) (b :: i). CCC ((~>)::i -> i -> *) => b^a * a ~> b
-apply = uncurry id
-
-unapply :: forall (a :: i) (b :: i). CCC ((~>) :: i -> i -> *) => a ~> (a * b)^b
-unapply = curry id
-
-ccc :: CCC ((~>) :: i -> i -> *) => (*) =: (Exp :: i -> i -> i)
-ccc = dimap (. swap) (. swap) . curried
 
 instance (,) =| (->) where
   adj1 = ccc
@@ -1249,11 +1268,20 @@ instance (,) =| (->) where
 instance (,) e -| (->) e where
   adj = ccc
 
+instance Curry (Lift1 (,)) (Lift1 (->)) where
+  type Uncur (Lift1 (->)) = Lift1 (,)
+  type Cur (Lift1 (,))    = Lift1 (->)
+  curry   (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
+  uncurry (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
+
 instance Lift1 (,) =| Lift1 (->) where
   adj1 = ccc
 
 instance Lift1 (,) e -| Lift1 (->) e where
   adj = ccc
+
+instance CCC (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Exp = Lift (->)
 
 -- semimonoidal functors preserve the structure of our pretensor and take semimonoid objects to semimonoid objects
 class (Precartesian ((~>) :: x -> x -> *), Precartesian ((~>) :: y -> y -> *), Functor f) => Semimonoidal (f :: x -> y) where
@@ -1956,13 +1984,20 @@ instance (&) =| (|-) where
 instance (&) p -| (|-) p where
   adj = ccc
 
-instance CCC (:-) where
-  type Exp = (|-)
-  curried = dimap (\q -> fmap q . unapplyConstraint) (\p -> applyConstraint . first p) where
+instance Curry (&) (|-) where
+  type Cur (&) = (|-)
+  type Uncur (|-) = (&)
+  curry q = fmap q . unapply
+  uncurry p = apply . first p
+  apply = applyConstraint where
     applyConstraint :: forall p q. (p |- q & p) :- q
     applyConstraint = Sub $ Dict \\ (implies :: p :- q)
+  unapply = unapplyConstraint where
     unapplyConstraint :: p :- q |- (p & q)
     unapplyConstraint = Sub $ get _Implies (Sub Dict)
+
+instance CCC (:-) where
+  type Exp = (|-)
 
 -- * The terminal category with one object
 
