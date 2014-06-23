@@ -2253,14 +2253,45 @@ instance EnvC e -| (|=) e where
 
 infixr 0 <~
 type instance (~>) = (<~) -- @Op a -> Op b -> *@
-newtype Op a = Op a
+newtype OP a = Op a
 
-data (<~) :: Op i -> Op i -> * where
-  Dual :: (b ~> a) -> (('Op a) <~ ('Op b))
+data (<~) :: OP i -> OP i -> * where
+  Dual :: (b ~> a) -> Op a <~ Op b
 
-instance Category ((~>) :: i -> i -> *) => Category ((<~) :: Op i -> Op i -> *) where
-  id = unsafeCoerce (Dual id :: 'Op (Any :: i) ~> 'Op Any)
+instance Category ((~>) :: i -> i -> *) => Category ((<~) :: OP i -> OP i -> *) where
+  id = unsafeCoerce (Dual id :: Op (Any :: i) ~> Op Any)
   Dual f . Dual g = Dual (g . f)
 
-runDual :: k ~ (~>) => ('Op a <~ 'Op b) -> k b a
+runDual :: k ~ (~>) => (Op a <~ Op b) -> k b a
 runDual (Dual x) = x
+
+instance Category ((~>) :: i -> i -> *) => Contravariant ((<~) :: OP i -> OP i -> *) where
+  contramap f = Nat (.f)
+
+instance Category ((~>) :: i -> i -> *) => Functor ((<~) e :: OP i -> *) where
+  fmap = (.)
+
+type family UnOp (pa :: OP a) :: a
+type instance UnOp (Op p) = p
+
+-- | Derpendency projection. (Work around)
+herpOp :: (UnOp opa ~ a) => p (Op a) -> p opa
+herpOp = unsafeCoerce
+
+herpOp1 :: (UnOp opa ~ a) => p (Op a) e -> p opa e
+herpOp1 = unsafeCoerce
+
+-- | Derpendency injection. (Work around)
+derpOp :: (UnOp opa ~ a) => p opa -> p (Op a)
+derpOp = unsafeCoerce
+
+derpOp1 :: (UnOp opa ~ a) => p opa e -> p (Op a) e
+derpOp1 = unsafeCoerce
+
+instance Terminal t => Initial (Op t) where
+  type Zero = Op One
+  initial = herpOp (Dual terminal)
+
+instance Initial t => Terminal (Op t) where
+  type One = Op Zero
+  terminal = herpOp1 (Dual initial)
