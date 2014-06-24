@@ -1763,6 +1763,26 @@ instance (Comonoidal f, Comonoidal g) => Comonoidal (Compose2 f g) where
 instance (Comonoidal f, Comonoidal g) => Comonoidal (ComposeC f g) where
   op0 = op0 . fmap op0 . decompose
 
+instance (Semimonoidal f, Semimonoidal g, Semigroup m) => Semigroup (Compose1 f g m) where
+  mult = compose . fmap (fmap mult . ap2) . ap2 . bimap decompose decompose
+
+instance (Semimonoidal f, Semimonoidal g, Semigroup m) => Semigroup (Compose2 f g m) where
+  mult = compose . fmap (fmap mult . ap2) . ap2 . bimap decompose decompose
+
+-- redundant
+-- instance (Semimonoidal f, Semimonoidal g, Semigroup m) => Semigroup (ComposeC f g m) where
+
+instance (Monoidal f, Monoidal g, Monoid m) => Monoid (Compose1 f g m) where
+  one = compose . fmap (fmap one . ap0) . ap0
+
+instance (Monoidal f, Monoidal g, Monoid m) => Monoid (Compose2 f g m) where
+  one = compose . fmap (fmap one . ap0) . ap0
+
+instance (Monoidal f, Monoidal g, Monoid m) => Monoid (ComposeC f g m) where
+  one = compose . fmap (fmap one . ap0) . ap0
+
+
+
 -- indexed monoidal functors
 
 ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
