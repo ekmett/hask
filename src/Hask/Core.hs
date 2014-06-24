@@ -1769,9 +1769,6 @@ instance (Semimonoidal f, Semimonoidal g, Semigroup m) => Semigroup (Compose1 f 
 instance (Semimonoidal f, Semimonoidal g, Semigroup m) => Semigroup (Compose2 f g m) where
   mult = compose . fmap (fmap mult . ap2) . ap2 . bimap decompose decompose
 
--- redundant
--- instance (Semimonoidal f, Semimonoidal g, Semigroup m) => Semigroup (ComposeC f g m) where
-
 instance (Monoidal f, Monoidal g, Monoid m) => Monoid (Compose1 f g m) where
   one = compose . fmap (fmap one . ap0) . ap0
 
@@ -1781,9 +1778,23 @@ instance (Monoidal f, Monoidal g, Monoid m) => Monoid (Compose2 f g m) where
 instance (Monoidal f, Monoidal g, Monoid m) => Monoid (ComposeC f g m) where
   one = compose . fmap (fmap one . ap0) . ap0
 
+instance (Cosemimonoidal f, Cosemimonoidal g, Cosemigroup m) => Cosemigroup (Compose1 f g m) where
+  comult = bimap compose compose . op2 . fmap (op2 . fmap comult) . decompose
 
+instance (Cosemimonoidal f, Cosemimonoidal g, Cosemigroup m) => Cosemigroup (Compose2 f g m) where
+  comult = bimap compose compose . op2 . fmap (op2 . fmap comult) . decompose
 
--- indexed monoidal functors
+instance (Cosemimonoidal f, Cosemimonoidal g, Cosemigroup m) => Cosemigroup (ComposeC f g m) where
+  comult = bimap compose compose . op2 . fmap (op2 . fmap comult) . decompose
+
+instance (Comonoidal f, Comonoidal g, Comonoid m) => Comonoid (Compose1 f g m) where
+  zero = op0 . fmap (op0 . fmap zero) . decompose
+
+instance (Comonoidal f, Comonoidal g, Comonoid m) => Comonoid (Compose2 f g m) where
+  zero = op0 . fmap (op0 . fmap zero) . decompose
+
+instance (Comonoidal f, Comonoidal g, Comonoid m) => Comonoid (ComposeC f g m) where
+  zero = op0 . fmap (op0 . fmap zero) . decompose
 
 ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
 ap2_1 = case limDict :: Dict (Compose Semimonoidal p e) of Dict -> ap2
