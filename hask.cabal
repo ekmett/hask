@@ -31,6 +31,7 @@ library
 
   exposed-modules:
     Hask
+    Hask.Constrained
     Hask.Core
     Hask.Prof
     Hask.Foldable
