@@ -751,18 +751,8 @@ instance Contravariant Tagged where
 instance Contravariant (Const2 k) where
   contramap _ = _Const id
 
-type Ungetter t b = forall p. (Choice p, Functor p) => p b b -> p t t
-
-unto :: (b ~> t) -> Ungetter t b
-unto f = bimap f f
-
 bicontramap :: (Bicontravariant p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b d ~> p a c
 bicontramap f g = lmap f . contramap1 g
-
-type Getter s a = forall p. (Strong p, Contravariant1 p) => p a a -> p s s
-
-to :: (s ~> a) -> Getter s a
-to f = bicontramap f f
 
 newtype Get r a b = Get { runGet :: a ~> r }
 _Get = dimap runGet Get
@@ -1027,39 +1017,6 @@ instance Precartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
 
--- todo make this a pre-req to Tensor?
-class (Precartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where
-  {-# MINIMAL _1 | _2 #-}
-  _1 :: p a b -> p (a * c) (b * c)
-  _1 = dimap swap swap . _2
-  _2 :: p a b -> p (c * a) (c * b)
-  _2 = dimap swap swap . _1
-
-instance Strong (->) where
-  _1 = first
-  _2 = fmap1
-
-instance Strong (:-) where
-  _1 = first
-  _2 = fmap1
-
-instance Strong (Nat::(i-> *)->(i-> *)-> *) where
-  _1 = first
-  _2 = fmap1
-
-instance Strong (Nat::(i-> Constraint)->(i-> Constraint)-> *) where
-  _1 = first
-  _2 = fmap1
-
-instance Precartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
-  _1 = _Get (. fst)
-
--- A Freyd category over a category is an arrow
-class (Strong p, Category p) => Freyd p
-instance (Strong p, Category p) => Freyd p
-
-type Lens s t a b = forall p. Strong p => p a b -> p s t
-
 infixl 6 +
 class (h ~ (~>), Symmetric ((+)::i->i->i), Semitensor ((+)::i->i->i)) => Precocartesian (h :: i -> i -> *) | i -> h where
   type (+) :: i -> i -> i
@@ -1087,35 +1044,6 @@ instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
   inl = Nat (unget _Lift . inl)
   inr = Nat (unget _Lift . inr)
   Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
-
-class (Precocartesian ((~>) :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
-  {-# MINIMAL _Left | _Right #-}
-  _Left  :: p a b -> p (a + c) (b + c)
-  _Left = dimap swap swap . _Right
-  _Right :: p a b -> p (c + a) (c + b)
-  _Right = dimap swap swap . _Left
-
-instance Choice (->) where
-  _Left = Arrow.left
-  _Right = Arrow.right
-
-instance Choice (Nat :: (i -> *) -> (i -> *) -> *) where
-  _Left (Nat f) = Nat $ _Lift (_Left f)
-  _Right (Nat g) = Nat $ _Lift (_Right g)
-
-instance Choice (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
-  _Left (Nat f) = Nat $ _Lift (_Left f)
-  _Right (Nat g) = Nat $ _Lift (_Right g)
-
-instance Choice Tagged where
-  _Left  = bimap inl inl
-  _Right = bimap inr inr
-
-instance Precocartesian ((~>) :: i -> i -> *) => Choice (Unget (r :: i)) where
-  _Left = bimap inl inl
-  _Right = bimap inr inr
-
-type Prism s t a b = forall p. Choice p => p a b -> p s t
 
 -- * Factoring
 

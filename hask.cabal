@@ -36,7 +36,9 @@ library
     Hask.Groupoid
     Hask.Kan
     Hask.Key
+    Hask.Lens
     Hask.Power
+    Hask.Prism
     Hask.Prof
     Hask.Rep
     Hask.Foldable
