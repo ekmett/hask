@@ -432,7 +432,6 @@ instance Functor Lim2 where
 instance Const2 -| Lim2 where
   adj = dimap (\(Nat f) -> Nat $ \ a -> Lim2 (runNat f (Const2 a))) $ \(Nat h) -> nat2 $ getLim2 . h . getConst2
 
-
 instance Semimonoidal LimC where
   ap2 = get zipR
 
@@ -754,24 +753,25 @@ instance Semitensor Either where
 instance Semitensor (&) where
   associate   = dimap (Sub Dict) (Sub Dict)
 
+type family I (p :: x -> x -> x) :: x
+
 -- tensor for a monoidal category
 class Semitensor p => Tensor (p :: x -> x -> x) where
-  type I p :: x
   lambda    :: Iso (p (I p) a) (p (I p) a') a a'
   rho       :: Iso (p a (I p)) (p a' (I p)) a a'
 
+type instance I (,) = ()
 instance Tensor (,) where
-  type I (,) = ()
   lambda = dimap (\((), a) -> a) ((,) ())
   rho    = dimap (\(a, ()) -> a) (\a -> (a, ()))
 
+type instance I Either = Void
 instance Tensor Either where
-  type I Either = Void
   lambda = dimap (\(Right a) -> a) Right
   rho = dimap (\(Left a) -> a) Left
 
+type instance I (&) = (() :: Constraint)
 instance Tensor (&) where
-  type I (&) = (() :: Constraint)
   lambda      = dimap (Sub Dict) (Sub Dict)
   rho         = dimap (Sub Dict) (Sub Dict)
 
@@ -797,26 +797,47 @@ rhoLift =
 instance Semitensor p => Semitensor (Lift1 p) where
   associate   = associateLift
 
+type instance I (Lift1 p) = Const1 (I p)
 instance Tensor p => Tensor (Lift1 p) where
-  type I (Lift1 p) = Const1 (I p)
   lambda      = lambdaLift
   rho         = rhoLift
 
 instance Semitensor p => Semitensor (Lift2 p) where
   associate   = associateLift
 
+type instance I (Lift2 p) = Const2 (I p)
 instance Tensor p => Tensor (Lift2 p) where
-  type I (Lift2 p) = Const2 (I p)
   lambda      = lambdaLift
   rho         = rhoLift
 
 instance Semitensor p => Semitensor (LiftC p) where
   associate   = associateLift
 
+type instance I (LiftC p) = ConstC (I p)
 instance Tensor p => Tensor (LiftC p) where
-  type I (LiftC p) = ConstC (I p)
   lambda      = lambdaLift
   rho         = rhoLift
+
+-- * Internal hom of a closed category
+
+class (Profunctor e, Category (Cod2 e)) => InternalHom (e :: x -> x -> x)  where
+  iota :: Iso (e (I e) a) (e (I e) b) a b
+  default iota :: (CCC (Cod2 e), e ~ Exp) => Iso (e (I e) a) (e (I e) b) a b
+  iota = dimap (apply . unget rho) (curry (get rho))
+
+  jot  :: I e ~> e a a
+  default jot :: (CCC (Cod2 e), e ~ Exp) => I e ~> e a a
+  jot = curry (get lambda)
+
+type instance I (->) = ()
+type instance I (|-) = (() :: Constraint)
+
+instance InternalHom (->)
+instance InternalHom (|-)
+instance InternalHom (Lift1 (->))
+
+-- instance InternalHom (Lift2 (Lift1 (->)))
+
 
 -- symmetric monoidal category
 class Bifunctor p => Symmetric p where
@@ -1027,7 +1048,13 @@ ccc = dimap (. swap) (. swap) . curried
 type a ^ b = Exp b a
 infixr 8 ^
 
-class (Cartesian k, (*) =| (Exp :: x -> x -> x), Curry (*) (Exp :: x -> x -> x), Profunctor (Exp :: x -> x -> x)) => CCC (k :: x -> x -> *) | x -> k where
+class
+  ( Cartesian k, (*) =| (Exp::x->x->x)
+  , Curry (*) (Exp::x->x->x)
+  , I (Exp::x->x->x) ~ I (*)
+  , InternalHom (Exp::x->x->x)
+  ) => CCC (k :: x -> x -> *) | x -> k where
+  -- may be worth splitting out if we ever want non-cartesian closed categories
   type Exp :: x -> x -> x
 
 instance Curry (,) (->) where
