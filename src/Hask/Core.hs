@@ -1923,43 +1923,6 @@ instance Lim (Up p Comonoidal) => Comonoidal1 p
 op0_1 :: forall p e. Comonoidal1 p => p e Zero ~> Zero
 op0_1 = case limDict :: Dict (Up p Comonoidal e) of Dict -> op0
 
--- * Representability
-
-class Functor (Rep p) => Representable (p :: x -> y -> *) where
-  type Rep p :: y -> x
-  _Rep :: Iso (p a b) (p a' b') (a ~> Rep p b) (a' ~> Rep p b')
-
-instance Representable (->) where
-  type Rep (->) = Id
-  _Rep = un (mapping _Id)
-
-instance Representable (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Rep (Nat :: (i -> *) -> (i -> *) -> *) = Id
-  _Rep = un (mapping _Id)
-
-instance Representable (:-) where
-  type Rep (:-) = Id
-  _Rep = un (mapping _Id)
-
--- instance (Representable p, Representable q) => Representable (Prof p q :: i -> j -> *) where
---  type Rep (Prof p q) = Up (Rep q) (Rep p)
-
-class Corepresentable (p :: x -> y -> *) where
-  type Corep p :: x -> y
-  _Corep :: Iso (p a b) (p a' b') (Corep p a ~> b) (Corep p a' ~> b')
-
-instance Corepresentable (->) where
-  type Corep (->) = Id
-  _Corep = lmapping _Id
-
-instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Corep (Nat :: (i -> *) -> (i -> *) -> *) = Id
-  _Corep = lmapping _Id
-
-instance Corepresentable (:-) where
-  type Corep (:-) = Id
-  _Corep = lmapping _Id
-
 -- a semigroupoid/semicategory looks like a "self-enriched" profunctor
 -- when we put no other constraints on p
 

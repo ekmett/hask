@@ -37,6 +37,7 @@ library
     Hask.Kan
     Hask.Power
     Hask.Prof
+    Hask.Rep
     Hask.Foldable
 
   build-depends:
