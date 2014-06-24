@@ -1716,6 +1716,15 @@ instance Functor f => Functor (Compose1 f) where
 instance Functor f => Functor (ComposeC f) where
   fmap f = Nat $ composed $ fmap $ runNat f
 
+instance (Functor f, Functor g) => Functor (Compose1 f g) where
+  fmap = composed . fmap . fmap
+
+instance (Functor f, Functor g) => Functor (Compose2 f g) where
+  fmap = composed . fmap . fmap
+
+instance (Functor f, Functor g) => Functor (ComposeC f g) where
+  fmap = composed . fmap . fmap
+
 -- indexed monoidal functors
 
 ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
