@@ -34,6 +34,7 @@ library
     Hask.Colim
     Hask.Constrained
     Hask.Core
+    Hask.End
     Hask.Groupoid
     Hask.Kan
     Hask.Key
