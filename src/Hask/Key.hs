@@ -27,23 +27,8 @@
 --------------------------------------------------------------------
 module Hask.Key where
 
-import qualified Control.Applicative as Base
-import qualified Control.Arrow as Arrow
-import Control.Category (Category(..))
-import qualified Data.Constraint as Constraint
-import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
-import qualified Data.Foldable as Base
-import qualified Data.Functor as Base
-import qualified Data.Functor.Identity as Base
-import qualified Data.Monoid as Base
-import Data.Proxy
-import Data.Tagged
-import qualified Data.Traversable as Base
-import Data.Void
-import qualified Prelude
-import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
-import GHC.Exts (Constraint, Any)
-import Unsafe.Coerce (unsafeCoerce)
+import Hask.Core
+import Prelude (($))
 
 -- The dual of Conor McBride's "Atkey" adapted to this formalism
 --
