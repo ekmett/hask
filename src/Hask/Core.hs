@@ -1725,6 +1725,24 @@ instance (Functor f, Functor g) => Functor (Compose2 f g) where
 instance (Functor f, Functor g) => Functor (ComposeC f g) where
   fmap = composed . fmap . fmap
 
+instance (Semimonoidal f, Semimonoidal g) => Semimonoidal (Compose1 f g) where
+  ap2 = compose . fmap ap2 . ap2 . bimap decompose decompose
+
+instance (Semimonoidal f, Semimonoidal g) => Semimonoidal (Compose2 f g) where
+  ap2 = compose . fmap ap2 . ap2 . bimap decompose decompose
+
+instance (Semimonoidal f, Semimonoidal g) => Semimonoidal (ComposeC f g) where
+  ap2 = compose . fmap ap2 . ap2 . bimap decompose decompose
+
+instance (Monoidal f, Monoidal g) => Monoidal (Compose1 f g) where
+  ap0 = compose . fmap ap0 . ap0
+
+instance (Monoidal f, Monoidal g) => Monoidal (Compose2 f g) where
+  ap0 = compose . fmap ap0 . ap0
+
+instance (Monoidal f, Monoidal g) => Monoidal (ComposeC f g) where
+  ap0 = compose . fmap ap0 . ap0
+
 -- indexed monoidal functors
 
 ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
