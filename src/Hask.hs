@@ -2222,7 +2222,7 @@ instance (Profunctor p, p ~ (~>)) => Semicategory p
 infixr |=
 
 -- |
--- @(|=) :: Constrained -> * -> *@
+-- @(|=) :: Constraint -> * -> *@
 
 -- This is a corepresentable functor
 newtype p |= q = Constrained { runConstrained :: p => q }
@@ -2339,6 +2339,25 @@ instance Traversable Maybe where traverse = traverseHask
 
 instance Foldable (Either a) where foldMap = foldMapHask
 instance Traversable (Either a) where traverse = traverseHask
+
+-- products
+instance Foldable ((,) e) where foldMap = foldMapHask
+instance Traversable ((,) e) where traverse = traverseHask
+
+instance Foldable ((&) e) where foldMap f = f . snd
+instance Foldable (Lift1 (,) e) where foldMap f = f . snd
+instance Foldable (Lift2 (Lift1 (,)) e) where foldMap f = f . snd
+
+-- coproducts
+instance Foldable (Lift1 Either e) where
+  foldMap f = Nat $ \case
+    Lift (Left a)  -> runNat one (Const ())
+    Lift (Right b) -> runNat f b
+
+instance Foldable (Lift2 (Lift1 Either) e) where
+  foldMap f = Nat $ Nat $ \case
+    Lift2 (Lift (Left a))  -> runNat2 one (Const2 (Const ()))
+    Lift2 (Lift (Right b)) -> runNat2 f b
 
 {-
 
