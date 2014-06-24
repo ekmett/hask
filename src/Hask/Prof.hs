@@ -52,7 +52,7 @@ module Hask.Prof where
 import Control.Category
 import Hask.Core
 import qualified Prelude
-import Prelude (($))
+import Prelude (($), undefined)
 
 -- forward profunctor composition forms a weak category.
 data Prof :: (i -> j -> *) -> (j -> k -> *) -> i -> k -> * where
@@ -109,8 +109,23 @@ instance Post Contravariant p => Functor (ProfR p q) where
 instance Post Contravariant q => Contravariant (ProfR p q a) where
   contramap f (ProfR pq) = ProfR $ \p -> contramap1 f (pq p)
 
--- instance Prof =| ProfR where
---   adj1 = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof q p))
+type instance I ProfR = (~>)
 
---instance Prof e -| ProfR e where
---  adj = adj1
+iotaProf :: (Category p, p ~ (~>), Contravariant q') => Iso (ProfR p q) (ProfR (~>) q') q q'
+iotaProf = dimap (nat2 $ \(ProfR f) -> f id) (nat2 $ \f -> ProfR $ \p -> lmap p f)
+
+jotProf :: Post Functor p => (~>) ~> ProfR p p
+jotProf = nat2 $ \f -> ProfR (fmap1 f)
+
+{-
+instance InternalHom ProfR where -- requires constraints on objects of a category
+  iota = iotaProf
+  jot  = jotProf
+-}
+
+instance Prof =| ProfR where
+   adj1 = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof q p))
+                (\a2eb -> nat2 $ \(Prof e a) -> runProfR (runNat2 a2eb a) e)
+
+instance Prof e -| ProfR e where
+  adj = adj1
