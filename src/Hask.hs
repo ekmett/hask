@@ -51,18 +51,21 @@
 --------------------------------------------------------------------
 module Hask where
 
-import qualified Control.Applicative as Applicative
+import qualified Control.Applicative as Base
 import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
 import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
-import qualified Data.Functor.Identity as Identity
+import qualified Data.Foldable as Base
+import qualified Data.Functor as Base
+import qualified Data.Functor.Identity as Base
+import qualified Data.Monoid as Base
 import Data.Proxy
 import Data.Tagged
-import qualified Data.Traversable as Traversable
+import qualified Data.Traversable as Base
 import Data.Void
 import qualified Prelude
-import Prelude (Either(..), ($), either, Bool, undefined)
+import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -202,7 +205,7 @@ cozipL1 = dimap
 -- Unfortunately that isn't true, as functors to/from k -> * that are polymorphic in k
 -- overlap with these instances!
 --
--- instance Prelude.Functor f => Functor f where
+-- instance Base.Functor f => Functor f where
 --   fmap = Prelude.fmap
 
 -- instance Contravariant.Contravariant f => Contravariant f where
@@ -1306,12 +1309,12 @@ instance Monoid m => Monoid (Dict m) where
 
 -- lift applicatives for Hask
 --
--- instance Applicative.Applicative f => Monoidal f where
---   ap0 = Applicative.pure
---   ap2 = uncurry $ Applicative.liftA2 (,)
+-- instance Base.Applicative f => Monoidal f where
+--   ap0 = Base.pure
+--   ap2 = uncurry $ Base.liftA2 (,)
 
-ap2Applicative :: Applicative.Applicative f => f a * f b -> f (a * b)
-ap2Applicative = uncurry $ Applicative.liftA2 (,)
+ap2Applicative :: Base.Applicative f => f a * f b -> f (a * b)
+ap2Applicative = uncurry $ Base.liftA2 (,)
 
 instance Semimonoidal ((:-) f) where
   ap2 = uncurry (&&&)
@@ -1400,8 +1403,8 @@ class Semimonoidal (m :: x -> x) => Semimonad (m :: x -> x) where
 class (Monoidal m, Semimonad m) => Monad m
 instance (Monoidal m, Semimonad m) => Monad m
 
--- instance (Semimonoidal m, Prelude.Monad m) => Semimonad m where
--- instance (Monoidal m, Prelude.Monad m) => Monad m where
+-- instance (Semimonoidal m, Base.Monad m) => Semimonad m where
+-- instance (Monoidal m, Base.Monad m) => Monad m where
 --   join = Monad.join
 
 -- * Comonoidal functors between cocartesian categories
@@ -1424,16 +1427,16 @@ instance Cosemigroup m => Cosemigroup (e, m) where
 instance Comonoid m => Comonoid (e, m) where
   zero = zeroOp
 
-instance Cosemimonoidal Identity.Identity where
-  op2 = bimap Identity.Identity Identity.Identity . Identity.runIdentity
+instance Cosemimonoidal Base.Identity where
+  op2 = bimap Base.Identity Base.Identity . Base.runIdentity
 
-instance Comonoidal Identity.Identity where
-  op0 = Identity.runIdentity
+instance Comonoidal Base.Identity where
+  op0 = Base.runIdentity
 
-instance Cosemigroup m => Cosemigroup (Identity.Identity m) where
+instance Cosemigroup m => Cosemigroup (Base.Identity m) where
   comult = comultOp
 
-instance Comonoid m => Comonoid (Identity.Identity m) where
+instance Comonoid m => Comonoid (Base.Identity m) where
   zero = zeroOp
 
 instance Cosemimonoidal (At x) where
@@ -1482,14 +1485,14 @@ class (f -| f, Id ~ f) => Identity (f :: i -> i) | i -> f where
   type Id :: i -> i
   _Id :: Iso (f a) (f a') a a'
 
-instance Identity Identity.Identity where
-  type Id = Identity.Identity
-  _Id = dimap Identity.runIdentity Identity.Identity
+instance Identity Base.Identity where
+  type Id = Base.Identity
+  _Id = dimap Base.runIdentity Base.Identity
 
-instance Functor Identity.Identity where
-  fmap = Prelude.fmap
+instance Functor Base.Identity where
+  fmap = Base.fmap
 
-instance Identity.Identity -| Identity.Identity where
+instance Base.Identity -| Base.Identity where
   adj = un (mapping _Id . lmapping _Id)
 
 -- * Id1 = Identity for Nat (i -> *)
@@ -1596,7 +1599,7 @@ multM = fmap mult . ap2
 -- instance Semigroup.Semigroup m => Semigroup m where
 --   mult = uncurry Monoid.mappend
 
--- instance (Semigroup.Semigroup m, Monoid.Monoid m) => Monoid m where
+-- instance (Semigroup.Semigroup m, Base.Monoid m) => Monoid m where
 --   one () = Monoid.mempty
 
 instance Semigroup (Const1 ()) where
@@ -1651,7 +1654,7 @@ instance Semigroup (Const1 Void) where
 class Functor f => Strength f where
   strength :: a * f b ~> f (a * b)
 
--- instance (Functor f, Prelude.Functor f) => Strength f where
+-- instance (Functor f, Base.Functor f) => Strength f where
 instance Functor f => Strength (f :: * -> *) where
   strength (a,fb) = fmap ((,) a) fb
 
@@ -1664,8 +1667,8 @@ instance Functor f => Strength (f :: * -> *) where
 class Functor f => Costrength (f :: x -> x) where
   costrength :: f (a + b) ~> a + f b
 
-instance (Functor f, Traversable.Traversable f) => Costrength f where
-  costrength = Traversable.sequence
+instance (Functor f, Base.Traversable f) => Costrength f where
+  costrength = Base.sequence
 
 ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
@@ -2047,7 +2050,7 @@ data Empty (a :: Void) (b :: Void) = Empty (Empty a b)
 
 instance Category Empty where
   id = Empty id
-  (.) f = f `Prelude.seq` spin f where spin (Empty f) = spin f
+  (.) (!f) = spin f where spin (Empty f) = spin f
 
 instance Symmetric Empty where
   swap = inverse
@@ -2296,6 +2299,49 @@ instance EnvC =| (|=) where
 instance EnvC e -| (|=) e where
   adj = adj1
 
+-- * Folding and Traversing
+
+newtype WrapMonoid m = WrapMonoid { runWrapMonoid :: m }
+
+instance Monoid m => Base.Monoid (WrapMonoid m) where
+  mempty = WrapMonoid (one ())
+  mappend (WrapMonoid a) (WrapMonoid b) = WrapMonoid (mult (a, b))
+
+newtype WrapMonoidal f a = WrapMonoidal { runWrapMonoidal :: f a }
+_WrapMonoidal = dimap runWrapMonoidal WrapMonoidal
+
+instance Functor f => Base.Functor (WrapMonoidal f) where
+  fmap f (WrapMonoidal m) = WrapMonoidal (fmap f m)
+
+instance Monoidal f => Base.Applicative (WrapMonoidal f) where
+  pure a = WrapMonoidal (return a)
+  WrapMonoidal f <*> WrapMonoidal g = WrapMonoidal $ ap f g
+
+class Functor f => Foldable f where
+  foldMap :: Monoid m => (a ~> m) ~> f a ~> m
+
+foldMapHask :: (Base.Foldable f, Monoid m) => (a -> m) -> f a -> m
+foldMapHask f = runWrapMonoid . Base.foldMap (WrapMonoid . f)
+
+class Functor f => Traversable f where
+  traverse :: Monoidal m => (a ~> m b) ~> f a ~> m (f b)
+
+traverseHask :: (Base.Traversable f, Monoidal m) => (a -> m b) -> f a -> m (f b)
+traverseHask f = runWrapMonoidal . Base.traverse (WrapMonoidal . f)
+
+instance Functor [] where fmap = Base.fmap
+instance Foldable [] where foldMap = foldMapHask
+instance Traversable [] where traverse = traverseHask
+
+instance Functor Maybe where fmap = Base.fmap
+instance Foldable Maybe where foldMap = foldMapHask
+instance Traversable Maybe where traverse = traverseHask
+
+instance Foldable (Either a) where foldMap = foldMapHask
+instance Traversable (Either a) where traverse = traverseHask
+
+{-
+
 -- * Playing with Dual
 
 infixr 0 <~
@@ -2342,3 +2388,5 @@ instance Terminal t => Initial (Op t) where
 instance Initial t => Terminal (Op t) where
   type One = Op Zero
   terminal = herpOp1 (Dual initial)
+
+-}
