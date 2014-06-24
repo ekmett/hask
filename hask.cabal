@@ -31,6 +31,8 @@ library
 
   exposed-modules:
     Hask
+    Hask.Core
+    Hask.Prof
 
   build-depends:
     base >= 4       && < 5,
