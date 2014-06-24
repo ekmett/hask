@@ -145,22 +145,24 @@ instance Functor LimC where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
 
--- post composition
-type family Up :: (i -> j) -> (j -> k) -> i -> k
+type family Compose :: (j -> k) -> (i -> j) -> i -> k
 
-class g (f a) => UpC f g a
-instance g (f a) => UpC f g a
+infixr 9 ·
+type (·) = Compose
 
-type instance Up = UpC
+class f (g a) => ComposeC f g a
+instance f (g a) => ComposeC f g a
 
-type Post f p = Lim (Up p f)
+type instance Compose = ComposeC
+
+type Post f p = Lim (f · p)
 -- Functor1 and Post Contravariant are defined later using limits
 
 fmap1 :: forall p c. Post Functor p => Co (p c) -- (a ~> b) -> p c a ~> p c b
-fmap1 f = case limDict :: Dict (Up p Functor c) of Dict -> fmap f
+fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
 
 contramap1 :: forall p c. Post Contravariant p => Contra (p c) -- (a ~> b) -> p c b ~> p c a
-contramap1 f = case limDict :: Dict (Up p Contravariant c) of Dict -> contramap f
+contramap1 f = case limDict :: Dict (Compose Contravariant p c) of Dict -> contramap f
 
 class (Functor p, Post Functor p) => Bifunctor p
 instance (Functor p, Post Functor p) => Bifunctor p
@@ -1663,57 +1665,66 @@ data No (a :: Void)
 instance Functor No where
   fmap !f = Prelude.undefined
 
-infixr 9 ·
-type g · f = Up f g
 
-class (Category ((~>) :: k -> k -> *), Up ~ up) => Composed (up :: (i -> j) -> (j -> k) -> i -> k) | i j k -> up where
+class (Category ((~>) :: k -> k -> *), Compose ~ o) => Composed (o :: (j -> k) -> (i -> j) -> i -> k) | i j k -> o where
   -- can't put the iso in here due to ghc #9200
   -- Composed is used to define Post Functor, Post Functor is used in Profunctor, Profunctor is used in Iso
   -- but we recurse polymorphically during the cycle
-  up    :: g (f a) ~> up f g a
-  runUp :: up f g a ~> g (f a)
+  compose   :: f (g a) ~> (f `o` g) a
+  decompose :: (f `o` g) a ~> f (g a)
 
-_Up :: Composed up => Iso (up f g a) (up f' g' a') (g (f a)) (g' (f' a'))
-_Up = dimap runUp up
+composed :: Composed o => Iso ((f `o` g) a) ((f' `o` g') a') (f (g a)) (f' (g' a'))
+composed = dimap decompose compose
 
-newtype Up1 f g a = Up (g (f a))
-newtype Up2 f g a b = Up2 (g (f a) b)
+newtype Compose1 f g a = Compose (f (g a))
+newtype Compose2 f g a b = Compose2 (f (g a) b)
 
-type instance Up = Up1
-instance Composed Up1 where
-  up = Up
-  runUp (Up a) = a
+type instance Compose = Compose1
+instance Composed Compose1 where
+  compose               = Compose
+  decompose (Compose a) = a
 
-type instance Up = Up2
-instance Composed Up2 where
-  up = Nat Up2
-  runUp = Nat $ \(Up2 a) -> a
+type instance Compose = Compose2
+instance Composed Compose2 where
+  compose   = Nat Compose2
+  decompose = Nat $ \(Compose2 a) -> a
 
-type instance Up = UpC
-instance Composed UpC where
-  up = Sub Dict
-  runUp = Sub Dict
+type instance Compose = ComposeC
+instance Composed ComposeC where
+  compose   = Sub Dict
+  decompose = Sub Dict
 
-instance Functor (Up1 f) where fmap f = Nat $ _Up (runNat f)
-instance Functor (Up2 f) where fmap f = Nat $ _Up (runNat f)
-instance Functor (UpC f) where fmap f = Nat $ _Up (runNat f)
+instance Functor Compose1 where
+  fmap f = nat2 $ composed $ runNat f
 
--- functors over the second argument as indexed functors
+instance Functor Compose2 where
+  fmap f = nat2 $ composed $ runNat f
 
+instance Functor ComposeC where
+  fmap f = nat2 $ composed $ runNat f
+
+instance Functor f => Functor (Compose2 f) where
+  fmap f = Nat $ composed $ fmap $ runNat f
+
+instance Functor f => Functor (Compose1 f) where
+  fmap f = Nat $ composed $ fmap $ runNat f
+
+instance Functor f => Functor (ComposeC f) where
+  fmap f = Nat $ composed $ fmap $ runNat f
 
 -- indexed monoidal functors
 
 ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
-ap2_1 = case limDict :: Dict (Up p Semimonoidal e) of Dict -> ap2
+ap2_1 = case limDict :: Dict (Compose Semimonoidal p e) of Dict -> ap2
 
 ap0_1 :: forall p e. Post Monoidal p => One ~> p e One
-ap0_1 = case limDict :: Dict (Up p Monoidal e) of Dict -> ap0
+ap0_1 = case limDict :: Dict (Compose Monoidal p e) of Dict -> ap0
 
 op2_1 :: forall p e a b. Post Cosemimonoidal p => p e (a + b) ~> p e a + p e b
-op2_1 = case limDict :: Dict (Up p Cosemimonoidal e) of Dict -> op2
+op2_1 = case limDict :: Dict (Compose Cosemimonoidal p e) of Dict -> op2
 
 op0_1 :: forall p e. Post Comonoidal p => p e Zero ~> Zero
-op0_1 = case limDict :: Dict (Up p Comonoidal e) of Dict -> op0
+op0_1 = case limDict :: Dict (Compose Comonoidal p e) of Dict -> op0
 
 -- a semigroupoid/semicategory looks like a "self-enriched" profunctor
 -- when we put no other constraints on p
