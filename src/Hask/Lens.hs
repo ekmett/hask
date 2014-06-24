@@ -63,7 +63,7 @@ instance Precartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
 class (Strong p, Category p) => Freyd p
 instance (Strong p, Category p) => Freyd p
 
-type Getter s a = forall p. (Strong p, Contravariant1 p) => p a a -> p s s
+type Getter s a = forall p. (Strong p, Post Functor p) => p a a -> p s s
 
 -- to :: (s ~> a) -> Getter s a
 to :: Bicontravariant p => (s ~> a) -> p a a -> p s s

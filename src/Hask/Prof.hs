@@ -70,7 +70,7 @@ instance Functor (Prof p) where
 instance Contravariant p => Contravariant (Prof p q) where
   contramap f = Nat $ \(Prof p q) -> Prof (runNat (contramap f) p) q
 
-instance Functor1 q => Functor (Prof p q a) where
+instance Post Functor q => Functor (Prof p q a) where
   fmap f (Prof p q) = Prof p (fmap1 f q)
 
 associateProf :: Iso (Prof (Prof p q) r) (Prof (Prof p' q') r')
@@ -97,16 +97,16 @@ instance Contravariant ProfR where
 instance Functor (ProfR p) where
   fmap f = nat2 $ \(ProfR pq) -> ProfR $ \p -> runNat2 f (pq p)
 
-instance Functor1 p => Contravariant (ProfR p q) where
+instance Post Functor p => Contravariant (ProfR p q) where
   contramap f = Nat $ \(ProfR pq) -> ProfR $ \p -> pq (fmap1 f p)
 
-instance Functor1 q => Functor (ProfR p q a) where
+instance Post Functor q => Functor (ProfR p q a) where
   fmap f (ProfR pq) = ProfR $ \p -> fmap1 f (pq p)
 
-instance Contravariant1 p => Functor (ProfR p q) where
+instance Post Contravariant p => Functor (ProfR p q) where
   fmap f = Nat $ \(ProfR pq) -> ProfR $ \p -> pq (contramap1 f p)
 
-instance Contravariant1 q => Contravariant (ProfR p q a) where
+instance Post Contravariant q => Contravariant (ProfR p q a) where
   contramap f (ProfR pq) = ProfR $ \p -> contramap1 f (pq p)
 
 -- instance Prof =| ProfR where

@@ -93,10 +93,10 @@ instance Functor f => Functor (Copower2 f x) where
 instance Contravariant f => Contravariant (Copower2 f x) where
   contramap f = Nat $ \(Copower2 fa x) -> Copower2 (lmap f fa) x
 
-instance Functor1 f => Functor (Copower2 f x a) where
+instance Post Functor f => Functor (Copower2 f x a) where
   fmap f (Copower2 fab x) = Copower2 (fmap1 f fab) x
 
-instance Contravariant1 f => Contravariant (Copower2 f x a) where
+instance Post Contravariant f => Contravariant (Copower2 f x a) where
   contramap f (Copower2 fab x) = Copower2 (contramap1 f fab) x
 
 instance Copower2 =| Nat where
@@ -121,10 +121,10 @@ instance (Functor f, Functor x) => Functor (Copower2_1 f x) where
 instance (Contravariant f, Contravariant x) => Contravariant (Copower2_1 f x) where
   contramap f = Nat $ \(Copower2_1 fa x) -> Copower2_1 (lmap f fa) (contramap f x)
 
-instance Functor1 f => Functor (Copower2_1 f x a) where
+instance Post Functor f => Functor (Copower2_1 f x a) where
   fmap f (Copower2_1 fab x) = Copower2_1 (fmap1 f fab) x
 
-instance Contravariant1 f => Contravariant (Copower2_1 f x a) where
+instance Post Contravariant f => Contravariant (Copower2_1 f x a) where
   contramap f (Copower2_1 fab x) = Copower2_1 (contramap1 f fab) x
 
 instance Copower2_1 =| Lift1 Nat where

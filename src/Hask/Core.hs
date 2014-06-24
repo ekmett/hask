@@ -18,7 +18,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett 2014 and Sjoerd Visscher
+-- Copyright :  (c) Edward Kmett 2008-2014 and Sjoerd Visscher 2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -82,17 +82,17 @@ type instance (~>) = Unit  -- @() -> () -> *@
 type instance (~>) = Empty -- @Void -> Void -> *@
 type instance (~>) = Prod  -- @(i,j) -> (i, j) -> *@
 
-
 -- * convenience types that make it so we can avoid explicitly talking about the kinds as much as possible
 type Dom  (f :: x -> y)      = ((~>) :: x -> x -> *)
 type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
 type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
 type Arr  (a :: x)           = ((~>) :: x -> x -> *)
 
--- 'setters' are functorial. With liberal type synonyms this can be usefully employed even with type aliases
 type Co f     = forall a b. (a ~> b) -> f a ~> f b
 type Contra f = forall a b. (b ~> a) -> f a ~> f b
 type (?) f a b = f b a
+
+-- * Natural transformations (by using parametricity these are very strong)
 
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
 
@@ -115,46 +115,89 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
 class Functor (f :: x -> y) where
   fmap :: Co f -- :: (a ~> b) -> f a ~> f b
 
+first :: Functor f => Co (f ? a) -- (a ~> b) -> p a c ~> p b c
+first = runNat . fmap
+
 class Contravariant f where
-  contramap :: Contra f -- :: (b ~> a) -> f a ~> f b
+  contramap :: Contra f -- (b ~> a) -> f a ~> f b
 
--- Functor1 and Contravariant1 are defined later using limits
+lmap :: Contravariant f => Contra (f ? a) -- (a ~> b) -> p b c ~> p a c
+lmap = runNat . contramap
 
-class (Functor p, Functor1 p) => Bifunctor p
-instance (Functor p, Functor1 p) => Bifunctor p
+-- * Bifunctors/profunctors through limits
 
-class (Contravariant p, Contravariant1 p) => Bicontravariant p
-instance (Contravariant p, Contravariant1 p) => Bicontravariant p
+-- | Const -| Lim
+type family Lim :: (i -> j) -> j
 
-class (Contravariant p, Functor1 p) => Profunctor p
-instance (Contravariant p, Functor1 p) => Profunctor p
+-- | @LimC :: (i -> Constraint) -> Constraint@ takes limits in the category of constraints
+class LimC (p :: i -> Constraint) where
+  limDict :: Dict (p a)
+
+type instance Lim = LimC
+
+-- abuses Any because any inhabits every kind, not a good choice of Skolem, but the best we have
+instance p Any => LimC (p :: i -> Constraint) where
+  limDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
+    Sub d -> d
+
+instance Functor LimC where
+  fmap f = dimap (Sub limDict) (Sub Dict) (runAny f) where
+    runAny :: (p ~> q) -> p Any ~> q Any
+    runAny = runNat
+
+-- post composition
+type family Up :: (i -> j) -> (j -> k) -> i -> k
+
+class g (f a) => UpC f g a
+instance g (f a) => UpC f g a
+
+type instance Up = UpC
+
+type Post f p = Lim (Up p f)
+-- Functor1 and Post Contravariant are defined later using limits
+
+fmap1 :: forall p c. Post Functor p => Co (p c) -- (a ~> b) -> p c a ~> p c b
+fmap1 f = case limDict :: Dict (Up p Functor c) of Dict -> fmap f
+
+contramap1 :: forall p c. Post Contravariant p => Contra (p c) -- (a ~> b) -> p c b ~> p c a
+contramap1 f = case limDict :: Dict (Up p Contravariant c) of Dict -> contramap f
+
+class (Functor p, Post Functor p) => Bifunctor p
+instance (Functor p, Post Functor p) => Bifunctor p
+
+bimap :: (Bifunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
+bimap f g = first f . fmap1 g
+
+class (Contravariant p, Post Functor p) => Profunctor p
+instance (Contravariant p, Post Functor p) => Profunctor p
+
+dimap :: (Profunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
+dimap f g = lmap f . fmap1 g
 
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
--- Lift Prelude instances of Functor without overlap, using the kind index to say
+class (Contravariant p, Post Contravariant p) => Bicontravariant p
+instance (Contravariant p, Post Contravariant p) => Bicontravariant p
 
--- first :: Functor p => (a ~> b) -> p a c ~> p b c
-first :: Functor f => Co (f ? a)
-first = runNat . fmap
+bicontramap :: (Bicontravariant p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b d ~> p a c
+bicontramap f g = lmap f . contramap1 g
 
--- lmap :: Contravariant p => (a ~> b) -> p b c ~> p a c
-lmap :: Contravariant f => Contra (f ? a)
-lmap = runNat . contramap
+-- * Adjunctions
 
 -- | the type of an isomorphism that witnesses f -| u
 type f -: u = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
+
+-- | the type of an isomorphism that witnesses an indexed adjunction f e -| u e
+type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
 
 -- | @f -| u@ indicates f is left adjoint to u
 class (Functor f, Functor u) => f -| u | f -> u, u -> f where
   adj :: f -: u
 
--- todo composition of adjunctions
-
-type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
-
 -- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
-class (Functor1 f, Functor1 u) => f =| u | f -> u, u -> f where
+class (Post Functor f, Post Functor u) => f =| u | f -> u, u -> f where
   adj1 :: f =: u
+
 
 unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
@@ -357,8 +400,6 @@ instance Comonoid b => Comonoid (ConstC b a) where
 
 -- * Const -| Lim
 
-type family Lim :: (i -> j) -> j
-
 newtype Lim1 (f :: i -> *) = Lim { getLim :: forall x. f x }
 type instance Lim = Lim1
 
@@ -391,20 +432,6 @@ instance Functor Lim2 where
 instance Const2 -| Lim2 where
   adj = dimap (\(Nat f) -> Nat $ \ a -> Lim2 (runNat f (Const2 a))) $ \(Nat h) -> nat2 $ getLim2 . h . getConst2
 
--- has to abuse Any because any inhabits every kind, but it is not a good choice of Skolem!
-class LimC (p :: i -> Constraint) where
-  limDict :: Dict (p a)
-
-instance p Any => LimC (p :: i -> Constraint) where
-  limDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
-    Sub d -> d
-
-type instance Lim = LimC
-
-instance Functor LimC where
-  fmap f = dimap (Sub limDict) (Sub Dict) (runAny f) where
-    runAny :: (p ~> q) -> p Any ~> q Any
-    runAny = runNat
 
 instance Semimonoidal LimC where
   ap2 = get zipR
@@ -470,13 +497,13 @@ instance Functor p => Functor (Lift1 p) where
 instance Contravariant p => Contravariant (Lift1 p) where
   contramap f = nat2 $ _Lift $ lmap $ runNat f
 
-instance Contravariant1 p => Contravariant (Lift1 p f) where
+instance Post Contravariant p => Contravariant (Lift1 p f) where
   contramap (Nat f) = Nat $ _Lift (contramap1 f)
 
-instance Functor1 p => Functor (Lift1 p f) where
+instance Post Functor p => Functor (Lift1 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance (Functor p, Functor1 p, Functor f, Functor g) => Functor (Lift1 p f g) where
+instance (Functor p, Post Functor p, Functor f, Functor g) => Functor (Lift1 p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
 
 -- ** LiftC
@@ -490,10 +517,10 @@ instance Functor p => Functor (LiftC p) where
 instance Contravariant p => Contravariant (LiftC p) where
   contramap f = nat2 $ _Lift $ lmap $ runNat f
 
-instance Functor1 p => Functor (LiftC p e) where
+instance Post Functor p => Functor (LiftC p e) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance Contravariant1 p => Contravariant (LiftC p e) where
+instance Post Contravariant p => Contravariant (LiftC p e) where
   contramap (Nat f) = Nat (_Lift $ contramap1 f)
 
 instance Lifted LiftC where
@@ -517,10 +544,10 @@ instance Functor p => Functor (Lift2 p) where
 instance Contravariant p => Contravariant (Lift2 p) where
   contramap f = nat2 $ _Lift $ lmap $ runNat f
 
-instance Functor1 p => Functor (Lift2 p f) where
+instance Post Functor p => Functor (Lift2 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
 
-instance Contravariant1 p => Contravariant (Lift2 p f) where
+instance Post Contravariant p => Contravariant (Lift2 p f) where
   contramap = contramap1
 
 -- * Functors
@@ -577,10 +604,10 @@ instance Functor (Either e) where
 data Via (a :: x) (b :: x) (s :: x) (t :: x) where
   Via :: (s ~> a) -> (b ~> t) -> Via a b s t
 
-instance Functor1 ((~>) :: x -> x -> *) => Functor (Via :: x -> x -> x -> x -> *) where
+instance Post Functor ((~>) :: x -> x -> *) => Functor (Via :: x -> x -> x -> x -> *) where
   fmap f = nat3 $ \(Via sa bt) -> Via (fmap1 f sa) bt
 
-instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant (Via :: x -> x -> x -> x -> *) where
+instance Post Contravariant ((~>) :: x -> x -> *) => Contravariant (Via :: x -> x -> x -> x -> *) where
   contramap f = nat3 $ \(Via sa bt) -> Via (contramap1 f sa) bt
 
 instance Functor ((~>) :: x -> x -> *) => Functor (Via a :: x -> x -> x -> *) where
@@ -595,10 +622,10 @@ instance Functor ((~>) :: x -> x -> *) => Functor (Via a b :: x -> x -> *) where
 instance Contravariant ((~>) :: x -> x -> *) => Contravariant (Via a b :: x -> x -> *) where
   contramap f = Nat $ \(Via sa bt) -> Via (lmap f sa) bt
 
-instance Functor1 ((~>) :: x -> x -> *) => Functor (Via a b s :: x -> *) where
+instance Post Functor ((~>) :: x -> x -> *) => Functor (Via a b s :: x -> *) where
   fmap f (Via sa bt) = Via sa (fmap1 f bt)
 
-instance Contravariant1 ((~>) :: x -> x -> *) => Contravariant (Via a b s :: x -> *) where
+instance Post Contravariant ((~>) :: x -> x -> *) => Contravariant (Via a b s :: x -> *) where
   contramap f (Via sa bt) = Via sa (contramap1 f bt)
 
 -- |
@@ -646,9 +673,6 @@ instance Contravariant Tagged where
 instance Contravariant (Const2 k) where
   contramap _ = _Const id
 
-bicontramap :: (Bicontravariant p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b d ~> p a c
-bicontramap f g = lmap f . contramap1 g
-
 newtype Get r a b = Get { runGet :: a ~> r }
 _Get = dimap runGet Get
 
@@ -692,10 +716,10 @@ unget l = runUnget $ l (Unget id)
 newtype Un (p::i->i->j) (a::i) (b::i) (s::i) (t::i) = Un { runUn :: p t s ~> p b a }
 _Un = dimap runUn Un
 
-instance (Category ((~>)::j->j-> *), Functor1 p) => Contravariant (Un (p::i->i->j) a b) where
+instance (Category ((~>)::j->j-> *), Post Functor p) => Contravariant (Un (p::i->i->j) a b) where
   contramap f = Nat $ _Un $ dimap Hom runHom $ lmap (fmap1 f)
 
-instance (Category ((~>)::j->j-> *), Contravariant1 p) => Functor (Un (p::i->i->j) a b) where
+instance (Category ((~>)::j->j-> *), Post Contravariant p) => Functor (Un (p::i->i->j) a b) where
   fmap f = Nat $ _Un $ dimap Hom runHom $ lmap (contramap1 f)
 
 instance (Category ((~>)::j->j-> *), Contravariant p) => Functor (Un (p::i->i->j) a b s) where
@@ -710,12 +734,6 @@ un l = runUn $ l (Un id)
 
 class (Contravariant p, Functor p) => Phantom p
 instance (Contravariant p, Functor p) => Phantom p
-
-bimap :: (Bifunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p a c ~> p b d
-bimap f g = first f . fmap1 g
-
-dimap :: (Profunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
-dimap f g = lmap f . fmap1 g
 
 class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Semitensor p where
   associate :: Iso (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
@@ -942,7 +960,7 @@ instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 
 -- * Factoring
 
-factor :: (Functor1 (f :: j -> i -> i), Precocartesian (Cod2 f)) => f e b + f e c ~> f e (b + c)
+factor :: (Post Functor (f :: j -> i -> i), Precocartesian (Cod2 f)) => f e b + f e c ~> f e (b + c)
 factor = fmap1 inl ||| fmap1 inr
 
 -- TODO: play fancy combinator games to figure out how to make
@@ -1622,9 +1640,8 @@ infixr 9 ·
 type g · f = Up f g
 
 class (Category ((~>) :: k -> k -> *), Up ~ up) => Composed (up :: (i -> j) -> (j -> k) -> i -> k) | i j k -> up where
-  type Up :: (i -> j) -> (j -> k) -> i -> k
   -- can't put the iso in here due to ghc #9200
-  -- Composed is used to define Functor1, Functor1 is used in Profunctor, Profunctor is used in Iso
+  -- Composed is used to define Post Functor, Post Functor is used in Profunctor, Profunctor is used in Iso
   -- but we recurse polymorphically during the cycle
   up    :: g (f a) ~> up f g a
   runUp :: up f g a ~> g (f a)
@@ -1635,21 +1652,18 @@ _Up = dimap runUp up
 newtype Up1 f g a = Up (g (f a))
 newtype Up2 f g a b = Up2 (g (f a) b)
 
+type instance Up = Up1
 instance Composed Up1 where
-  type Up = Up1
   up = Up
   runUp (Up a) = a
 
+type instance Up = Up2
 instance Composed Up2 where
-  type Up = Up2
   up = Nat Up2
   runUp = Nat $ \(Up2 a) -> a
 
-class g (f a) => UpC f g a
-instance g (f a) => UpC f g a
-
+type instance Up = UpC
 instance Composed UpC where
-  type Up = UpC
   up = Sub Dict
   runUp = Sub Dict
 
@@ -1659,47 +1673,19 @@ instance Functor (UpC f) where fmap f = Nat $ _Up (runNat f)
 
 -- functors over the second argument as indexed functors
 
-class Lim (Up p Functor) => Functor1 p
-instance Lim (Up p Functor) => Functor1 p
-
-fmap1 :: forall p a b c. Functor1 p => (a ~> b) -> p c a ~> p c b
-fmap1 f = case limDict :: Dict (Up p Functor c) of Dict -> fmap f
-
--- contravariant functors over the second argument as indexed functors
-
-class Lim (Up p Contravariant) => Contravariant1 p
-instance Lim (Up p Contravariant) => Contravariant1 p
-
-contramap1 :: forall p a b c. Contravariant1 p => (a ~> b) -> p c b ~> p c a
-contramap1 f = case limDict :: Dict (Up p Contravariant c) of Dict -> contramap f
-
-class (Contravariant1 p, Functor1 p) => Phantom1 p
-instance (Contravariant1 p, Functor1 p) => Phantom1 p
 
 -- indexed monoidal functors
 
-class Lim (Up p Semimonoidal) => Semimonoidal1 p
-instance Lim (Up p Semimonoidal) => Semimonoidal1 p
-
-ap2_1 :: forall p e a b. Semimonoidal1 p => p e a * p e b ~> p e (a * b)
+ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
 ap2_1 = case limDict :: Dict (Up p Semimonoidal e) of Dict -> ap2
 
-class Lim (Up p Monoidal) => Monoidal1 p
-instance Lim (Up p Monoidal) => Monoidal1 p
-
-ap0_1 :: forall p e. Monoidal1 p => One ~> p e One
+ap0_1 :: forall p e. Post Monoidal p => One ~> p e One
 ap0_1 = case limDict :: Dict (Up p Monoidal e) of Dict -> ap0
 
-class Lim (Up p Cosemimonoidal) => Cosemimonoidal1 p
-instance Lim (Up p Cosemimonoidal) => Cosemimonoidal1 p
-
-op2_1 :: forall p e a b. Cosemimonoidal1 p => p e (a + b) ~> p e a + p e b
+op2_1 :: forall p e a b. Post Cosemimonoidal p => p e (a + b) ~> p e a + p e b
 op2_1 = case limDict :: Dict (Up p Cosemimonoidal e) of Dict -> op2
 
-class Lim (Up p Comonoidal) => Comonoidal1 p
-instance Lim (Up p Comonoidal) => Comonoidal1 p
-
-op0_1 :: forall p e. Comonoidal1 p => p e Zero ~> Zero
+op0_1 :: forall p e. Post Comonoidal p => p e Zero ~> Zero
 op0_1 = case limDict :: Dict (Up p Comonoidal e) of Dict -> op0
 
 -- a semigroupoid/semicategory looks like a "self-enriched" profunctor
