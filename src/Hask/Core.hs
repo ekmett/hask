@@ -1718,6 +1718,15 @@ instance Functor f => Functor (Compose1 f) where
 instance Functor f => Functor (ComposeC f) where
   fmap f = Nat $ composed $ fmap $ runNat f
 
+instance Contravariant f => Contravariant (Compose2 f) where
+  contramap f = Nat $ composed $ contramap $ runNat f
+
+instance Contravariant f => Contravariant (Compose1 f) where
+  contramap f = Nat $ composed $ contramap $ runNat f
+
+instance Contravariant f => Contravariant (ComposeC f) where
+  contramap f = Nat $ composed $ contramap $ runNat f
+
 instance (Functor f, Functor g) => Functor (Compose1 f g) where
   fmap = composed . fmap . fmap
 
@@ -1726,6 +1735,15 @@ instance (Functor f, Functor g) => Functor (Compose2 f g) where
 
 instance (Functor f, Functor g) => Functor (ComposeC f g) where
   fmap = composed . fmap . fmap
+
+instance (Contravariant f, Functor g) => Contravariant (Compose1 f g) where
+  contramap = composed . contramap . fmap
+
+instance (Contravariant f, Functor g) => Contravariant (Compose2 f g) where
+  contramap = composed . contramap . fmap
+
+instance (Contravariant f, Functor g) => Contravariant (ComposeC f g) where
+  contramap = composed . contramap . fmap
 
 instance (Semimonoidal f, Semimonoidal g) => Semimonoidal (Compose1 f g) where
   ap2 = compose . fmap ap2 . ap2 . bimap decompose decompose
