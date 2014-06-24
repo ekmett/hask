@@ -112,7 +112,7 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
 
 -- * Functors between these kind-indexed categories
 
-class Functor f where
+class Functor (f :: x -> y) where
   fmap :: Co f -- :: (a ~> b) -> f a ~> f b
 
 class Contravariant f where
@@ -2325,6 +2325,9 @@ foldMapHask f = runWrapMonoid . Base.foldMap (WrapMonoid . f)
 
 class Functor f => Traversable f where
   traverse :: Monoidal m => (a ~> m b) ~> f a ~> m (f b)
+
+fmapDefault f    = get _Id . traverse (unget _Id . f)
+foldMapDefault f = get _Const . traverse (unget _Const . f)
 
 traverseHask :: (Base.Traversable f, Monoidal m) => (a -> m b) -> f a -> m (f b)
 traverseHask f = runWrapMonoidal . Base.traverse (WrapMonoidal . f)
