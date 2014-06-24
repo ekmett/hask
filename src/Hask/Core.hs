@@ -481,52 +481,6 @@ instance ConstC -| LimC where
     hither :: (ConstC a Any :- f Any) -> a :- LimC f
     hither = dimap (Sub Dict) (Sub Dict)
 
--- * Colim -| -^J
-
-type family Colim :: (i -> j) -> j
-type instance Colim = Colim1
-type instance Colim = Colim2
-
-data Colim1 (f :: i -> *) where
-  Colim :: f x -> Colim1 f
-
-instance Functor Colim1 where
-  fmap (Nat f) (Colim g)= Colim (f g)
-
-instance Cosemimonoidal Colim1 where
-  op2 (Colim (Lift ab)) = bimap Colim Colim ab
-
-instance Comonoidal Colim1 where
-  op0 (Colim (Const a)) = a
-
-instance Cosemigroup m => Cosemigroup (Colim1 m) where
-  comult = comultOp
-
-instance Comonoid m => Comonoid (Colim1 m) where
-  zero = zeroOp
-
-instance Colim1 -| Const1 where
-  adj = dimap (\f -> Nat $ Const . f . Colim) $ \(Nat g2cb) (Colim g) -> getConst (g2cb g)
-
-data Colim2 (f :: i -> j -> *) (x :: j) where
-  Colim2 :: f y x -> Colim2 f x
-
-instance Functor Colim2 where
-  fmap f = Nat $ \(Colim2 g) -> Colim2 (runNat (runNat f) g)
-
--- instance Comonoidal Colim2
--- instance Comonoid m => Comonoid (Colim1 m)
-
-instance Colim2 -| Const2 where
-  adj = dimap (\(Nat f) -> nat2 $ Const2 . f . Colim2) $
-               \ f -> Nat $ \ xs -> case xs of
-                 Colim2 fyx -> getConst2 $ runNat2 f fyx
-
---class ColimC (f :: i -> Constraint) where
---  colimDict :: Colim (Up f Dict)
---    p (f a) :- ColimC f
-
-
 -- * Support for Tagged and Proxy
 
 instance Functor Tagged where

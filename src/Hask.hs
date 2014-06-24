@@ -1,5 +1,6 @@
 module Hask
-  ( module Hask.Constrained
+  ( module Hask.Colim
+  , module Hask.Constrained
   , module Hask.Core
   , module Hask.Groupoid
   , module Hask.Foldable
@@ -10,6 +11,7 @@ module Hask
   , module Hask.Rep
   ) where
 
+import Hask.Colim
 import Hask.Constrained
 import Hask.Core
 import Hask.Groupoid

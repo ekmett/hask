@@ -31,6 +31,7 @@ library
 
   exposed-modules:
     Hask
+    Hask.Colim
     Hask.Constrained
     Hask.Core
     Hask.Groupoid
