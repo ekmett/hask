@@ -1996,37 +1996,37 @@ instance Initial '() where
 -- Unit also forms a bifunctor, so you can map forwards/backwards, etc.
 
 instance Functor Unit where
-  fmap = contramap . inverse
+  fmap = contramap . swap -- inverse
 
 instance Contravariant (Unit a) where
-  contramap = fmap . inverse
+  contramap = fmap . swap -- inverse
 
 instance Symmetric Unit where
-  swap = inverse
+  swap Unit = Unit
 
 
 -- * The initial "empty" category
 
-data Empty (a :: Void) (b :: Void) = Empty (Empty a b)
+newtype Empty (a :: Void) (b :: Void) = Empty (Empty a b)
 
 instance Category Empty where
   id = Empty id
   (.) (!f) = spin f where spin (Empty f) = spin f
 
 instance Symmetric Empty where
-  swap = inverse
+  swap (Empty f) = Empty (swap f)
 
 instance Contravariant Empty where
   contramap f = Nat (. f)
 
 instance Functor Empty where
-  fmap = contramap . inverse
+  fmap = contramap . swap
 
 instance Functor (Empty a) where
   fmap = (.)
 
 instance Contravariant (Empty a) where
-  contramap = fmap . inverse
+  contramap = fmap . swap
 
 -- No :: Void -> *
 data No (a :: Void)
@@ -2117,25 +2117,6 @@ instance Lim (Up p Comonoidal) => Comonoidal1 p
 
 op0_1 :: forall p e. Comonoidal1 p => p e Zero ~> Zero
 op0_1 = case limDict :: Dict (Up p Comonoidal e) of Dict -> op0
-
--- * Groupoids
-
-class Category c => Groupoid c where
-  inverse :: c a b -> c b a
-
-instance Groupoid ((~>) :: j -> j -> *) => Groupoid (Nat :: (i -> j) -> (i -> j) -> *) where
-  inverse (Nat f) = Nat (inverse f)
-
-instance (Groupoid ((~>) :: i -> i -> *), Groupoid ((~>) :: j -> j -> *)) =>
-  Groupoid (Prod :: (i, j) -> (i, j) -> *) where
-  inverse Want = Want
-  inverse (Have f g) = Have (inverse f) (inverse g)
-
-instance Groupoid Empty where
-  inverse !f = Empty (inverse f)
-
-instance Groupoid Unit where
-  inverse Unit = Unit
 
 -- * Representability
 

@@ -33,6 +33,7 @@ library
     Hask
     Hask.Constrained
     Hask.Core
+    Hask.Groupoid
     Hask.Prof
     Hask.Foldable
 
