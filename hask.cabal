@@ -33,6 +33,7 @@ library
     Hask
     Hask.Core
     Hask.Prof
+    Hask.Foldable
 
   build-depends:
     base >= 4       && < 5,
