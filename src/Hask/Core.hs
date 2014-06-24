@@ -202,17 +202,6 @@ type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e 
 class (Functor f, Functor u) => f -| u | f -> u, u -> f where
   adj :: f -: u
 
-instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where
-  adj = dimap undefined undefined
-
--- instance (Compose p =| Compose q) => Lift1 p e -| Lift1 q e where
-
---instance (forall i. p (e i) =| q (e i)) => Lift1 p e -| Lift1 q e where
---  adj = adj1
-
---instance (p =| q) => Lift2 p e -| Lift1 q e where
---  adj = adj1
-
 -- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
 class (Post Functor f, Post Functor u) => f =| u | f -> u, u -> f where
   adj1 :: f =: u
@@ -523,17 +512,7 @@ instance Post Functor p => Functor (Lift1 p f) where
 instance (Functor p, Post Functor p, Functor f, Functor g) => Functor (Lift1 p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
 
-instance (p =| q) => Lift1 p =| Lift1 q where
-  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
-               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
 
-instance (p =| q) => Lift2 p =| Lift2 q where
-  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
-               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
-
-instance (p =| q) => LiftC p =| LiftC q where
-  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
-               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
 
 -- ** LiftC
 
@@ -578,6 +557,23 @@ instance Post Functor p => Functor (Lift2 p f) where
 
 instance Post Contravariant p => Contravariant (Lift2 p f) where
   contramap = contramap1
+
+-- Lifting adjunctions
+
+instance (p =| q) => Lift1 p =| Lift1 q where
+  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
+               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+
+instance (p =| q) => Lift2 p =| Lift2 q where
+  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
+               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+
+instance (p =| q) => LiftC p =| LiftC q where
+  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
+               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+
+-- instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where ?
+-- instance (Post Functor p, Post Functor q, Compose p =| Compose q) => Lift1 p e -| Lift1 q e ?
 
 -- * Functors
 
