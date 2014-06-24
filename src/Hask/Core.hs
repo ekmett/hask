@@ -202,7 +202,16 @@ type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e 
 class (Functor f, Functor u) => f -| u | f -> u, u -> f where
   adj :: f -: u
 
--- TODO: instance (f -| g, f' -| g') => (f + f') -| (g * g')
+instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where
+  adj = dimap undefined undefined
+
+-- instance (Compose p =| Compose q) => Lift1 p e -| Lift1 q e where
+
+--instance (forall i. p (e i) =| q (e i)) => Lift1 p e -| Lift1 q e where
+--  adj = adj1
+
+--instance (p =| q) => Lift2 p e -| Lift1 q e where
+--  adj = adj1
 
 -- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
 class (Post Functor f, Post Functor u) => f =| u | f -> u, u -> f where
@@ -513,6 +522,18 @@ instance Post Functor p => Functor (Lift1 p f) where
 
 instance (Functor p, Post Functor p, Functor f, Functor g) => Functor (Lift1 p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
+
+instance (p =| q) => Lift1 p =| Lift1 q where
+  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
+               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+
+instance (p =| q) => Lift2 p =| Lift2 q where
+  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
+               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+
+instance (p =| q) => LiftC p =| LiftC q where
+  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
+               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
 
 -- ** LiftC
 
@@ -1087,11 +1108,8 @@ instance Curry (Lift1 (,)) (Lift1 (->)) where
   curry   (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
   uncurry (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
 
-instance Lift1 (,) =| Lift1 (->) where
-  adj1 = ccc
-
-instance Lift1 (,) e -| Lift1 (->) e where
-  adj = ccc
+-- instance Lift1 (,) =| Lift1 (->) where
+--   adj1 = ccc
 
 instance CCC (Nat :: (i -> *) -> (i -> *) -> *) where
   type Exp = Lift (->)
@@ -1140,7 +1158,7 @@ instance Monoid m => Monoid (f :- m) where
   one = oneM
 
 instance Semimonoidal (Lift1 (->) f) where
-  ap2 = get zipR
+  ap2 = get zipR1
 
 instance Monoidal (Lift1 (->) f) where
   ap0 = curry fst
