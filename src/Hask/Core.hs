@@ -190,6 +190,8 @@ bicontramap f g = lmap f . contramap1 g
 
 -- * Adjunctions
 
+infixr 0 -|, -:, =|, =:
+
 -- | the type of an isomorphism that witnesses f -| u
 type f -: u = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
 
@@ -200,10 +202,11 @@ type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e 
 class (Functor f, Functor u) => f -| u | f -> u, u -> f where
   adj :: f -: u
 
+-- TODO: instance (f -| g, f' -| g') => (f + f') -| (g * g')
+
 -- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
 class (Post Functor f, Post Functor u) => f =| u | f -> u, u -> f where
   adj1 :: f =: u
-
 
 unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
@@ -1813,6 +1816,20 @@ instance (Comonoidal f, Comonoidal g, Comonoid m) => Comonoid (Compose2 f g m) w
 
 instance (Comonoidal f, Comonoidal g, Comonoid m) => Comonoid (ComposeC f g m) where
   zero = op0 . fmap (op0 . fmap zero) . decompose
+
+-- composition of adjunctions
+
+instance (f -| g, f' -| g') => Compose1 f' f -| Compose1 g g' where
+  adj = dimap (fmap1 compose . get adj . get adj . lmap compose)
+              (lmap decompose . unget adj . unget adj . fmap1 decompose)
+
+instance (f -| g, f' -| g') => Compose1 f' f -| Compose2 g g' where
+  adj = dimap (fmap1 compose . get adj . get adj . lmap compose)
+              (lmap decompose . unget adj . unget adj . fmap1 decompose)
+
+instance (f -| g, f' -| g') => Compose1 f' f -| ComposeC g g' where
+  adj = dimap (fmap1 compose . get adj . get adj . lmap compose)
+              (lmap decompose . unget adj . unget adj . fmap1 decompose)
 
 ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
 ap2_1 = case limDict :: Dict (Compose Semimonoidal p e) of Dict -> ap2
