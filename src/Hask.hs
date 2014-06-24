@@ -3,6 +3,7 @@ module Hask
   , module Hask.Core
   , module Hask.Groupoid
   , module Hask.Foldable
+  , module Hask.Key
   , module Hask.Rep
   , module Hask.Prof
   ) where
@@ -11,5 +12,6 @@ import Hask.Constrained
 import Hask.Core
 import Hask.Groupoid
 import Hask.Foldable
+import Hask.Key
 import Hask.Rep
 import Hask.Prof

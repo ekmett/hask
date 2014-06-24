@@ -1632,50 +1632,6 @@ instance Cosemimonad (Store1 s) where
 instance Comonad (Store1 s) where
   extract = Nat $ \(Store1 f s) -> runNat f s
 
--- The dual of Conor McBride's "Atkey" adapted to this formalism
---
--- Cokey i :: Hask -> Nat
--- Cokey :: x -> * -> x -> *
-newtype Cokey i a j = Cokey { runCokey :: (i ~ j) => a }
-
-instance Functor (Cokey i) where
-  fmap f = Nat $ \xs -> Cokey $ f (runCokey xs)
-
-instance Semimonoidal (Cokey i) where
-  ap2 = Nat $ \ab -> Cokey $ case ab of
-    Lift (Cokey a, Cokey b) -> (a, b)
-
-instance Monoidal (Cokey i) where
-  ap0 = Nat $ \a -> Cokey (getConst a)
-
-instance Semigroup m => Semigroup (Cokey i m) where
-  mult = multM
-
-instance Monoid m => Monoid (Cokey i m) where
-  one = oneM
-
--- Conor McBride's "Atkey" adapted to this formalism
---
--- Key i :: Hask -> Nat
--- Key :: x -> * -> x -> *
-data Key i a j where
-  Key :: a -> Key i a i
-
-instance Functor (Key i) where
-  fmap f = Nat $ \ (Key a) -> Key (f a)
-
-instance Cosemimonoidal (Key i) where
-  op2 = Nat $ \(Key eab) -> Lift (bimap Key Key eab)
-
-instance Comonoidal (Key i) where
-  op0 = Nat $ \(Key v) -> Const v
-
-instance Cosemigroup m => Cosemigroup (Key i m) where
-  comult = comultOp
-
-instance Comonoid m => Comonoid (Key i m) where
-  zero = zeroOp
-
 -- * Traditional product categories w/ adjoined identities
 data Prod :: (i,j) -> (i,j) -> * where
   Want :: Prod a a

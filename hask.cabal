@@ -35,6 +35,7 @@ library
     Hask.Core
     Hask.Groupoid
     Hask.Kan
+    Hask.Key
     Hask.Power
     Hask.Prof
     Hask.Rep
