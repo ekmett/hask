@@ -73,7 +73,10 @@ import Unsafe.Coerce (unsafeCoerce)
 
 infixr 0 ~>
 
--- to play with enriched categories, change to (~>) :: i -> i -> j
+-- | All of our categories will be denoted by the kinds of their arguments.
+--
+-- Due to GHC limitations we can't talk about all categories this way, but
+-- we can talk about enough that this has interesting structure.
 type family (~>) :: i -> i -> *
 type instance (~>) = (->)  -- @* -> * -> *@
 type instance (~>) = Nat   -- @(i -> j) -> (i -> j) -> *@
@@ -150,6 +153,7 @@ type family Compose :: (j -> k) -> (i -> j) -> i -> k
 infixr 9 ·
 type (·) = Compose
 
+-- | We can compose constraints
 class f (g a) => ComposeC f g a
 instance f (g a) => ComposeC f g a
 
