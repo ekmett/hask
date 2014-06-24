@@ -1098,6 +1098,8 @@ class (Precartesian ((~>) :: x -> x -> *), Precartesian ((~>) :: y -> y -> *), F
   ap2 :: f a * f b ~> f (a * b)
 
 -- monoidal functors preserve the structure of our tensor and take monoid objects to monoid objects
+--
+-- These are technically 'cartesian' functors, we we only define them over cartesian categories
 class (Cartesian ((~>) :: x -> x -> *), Cartesian ((~>) :: y -> y -> *), Semimonoidal f) => Monoidal (f :: x -> y) where
   ap0 :: One ~> f One
 
