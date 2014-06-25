@@ -71,19 +71,21 @@ import Unsafe.Coerce (unsafeCoerce)
 
 -- * A kind-indexed family of categories
 
-infixr 0 ~>
+infixr 0 ~>, >>
 
 -- | All of our categories will be denoted by the kinds of their arguments.
---
--- Due to GHC limitations we can't talk about all categories this way, but
--- we can talk about enough that this has interesting structure.
-type family (~>) :: i -> i -> *
-type instance (~>) = (->)  -- @* -> * -> *@
-type instance (~>) = Nat   -- @(i -> j) -> (i -> j) -> *@
-type instance (~>) = (:-)  -- @Constraint -> Constraint -> *@
-type instance (~>) = Unit  -- @() -> () -> *@
-type instance (~>) = Empty -- @Void -> Void -> *@
-type instance (~>) = Prod  -- @(i,j) -> (i, j) -> *@
+
+type family (>>) :: i -> i -> v
+type instance (>>) = (->)   -- @* -> * -> *@
+type instance (>>) = Nat    -- @(i -> j) -> (i -> j) -> *@
+type instance (>>) = (:-)   -- @Constraint -> Constraint -> *@
+type instance (>>) = Unit   -- @() -> () -> *@
+type instance (>>) = Empty  -- @Void -> Void -> *@
+type instance (>>) = Prod   -- @(i,j) -> (i, j) -> *@
+type instance (>>) = Lift (>>) -- automatically support Nat-enrichment, etc.
+
+-- a boring unenriched Hom
+type (~>) = ((>>) :: i -> i -> *)
 
 -- * convenience types that make it so we can avoid explicitly talking about the kinds as much as possible
 type Dom  (f :: x -> y)      = ((~>) :: x -> x -> *)
@@ -91,9 +93,17 @@ type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
 type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
 type Arr  (a :: x)           = ((~>) :: x -> x -> *)
 
-type Co f     = forall a b. (a ~> b) -> f a ~> f b
-type Contra f = forall a b. (b ~> a) -> f a ~> f b
+type VDom  (f :: x -> y)      = ((>>) :: x -> x -> v)
+type VCod  (f :: x -> y)      = ((>>) :: y -> y -> v)
+type VCod2 (f :: x -> y -> z) = ((>>) :: z -> z -> v)
+type VArr  (a :: x)           = ((>>) :: x -> x -> v)
+
+type Co f     = forall a b. (a ~> b) -> (f a ~> f b)
+type Contra f = forall a b. (b ~> a) -> (f a ~> f b)
 type (?) f a b = f b a
+
+type VCo f     = forall a b. (a >> b) >> f a >> f b
+type VContra f = forall a b. (b >> a) >> f a >> f b
 
 -- * Natural transformations (by using parametricity these are very strong)
 
@@ -138,7 +148,9 @@ class LimC (p :: i -> Constraint) where
 
 type instance Lim = LimC
 
--- abuses Any because any inhabits every kind, not a good choice of Skolem, but the best we have
+-- Abuses Any because it inhabits every kind, not a good choice of Skolem, but the best we have
+--
+-- If you make any instances for Any, this will burn your house down and scatter the ashes. Don't do that.
 instance p Any => LimC (p :: i -> Constraint) where
   limDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
     Sub d -> d
@@ -1052,7 +1064,7 @@ class (Bifunctor p, Profunctor e, Cur p ~ e, Uncur e ~ p) => Curry (p :: x -> y 
   type Uncur e :: x -> y -> z
   {-# MINIMAL curried | (uncurry, curry) #-}
 
-  curried :: Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
+  curried :: (?) p =: e -- Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
   curried = dimap curry uncurry
 
   curry :: (p a b ~> c) -> a ~> e b c
