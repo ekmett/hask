@@ -129,3 +129,9 @@ instance Prof =| ProfR where
 
 instance Prof e -| ProfR e where
   adj = adj1
+
+-- Cat^op -> Prof, Corepresentable, conjoint
+data Up f a b = Up { runUp :: f a ~> b }
+
+-- Cat -> Prof, Representable, companion
+data Down f a b = Down { runDown :: a ~> f b }
