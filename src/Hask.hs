@@ -10,6 +10,7 @@ module Hask
   , module Hask.Prism
   , module Hask.Prof
   , module Hask.Rep
+  , module Hask.Store
   ) where
 
 import Hask.Colim
@@ -23,3 +24,4 @@ import Hask.Lens
 import Hask.Prism
 import Hask.Prof
 import Hask.Rep
+import Hask.Store

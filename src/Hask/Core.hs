@@ -801,48 +801,43 @@ instance Tensor (&) where
   lambda      = dimap (Sub Dict) (Sub Dict)
   rho         = dimap (Sub Dict) (Sub Dict)
 
-associateLift :: (Lifted s, Semitensor p)
-  => Iso (s p (s p f g) h) (s p (s p f' g') h')
-         (s p f (s p g h)) (s p f' (s p g' h'))
-associateLift = dimap
-  (Nat $ _Lift $ fmap1 (unget _Lift) . get associate . first (get _Lift))
-  (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
-
-lambdaLift :: (Constant k, Lifted s, Tensor p) =>
-   Iso (s p (k (I p)) f) (s p (k (I p)) g) f g
-lambdaLift   = dimap
-   (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-   (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
-
-rhoLift :: (Constant k, Lifted s, Tensor p) =>
-   Iso (s p f (k (I p))) (s p g (k (I p))) f g
-rhoLift =
-  dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-        (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
-
 instance Semitensor p => Semitensor (Lift1 p) where
-  associate   = associateLift
+  associate   = dimap
+    (Nat $ _Lift $ fmap1 (unget _Lift) . get associate . first (get _Lift))
+    (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
 
 type instance I (Lift1 p) = Const1 (I p)
 instance Tensor p => Tensor (Lift1 p) where
-  lambda      = lambdaLift
-  rho         = rhoLift
+  lambda = dimap (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
+                 (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
+              (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
 
 instance Semitensor p => Semitensor (Lift2 p) where
-  associate   = associateLift
+  associate   = dimap
+    (Nat $ _Lift $ fmap1 (unget _Lift) . get associate . first (get _Lift))
+    (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
 
 type instance I (Lift2 p) = Const2 (I p)
 instance Tensor p => Tensor (Lift2 p) where
-  lambda      = lambdaLift
-  rho         = rhoLift
+  lambda = dimap
+    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
+    (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
+              (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
 
 instance Semitensor p => Semitensor (LiftC p) where
-  associate   = associateLift
+  associate   = dimap
+    (Nat $ _Lift $ fmap1 (unget _Lift) . get associate . first (get _Lift))
+    (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
 
 type instance I (LiftC p) = ConstC (I p)
 instance Tensor p => Tensor (LiftC p) where
-  lambda      = lambdaLift
-  rho         = rhoLift
+  lambda = dimap
+    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
+    (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
+              (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
 
 -- * Internal hom of a closed category
 
@@ -1513,18 +1508,6 @@ class (Functor f, Category (Dom f)) => Cosemimonad f where
 class Cosemimonad f => Comonad f where
   extract :: f a ~> a
 
--- indexed store
-data Store1 s a i = Store1 (s ~> a) (s i)
-
-instance Functor (Store1 s) where
-  fmap f = Nat $ \(Store1 g s) -> Store1 (f . g) s
-
-instance Cosemimonad (Store1 s) where
-  duplicate = Nat $ \(Store1 f s) -> Store1 (Nat $ Store1 f) s
-
-instance Comonad (Store1 s) where
-  extract = Nat $ \(Store1 f s) -> runNat f s
-
 -- * Traditional product categories w/ adjoined identities
 data Prod :: (i,j) -> (i,j) -> * where
   Want :: Prod a a
@@ -1687,7 +1670,6 @@ data No (a :: Void)
 
 instance Functor No where
   fmap !f = Prelude.undefined
-
 
 class (Category ((~>) :: k -> k -> *), Compose ~ o) => Composed (o :: (j -> k) -> (i -> j) -> i -> k) | i j k -> o where
   -- can't put the iso in here due to ghc #9200
