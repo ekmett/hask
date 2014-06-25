@@ -195,12 +195,12 @@ infixr 0 -|, -:, =|, =:
 -- | the type of an isomorphism that witnesses f -| u
 type f -: u = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
 
--- | the type of an isomorphism that witnesses an indexed adjunction f e -| u e
-type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
-
 -- | @f -| u@ indicates f is left adjoint to u
 class (Functor f, Functor u) => f -| u | f -> u, u -> f where
   adj :: f -: u
+
+-- | the type of an isomorphism that witnesses an indexed adjunction f e -| u e
+type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
 
 -- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
 class (Post Functor f, Post Functor u) => f =| u | f -> u, u -> f where
@@ -405,10 +405,10 @@ instance Cosemigroup b => Cosemigroup (ConstC b a) where
 instance Comonoid b => Comonoid (ConstC b a) where
   zero = zero . get _Const
 
--- * Const -| Lim
 
 newtype Lim1 (f :: i -> *) = Lim { getLim :: forall x. f x }
 type instance Lim = Lim1
+
 
 instance Functor Lim1 where
   fmap (Nat f) (Lim g) = Lim (f g)
@@ -454,6 +454,19 @@ instance ConstC -| LimC where
   adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limDict) b) where
     hither :: (ConstC a Any :- f Any) -> a :- LimC f
     hither = dimap (Sub Dict) (Sub Dict)
+
+-- | A complete category has all small limits.
+
+class k ~ (~>) => Complete (k :: j -> j -> *) where
+  -- The explicit witness here allows us to quantify over all kinds i.
+  -- Const -| (Lim :: i -> j) -> j)
+  complete :: () :- (Const -| (Lim :: (i -> j) -> j))
+  default complete :: (Const -| (Lim :: (i -> j) -> j)) => () :- (Const -| (Lim :: (i-> j) -> j))
+  complete = Sub Dict
+
+instance Complete (->)
+instance Complete (Nat :: (i -> *) -> (i -> *) -> *)
+instance Complete ((:-) :: Constraint -> Constraint -> *)
 
 -- * Support for Tagged and Proxy
 
