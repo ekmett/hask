@@ -86,3 +86,15 @@ instance Colim2 -| Const2 where
 --class ColimC (f :: i -> Constraint) where
 --  colimDict :: Colim (Up f Dict)
 --    p (f a) :- ColimC f
+
+class k ~ (~>) => Cocomplete (k :: j -> j -> *) where
+  -- The explicit witness here allows us to quantify over all kinds i.
+  -- Colim -| Const
+  cocomplete :: () :- ((Colim :: (i -> j) -> j) -| Const)
+  default cocomplete :: ((Colim :: (i -> j) -> j) -| Const) => () :- ((Colim :: (i -> j) -> j) -| Const)
+  cocomplete = Sub Dict
+
+instance Cocomplete (->)
+instance Cocomplete (Nat :: (i -> *) -> (i -> *) -> *)
+-- instance Cocomplete (Nat :: (i -> j -> *) -> (i -> j -> *) -> *)
+-- instance Cocomplete ((:-) :: Constraint -> Constraint -> *)
