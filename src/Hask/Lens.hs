@@ -70,3 +70,7 @@ to :: Bicontravariant p => (s ~> a) -> p a a -> p s s
 to f = bicontramap f f
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
+
+type Traversal s t a b = forall p. (Strong p, Post Monoidal p) => p a b -> p s t
+
+-- TODO: Down f given f Monoidal is Post Monoidal
