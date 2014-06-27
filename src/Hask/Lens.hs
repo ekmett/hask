@@ -66,8 +66,8 @@ instance (Strong p, Category p) => Freyd p
 type Getter s a = forall p. (Strong p, Post Functor p) => p a a -> p s s
 
 -- to :: (s ~> a) -> Getter s a
-to :: Bicontravariant p => (s ~> a) -> p a a -> p s s
-to f = bicontramap f f
+to :: (Contravariant p, Post Contravariant p) => (s ~> a) -> p a a -> p s s
+to f = lmap f . contramap1 f
 
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 

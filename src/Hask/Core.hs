@@ -192,12 +192,6 @@ dimap f g = lmap f . fmap1 g
 
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
-class (Contravariant p, Post Contravariant p) => Bicontravariant p
-instance (Contravariant p, Post Contravariant p) => Bicontravariant p
-
-bicontramap :: (Bicontravariant p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b d ~> p a c
-bicontramap f g = lmap f . contramap1 g
-
 -- * Adjunctions
 
 infixr 0 -|, -:, =|, =:
