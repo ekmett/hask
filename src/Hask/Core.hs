@@ -75,7 +75,7 @@ infixr 0 ~>, >>
 
 -- | All of our categories will be denoted by the kinds of their arguments.
 
-type family (>>) :: i -> i -> v
+type family (>>) :: i -> j -> k
 type instance (>>) = (->)   -- @* -> * -> *@
 type instance (>>) = Nat    -- @(i -> j) -> (i -> j) -> *@
 type instance (>>) = (:-)   -- @Constraint -> Constraint -> *@
@@ -88,15 +88,13 @@ type instance (>>) = Lift (>>) -- automatically support Nat-enrichment, etc.
 type (~>) = ((>>) :: i -> i -> *)
 
 -- * convenience types that make it so we can avoid explicitly talking about the kinds as much as possible
-type Dom  (f :: x -> y)      = ((~>) :: x -> x -> *)
-type Cod  (f :: x -> y)      = ((~>) :: y -> y -> *)
-type Cod2 (f :: x -> y -> z) = ((~>) :: z -> z -> *)
-type Arr  (a :: x)           = ((~>) :: x -> x -> *)
+type Dom  (f :: i -> j)      = ((~>) :: i -> i -> *)
+type Cod  (f :: i -> j)      = ((~>) :: j -> j -> *)
+type Cod2 (f :: i -> j -> k) = ((~>) :: k -> k -> *)
+type Arr  (a :: i)           = ((~>) :: i -> i -> *)
 
-type VDom  (f :: x -> y)      = ((>>) :: x -> x -> v)
-type VCod  (f :: x -> y)      = ((>>) :: y -> y -> v)
-type VCod2 (f :: x -> y -> z) = ((>>) :: z -> z -> v)
-type VArr  (a :: x)           = ((>>) :: x -> x -> v)
+type Enriched (k :: i -> i -> *) = ((>>) :: i -> i -> j)
+type Internal (k :: i -> i -> *) = ((>>) :: i -> i -> i)
 
 type Co f     = forall a b. (a ~> b) -> (f a ~> f b)
 type Contra f = forall a b. (b ~> a) -> (f a ~> f b)
