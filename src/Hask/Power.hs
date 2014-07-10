@@ -197,8 +197,6 @@ instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
      (\k -> Nat $ \a' -> Power $ \u' -> runNat (k u') a')
 
 -- (i -> *) is bipowered over Hask
-instance Curry Copower1 Power1 where
-  type Cur Copower1 = Power1
-  type Uncur Power1 = Copower1
+instance Curried Copower1 Power1 where
   curry (Nat f) = Nat $ \a -> Power $ \b -> f (Copower a b)
   uncurry (Nat f) = Nat $ \(Copower a b) -> runPower (f a) b

@@ -37,7 +37,7 @@
 --
 -- Parametricity is a very strong notion of naturality. Notably, we
 -- don't have to care if i or j are co -or- contravariant. (forall a. f a ~> g a)
--- respects _both_.
+-- respects _both_ -- at least so long as the 'functors' involved aren't GADTs.
 --
 -- Third, we use kind-indexing to pick the category. This means it
 -- is harder to talk about Kleisli categories, etc. but in exchange
@@ -74,6 +74,8 @@ import Unsafe.Coerce (unsafeCoerce)
 infixr 0 ~>, >>
 
 -- | All of our categories will be denoted by the kinds of their arguments.
+--
+-- This is too parametric to talk just about categories, but I also want to use it for powers.
 
 type family (>>) :: i -> j -> k
 type instance (>>) = (->)   -- @* -> * -> *@
@@ -1051,9 +1053,7 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 -- this is just another convenient indexed adjunction with the args flipped around
 
 -- p has some notion of association we'd need poly kinds to talk about properly
-class (Bifunctor p, Profunctor e, Cur p ~ e, Uncur e ~ p) => Curry (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
-  type Cur p :: y -> z -> x
-  type Uncur e :: x -> y -> z
+class (Bifunctor p, Profunctor e) => Curried (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
   {-# MINIMAL curried | (uncurry, curry) #-}
 
   curried :: (?) p =: e -- Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
@@ -1071,12 +1071,6 @@ class (Bifunctor p, Profunctor e, Cur p ~ e, Uncur e ~ p) => Curry (p :: x -> y 
   unapply :: Category (Cod2 p) => a ~> e b (p a b)
   unapply = curry id
 
-class Curry p (Cur p) => Curried p
-instance Curry p (Cur p) => Curried p
-
-class Curry (Uncur e) e => Uncurried e
-instance Curry (Uncur e) e => Uncurried e
-
 -- (*) =| Exp from currying
 ccc :: CCC ((~>) :: i -> i -> *) => (*) =: (Exp :: i -> i -> i)
 ccc = dimap (. swap) (. swap) . curried
@@ -1088,16 +1082,14 @@ infixr 8 ^
 
 class
   ( Cartesian k, (*) =| (Exp::x->x->x)
-  , Curry (*) (Exp::x->x->x)
+  , Curried (*) (Exp::x->x->x)
   , I (Exp::x->x->x) ~ I (*)
   , InternalHom (Exp::x->x->x)
   ) => CCC (k :: x -> x -> *) | x -> k where
   -- may be worth splitting out if we ever want non-cartesian closed categories
   type Exp :: x -> x -> x
 
-instance Curry (,) (->) where
-  type Uncur (->) = (,)
-  type Cur (,) = (->)
+instance Curried (,) (->) where
   curry = Prelude.curry
   uncurry = Prelude.uncurry
 
@@ -1110,9 +1102,7 @@ instance (,) =| (->) where
 instance (,) e -| (->) e where
   adj = ccc
 
-instance Curry (Lift1 (,)) (Lift1 (->)) where
-  type Uncur (Lift1 (->)) = Lift1 (,)
-  type Cur (Lift1 (,))    = Lift1 (->)
+instance Curried (Lift1 (,)) (Lift1 (->)) where
   curry   (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
   uncurry (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
 
@@ -1610,9 +1600,7 @@ instance (&) =| (|-) where
 instance (&) p -| (|-) p where
   adj = ccc
 
-instance Curry (&) (|-) where
-  type Cur (&) = (|-)
-  type Uncur (|-) = (&)
+instance Curried (&) (|-) where
   curry q = fmap q . unapply
   uncurry p = apply . first p
   apply = applyConstraint where
