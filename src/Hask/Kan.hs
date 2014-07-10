@@ -55,8 +55,8 @@ type instance Ran = Ran1
 newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) ⋔ g r }
 
 instance Curried Compose1 Ran1 where
-  curry l = Nat $ \f -> Ran $ \k -> runNat l (Compose1 k f)
-  uncurry l = Nat $ \(Compose1 f xs) -> runRan (runNat l xs) f
+  curry l = Nat $ \f -> Ran $ \k -> runNat l (Compose1 f k)
+  uncurry l = Nat $ \(Compose1 xs f) -> runRan (runNat l xs) f
 
 -- alternately, by universal property
 -- data Ran f g a = forall z. Functor z => Ran (forall x. z (f x) ~> g x) (z a)

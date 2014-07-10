@@ -1689,22 +1689,22 @@ composed = dimap decompose compose
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
 data Compose1 f g a where
-  Compose1 :: (x ~> g a) -> f x -> Compose1 f g a
+  Compose1 :: f x -> (x ~> g a) -> Compose1 f g a
 
 data Compose2 f g a b where
-  Compose2 :: (x ~> g a) -> f x b -> Compose2 f g a b
+  Compose2 :: f x b -> (x ~> g a) -> Compose2 f g a b
 
 type instance Compose = Compose1
 instance Category ((~>) :: j -> j -> *) => Composed (Compose1 :: (j -> *) -> (i -> j) -> i -> *) where
   type Decomposing = (Functor :: (j -> *) -> Constraint)
-  compose = Compose1 id
-  decompose (Compose1 f g) = fmap f g
+  compose f = Compose1 f id
+  decompose (Compose1 xs f) = fmap f xs
 
 type instance Compose = Compose2
 instance Category ((~>) :: j -> j -> *) => Composed (Compose2 :: (j -> k -> *) -> (i -> j) -> i -> k -> *) where
   type Decomposing = (Functor :: (j -> k -> *) -> Constraint)
-  compose   = Nat (Compose2 id)
-  decompose = Nat $ \(Compose2 f g) -> first f g
+  compose   = Nat $ \f -> Compose2 f id
+  decompose = Nat $ \(Compose2 xs f) -> first f xs
 
 type instance Compose = ComposeC
 instance Composed (ComposeC :: (j -> Constraint) -> (i -> j) -> i -> Constraint) where
@@ -1713,19 +1713,19 @@ instance Composed (ComposeC :: (j -> Constraint) -> (i -> j) -> i -> Constraint)
   decompose = Sub Dict
 
 instance Functor Compose1 where
-  fmap f = nat2 $ \(Compose1 k xs) -> Compose1 k (runNat f xs)
+  fmap f = nat2 $ \(Compose1 xs k) -> Compose1 (runNat f xs) k
 
 instance Functor Compose2 where
-  fmap f = nat3 $ \(Compose2 k xs) -> Compose2 k (runNat2 f xs)
+  fmap f = nat3 $ \(Compose2 xs k) -> Compose2 (runNat2 f xs) k
 
 instance Functor ComposeC where
   fmap f = nat2 $ composed $ runNat f
 
 instance Category (Dom f) => Functor (Compose1 f) where
-  fmap f = Nat $ \(Compose1 k xs) -> Compose1 (runNat f . k) xs
+  fmap f = Nat $ \(Compose1 xs k) -> Compose1 xs (runNat f . k)
 
 instance Category (Dom f) => Functor (Compose2 f) where
-  fmap f = nat2 $ \(Compose2 k xs) -> Compose2 (runNat f . k) xs
+  fmap f = nat2 $ \(Compose2 xs k) -> Compose2 xs (runNat f . k)
 
 instance Functor f => Functor (ComposeC f) where
   fmap f = Nat $ composed $ fmap $ runNat f
@@ -1734,10 +1734,10 @@ instance Contravariant f => Contravariant (ComposeC f) where
   contramap f = Nat $ composed $ contramap $ runNat f
 
 instance (Category (Dom f), Functor g) => Functor (Compose1 f g) where
-  fmap f (Compose1 k xs) = Compose1 (fmap f . k) xs
+  fmap f (Compose1 xs k) = Compose1 xs (fmap f . k)
 
 instance (Category (Dom f), Functor g) => Functor (Compose2 f g) where
-  fmap f = Nat $ \(Compose2 k xs) -> Compose2 (fmap f . k) xs
+  fmap f = Nat $ \(Compose2 xs k) -> Compose2 xs (fmap f . k)
 
 instance (Functor f, Functor g) => Functor (ComposeC f g) where
   fmap = composed . fmap . fmap
