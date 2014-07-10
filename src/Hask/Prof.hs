@@ -55,8 +55,8 @@ import qualified Prelude
 import Prelude (($), undefined)
 
 -- forward profunctor composition forms a weak category.
-data Prof :: (i -> j -> *) -> (j -> k -> *) -> i -> k -> * where
-  Prof :: p a b -> q b c -> Prof p q a c
+data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
+  Prof :: p b c -> q a b -> Prof p q a c
 
 instance Category ((~>) :: i -> i -> *) => Semitensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
   associate = associateProf
@@ -67,11 +67,17 @@ instance Functor Prof where
 instance Functor (Prof p) where
   fmap f = nat2 $ \(Prof p q) -> Prof p (runNat2 f q)
 
-instance Contravariant p => Contravariant (Prof p q) where
-  contramap f = Nat $ \(Prof p q) -> Prof (runNat (contramap f) p) q
+instance Contravariant q => Contravariant (Prof p q) where
+  contramap f = Nat $ \(Prof p q) -> Prof p (runNat (contramap f) q)
 
-instance Post Functor q => Functor (Prof p q a) where
-  fmap f (Prof p q) = Prof p (fmap1 f q)
+instance Post Functor p => Functor (Prof p q a) where
+  fmap f (Prof p q) = Prof (fmap1 f p) q
+
+instance Functor q => Functor (Prof p q) where
+  fmap f = Nat $ \(Prof p q) -> Prof p (runNat (fmap f) q)
+
+instance Post Contravariant p => Contravariant (Prof p q a) where
+  contramap f (Prof p q) = Prof (contramap1 f p) q
 
 associateProf :: Iso (Prof (Prof p q) r) (Prof (Prof p' q') r')
                      (Prof p (Prof q r)) (Prof p' (Prof q' r'))
@@ -80,7 +86,7 @@ associateProf = dimap
   (nat2 $ \ (Prof a (Prof b c)) -> Prof (Prof a b) c)
 
 {-
-lambdaProf :: (Contravariant p, Category q, q ~> (~>) => Prof q p ~> p
+lambdaProf :: (Contravariant p, Category q, q ~> (~>)) => Prof q p ~> p
 lambdaProf = nat2 $ \(Prof h p) -> lmap h p
 
 rhoProf :: (Category q, q ~ (~>)) => p ~> Prof p q
@@ -88,8 +94,6 @@ rhoProf = nat2 $ \p -> Prof p id
 -}
 
 newtype ProfR p q a b = ProfR { runProfR :: forall x. p x a -> q x b }
-
--- ProfL? =| Prof =| ProfR
 
 instance Contravariant ProfR where
   contramap f = nat3 $ \(ProfR pq) -> ProfR $ \p -> pq (runNat2 f p)
@@ -117,18 +121,9 @@ iotaProf = dimap (nat2 $ \(ProfR f) -> f id) (nat2 $ \f -> ProfR $ \p -> lmap p 
 jotProf :: Post Functor p => (~>) ~> ProfR p p
 jotProf = nat2 $ \f -> ProfR (fmap1 f)
 
-{-
-instance InternalHom ProfR where -- requires constraints on objects of a category
-  iota = iotaProf
-  jot  = jotProf
--}
-
-instance Prof =| ProfR where
-   adj1 = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof q p))
-                (\a2eb -> nat2 $ \(Prof e a) -> runProfR (runNat2 a2eb a) e)
-
-instance Prof e -| ProfR e where
-  adj = adj1
+instance Curried Prof ProfR where
+  curried = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof p q))
+                  (\k -> nat2 $ \(Prof p q) -> runProfR (runNat2 k p) q)
 
 -- Cat^op -> Prof, Corepresentable, conjoint
 data Up f a b = Up { runUp :: f a ~> b }
