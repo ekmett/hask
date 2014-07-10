@@ -47,7 +47,7 @@ import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
--- Lan g -| Up g -| Ran g
+-- Lan g -| Compose ? g -| Ran g
 type family Lan  :: (i -> j) -> (i -> k) -> j -> k
 type family Ran  :: (i -> j) -> (i -> k) -> j -> k
 
@@ -69,6 +69,10 @@ instance Category (Cod f) => Functor (Ran1 f) where
 
 type instance Ran = Ran2
 newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. ((a ~> f r) ⋔ g r) x }
+
+instance Curried Compose2 Ran2 where
+  curry l   = nat2 $ \f -> Ran2 $ Power $ \k -> runNat2 l (Compose2 f k)
+  uncurry l = nat2 $ \(Compose2 xs f) -> runPower (runRan2 (runNat2 l xs)) f
 
 type instance Lan = Lan1
 data Lan1 f g a where
