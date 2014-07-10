@@ -1053,7 +1053,7 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 -- this is just another convenient indexed adjunction with the args flipped around
 
 -- p has some notion of association we'd need poly kinds to talk about properly
-class (Bifunctor p, Profunctor e) => Curried (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
+class Curried (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
   {-# MINIMAL curried | (uncurry, curry) #-}
 
   curried :: (?) p =: e -- Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
