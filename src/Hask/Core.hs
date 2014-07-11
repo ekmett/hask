@@ -149,7 +149,7 @@ class LimC (p :: i -> Constraint) where
 type instance Lim = LimC
 
 -- Abuses Any because it inhabits every kind, not a good choice of Skolem, but the best we have
---
+
 -- If you make any instances for Any, this will burn your house down and scatter the ashes. Don't do that.
 instance p Any => LimC (p :: i -> Constraint) where
   limDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
@@ -470,9 +470,21 @@ class k ~ (~>) => Complete (k :: j -> j -> *) where
   default complete :: (Const -| (Lim :: (i -> j) -> j)) => () :- (Const -| (Lim :: (i-> j) -> j))
   complete = Sub Dict
 
+
 instance Complete (->)
 instance Complete (Nat :: (i -> *) -> (i -> *) -> *)
 instance Complete ((:-) :: Constraint -> Constraint -> *)
+
+class Functor f => Continuous f where
+  continuous :: f (Lim g) ~> Lim (Compose f g)
+
+instance Continuous (Lim1 :: (i -> *) -> *) where
+  continuous f = Lim $ compose $ Lim $ getLim2 $ getLim f
+
+-- TODO:
+
+-- instance Continuous (Lim2 :: (i -> j -> *) -> j -> *) where
+-- instance Continuous (LimC :: (i -> Constraint) -> Constraint) where
 
 -- * Support for Tagged and Proxy
 
