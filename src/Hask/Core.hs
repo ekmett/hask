@@ -216,7 +216,7 @@ unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
 
 counitAdj :: (f -| u, Category (Dom f)) => f (u b) ~> b
-counitAdj = unget adj id
+counitAdj = beget adj id
 
 -- given f -| u, u is a strong monoidal functor
 --
@@ -226,31 +226,31 @@ counitAdj = unget adj id
 -- @
 zipR :: (f -| u, Cartesian (Dom u), Cartesian (Cod u))
      => Iso (u a * u b) (u a' * u b') (u (a * b)) (u (a' * b'))
-zipR = dimap (get adj (unget adj fst &&& unget adj snd))
+zipR = dimap (get adj (beget adj fst &&& beget adj snd))
              (fmap fst &&& fmap snd)
 
 -- given f =| u, u is a strong indexed monoidal functor
 zipR1 :: (f =| u, Cartesian (Cod2 u), Cartesian (Cod2 f))
      => Iso (u e a * u e b) (u e' a' * u e' b') (u e (a * b)) (u e' (a' * b'))
-zipR1 = dimap (get adj1 (unget adj1 fst &&& unget adj1 snd))
+zipR1 = dimap (get adj1 (beget adj1 fst &&& beget adj1 snd))
               (fmap1 fst &&& fmap1 snd)
 
 absurdL :: (f -| u, Initial z) => Iso z z (f z) (f z)
-absurdL = dimap initial (unget adj initial)
+absurdL = dimap initial (beget adj initial)
 
 absurdL1 :: (f =| u, Initial z) => Iso z z (f e z) (f e' z)
-absurdL1 = dimap initial (unget adj1 initial)
+absurdL1 = dimap initial (beget adj1 initial)
 
 cozipL :: (f -| u, Cocartesian (Cod u), Cocartesian (Cod f))
        => Iso (f (a + b)) (f (a' + b')) (f a + f b) (f a' + f b')
 cozipL = dimap
-  (unget adj (get adj inl ||| get adj inr))
+  (beget adj (get adj inl ||| get adj inr))
   (fmap inl ||| fmap inr)
 
 cozipL1 :: (f =| u, Cocartesian (Cod2 u), Cocartesian (Cod2 f))
        => Iso (f e (a + b)) (f e' (a' + b')) (f e a + f e b) (f e' a' + f e' b')
 cozipL1 = dimap
-  (unget adj1 (get adj1 inl ||| get adj1 inr))
+  (beget adj1 (get adj1 inl ||| get adj1 inr))
   (fmap1 inl ||| fmap1 inr)
 
 -- tabulated :: (f -| u) => Iso (a ^ f One) (b ^ f One) (u a) (u b)
@@ -313,25 +313,25 @@ instance Contravariant (Const1 b) where
   contramap _ = _Const id
 
 instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (Const1 b :: i -> *) where
-  ap2 = unget _Const . mult . bimap (get _Const) (get _Const)
+  ap2 = beget _Const . mult . bimap (get _Const) (get _Const)
 
 instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (Const1 b :: i -> *) where
-  ap0 = unget _Const . one
+  ap0 = beget _Const . one
 
 instance Semigroup b => Semigroup (Const1 b a) where
-  mult = unget _Const . mult . bimap (get _Const) (get _Const)
+  mult = beget _Const . mult . bimap (get _Const) (get _Const)
 
 instance Monoid b => Monoid (Const1 b a) where
-  one = unget _Const . one
+  one = beget _Const . one
 
 instance (Cosemigroup b, Precocartesian ((~>) :: i -> i -> *)) => Cosemimonoidal (Const1 b :: i -> *) where
-  op2 = bimap (unget _Const) (unget _Const) . comult . get _Const
+  op2 = bimap (beget _Const) (beget _Const) . comult . get _Const
 
 instance (Comonoid b, Cocartesian ((~>) :: i -> i -> *)) => Comonoidal (Const1 b :: i -> *) where
   op0 = zero . get _Const
 
 instance Cosemigroup b => Cosemigroup (Const1 b a) where
-  comult = bimap (unget _Const) (unget _Const) . comult . get _Const
+  comult = bimap (beget _Const) (beget _Const) . comult . get _Const
 
 instance Comonoid b => Comonoid (Const1 b a) where
   zero = zero . get _Const
@@ -352,25 +352,25 @@ instance Functor f => Functor (Const2 f a) where
   fmap f = Const2 . fmap f . getConst2
 
 instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (Const2 b :: i -> j -> *) where
-  ap2 = unget _Const . mult . bimap (get _Const) (get _Const)
+  ap2 = beget _Const . mult . bimap (get _Const) (get _Const)
 
 instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (Const2 b :: i -> j -> *) where
-  ap0 = unget _Const . one
+  ap0 = beget _Const . one
 
 instance Semigroup b => Semigroup (Const2 b a) where
-  mult = unget _Const . mult . bimap (get _Const) (get _Const)
+  mult = beget _Const . mult . bimap (get _Const) (get _Const)
 
 instance Monoid b => Monoid (Const2 b a) where
-  one = unget _Const . one
+  one = beget _Const . one
 
 instance (Cosemigroup b, Precocartesian ((~>) :: i -> i -> *)) => Cosemimonoidal (Const2 b :: i -> j -> *) where
-  op2 = bimap (unget _Const) (unget _Const) . comult . get _Const
+  op2 = bimap (beget _Const) (beget _Const) . comult . get _Const
 
 instance (Comonoid b, Cocartesian ((~>) :: i -> i -> *)) => Comonoidal (Const2 b :: i -> j -> *) where
   op0 = zero . get _Const
 
 instance Cosemigroup b => Cosemigroup (Const2 b a) where
-  comult = bimap (unget _Const) (unget _Const) . comult . get _Const
+  comult = bimap (beget _Const) (beget _Const) . comult . get _Const
 
 instance Comonoid b => Comonoid (Const2 b a) where
   zero = zero . get _Const
@@ -389,24 +389,24 @@ instance Functor (ConstC b) where
   fmap _ = Sub Dict
 
 instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (ConstC b :: i -> Constraint) where
-  ap2 = unget _Const . mult . bimap (get _Const) (get _Const)
+  ap2 = beget _Const . mult . bimap (get _Const) (get _Const)
 
 instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (ConstC b :: i -> Constraint) where
-  ap0 = unget _Const . one
+  ap0 = beget _Const . one
 
 -- instance Semigroup b => Semigroup (ConstC b a) -- all constraints form a semigroup already
 
 instance Monoid b => Monoid (ConstC b a) where
-  one = unget _Const . one
+  one = beget _Const . one
 
 instance (Cosemigroup b, Precocartesian ((~>) :: i -> i -> *)) => Cosemimonoidal (ConstC b :: i -> Constraint) where
-  op2 = bimap (unget _Const) (unget _Const) . comult . get _Const
+  op2 = bimap (beget _Const) (beget _Const) . comult . get _Const
 
 instance (Comonoid b, Cocartesian ((~>) :: i -> i -> *)) => Comonoidal (ConstC b :: i -> Constraint) where
   op0 = zero . get _Const
 
 instance Cosemigroup b => Cosemigroup (ConstC b a) where
-  comult = bimap (unget _Const) (unget _Const) . comult . get _Const
+  comult = bimap (beget _Const) (beget _Const) . comult . get _Const
 
 instance Comonoid b => Comonoid (ConstC b a) where
   zero = zero . get _Const
@@ -479,6 +479,9 @@ instance Complete ((:-) :: Constraint -> Constraint -> *)
 
 class Functor f => Continuous f where
   continuous :: f (Lim g) ~> Lim (Compose f g)
+
+-- continuousLim :: (Composed o, Constant k, k -| u) => u (Lim g) ~> Lim (u `o` g)
+-- continuousLim = get adj $ Nat $ decompose . _wat . counitAdj
 
 instance Continuous (Lim1 :: (i -> *) -> *) where
   continuous f = Lim $ compose $ fmap (Nat getLim2) f
@@ -592,16 +595,16 @@ instance Post Contravariant p => Contravariant (Lift2 p f) where
 -- Lifting adjunctions
 
 instance (p =| q) => Lift1 p =| Lift1 q where
-  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
-               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
+               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
 
 instance (p =| q) => Lift2 p =| Lift2 q where
-  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
-               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
+               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
 
 instance (p =| q) => LiftC p =| LiftC q where
-  adj1 = dimap (\f -> Nat $ unget _Lift . get adj1 (runNat f . unget _Lift))
-               (\g -> Nat $ unget adj1 (get _Lift . runNat g) . get _Lift)
+  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
+               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
 
 -- instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where ?
 -- instance (Post Functor p, Post Functor q, Compose p =| Compose q) => Lift1 p e -| Lift1 q e ?
@@ -687,7 +690,7 @@ instance Post Contravariant ((~>) :: x -> x -> *) => Contravariant (Via a b s ::
 -- |
 -- @
 -- get   = via _Get
--- unget = via _Unget
+-- beget = via _Beget
 -- un    = via _Un
 -- @
 via :: forall (a :: *) (b :: *) (r :: *) (p :: x -> x -> *) (c :: x) (t :: *) (u :: *).
@@ -729,8 +732,19 @@ instance Contravariant Tagged where
 instance Contravariant (Const2 k) where
   contramap _ = _Const id
 
+-- | Get is the Yoneda embedding C -> [ C^op, Set]
+--
+-- How? We can view it as a functor from C -> [ C^op X 1, Set ] with the latter embedded in Prof.
+--
+-- Where does the 1 come from? We use the existence of Contravariance and Covariance in all arguments to make a
+-- category where every object is the same as long as the kind chosen has either an initial or a terminal object.
+-- But get is polymorphic in the choice of kind for the 'b' parameter, making it possible to choose it to be anything
+-- you want.
 newtype Get r a b = Get { runGet :: a ~> r }
 _Get = dimap runGet Get
+
+instance Category ((~>) :: i -> i -> *) => Functor (Get :: i -> i -> k -> *) where
+  fmap f = nat2 $ _Get (f .)
 
 instance Category (Arr r) => Contravariant (Get r) where
   contramap f = Nat (_Get (. f))
@@ -745,26 +759,30 @@ get :: (Category c, c ~ (~>)) => (Get a a a -> Get a s s) -> c s a
 get l = runGet $ l (Get id)
 -- get = via _Get
 
--- * Unget
+-- | Beget is the contravariant Yoneda embedding. C^op -> [C, Set]
+--
+-- we can view it as a functor from C^op -> [ 1^op X C, Set ] with the latter embedded in Prof.
+newtype Beget r a b = Beget { runBeget :: r ~> b }
+_Beget = dimap runBeget Beget
 
-newtype Unget r a b = Unget { runUnget :: r ~> b }
-_Unget = dimap runUnget Unget
+instance Category ((~>) :: i -> i -> *) => Contravariant (Beget :: i -> k -> i -> *) where
+  contramap f = nat2 $ _Beget (. f)
 
-instance Functor (Unget r) where
-  fmap _ = Nat $ _Unget id
+instance Functor (Beget r) where
+  fmap _ = Nat $ _Beget id
 
-instance Contravariant (Unget r) where
-  contramap _ = Nat $ _Unget id
+instance Contravariant (Beget r) where
+  contramap _ = Nat $ _Beget id
 
-instance Category ((~>) :: i -> i -> *) => Functor (Unget (r :: i) (a :: k)) where
-  fmap f = _Unget (f .)
+instance Category ((~>) :: i -> i -> *) => Functor (Beget (r :: i) (a :: k)) where
+  fmap f = _Beget (f .)
 
-unget :: (Category c, c ~ (~>)) => (Unget b b b -> Unget b t t) -> c b t
-unget l = runUnget $ l (Unget id)
--- unget = via _Unget
+beget :: (Category c, c ~ (~>)) => (Beget b b b -> Beget b t t) -> c b t
+beget l = runBeget $ l (Beget id)
+-- beget = via _Beget
 
-(#) :: (Unget b b b -> Unget b t t) -> b -> t
-(#) = unget
+(#) :: (Beget b b b -> Beget b t t) -> b -> t
+(#) = beget
 
 -- * Un
 
@@ -834,48 +852,48 @@ instance Tensor (&) where
 
 instance Semitensor p => Semitensor (Lift1 p) where
   associate   = dimap
-    (Nat $ _Lift $ fmap1 (unget _Lift) . get associate . first (get _Lift))
-    (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
+    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate . first (get _Lift))
+    (Nat $ _Lift $ first (beget _Lift) . beget associate . fmap1 (get _Lift))
 
 type instance I (Lift1 p) = Const1 (I p)
 instance Tensor p => Tensor (Lift1 p) where
   lambda = dimap (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-                 (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
+                 (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
   rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
 
 instance Semitensor p => Semitensor (Lift2 p) where
   associate   = dimap
-    (Nat $ _Lift $ fmap1 (unget _Lift) . get associate . first (get _Lift))
-    (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
+    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate . first (get _Lift))
+    (Nat $ _Lift $ first (beget _Lift) . beget associate . fmap1 (get _Lift))
 
 type instance I (Lift2 p) = Const2 (I p)
 instance Tensor p => Tensor (Lift2 p) where
   lambda = dimap
     (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-    (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
+    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
   rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
 
 instance Semitensor p => Semitensor (LiftC p) where
   associate   = dimap
-    (Nat $ _Lift $ fmap1 (unget _Lift) . get associate . first (get _Lift))
-    (Nat $ _Lift $ first (unget _Lift) . unget associate . fmap1 (get _Lift))
+    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate . first (get _Lift))
+    (Nat $ _Lift $ first (beget _Lift) . beget associate . fmap1 (get _Lift))
 
 type instance I (LiftC p) = ConstC (I p)
 instance Tensor p => Tensor (LiftC p) where
   lambda = dimap
     (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-    (Nat $ fmap1 (unget _Lift . first (unget _Const)) (unget lambda))
+    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
   rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (unget _Lift . fmap1 (unget _Const)) (unget rho))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
 
 -- * Internal hom of a closed category
 
 class (Profunctor e, Category (Cod2 e)) => InternalHom (e :: x -> x -> x)  where
   iota :: Iso (e (I e) a) (e (I e) b) a b
   default iota :: (CCC (Cod2 e), e ~ Exp) => Iso (e (I e) a) (e (I e) b) a b
-  iota = dimap (apply . unget rho) (curry (get rho))
+  iota = dimap (apply . beget rho) (curry (get rho))
 
   jot  :: I e ~> e a a
   default jot :: (CCC (Cod2 e), e ~ Exp) => I e ~> e a a
@@ -924,11 +942,11 @@ instance Terminal () where
 -- we can only offer the terminal object for Nat :: (i -> *), not Nat :: (i -> j)
 instance Terminal t => Terminal (Const1 t) where
   type One = Const1 One
-  terminal = Nat (unget _Const . terminal)
+  terminal = Nat (beget _Const . terminal)
 
 instance Terminal t => Terminal (Const2 t) where
   type One = Const2 One
-  terminal = Nat (unget _Const . terminal)
+  terminal = Nat (beget _Const . terminal)
 
 instance Terminal (() :: Constraint) where
   type One = (() :: Constraint)
@@ -936,7 +954,7 @@ instance Terminal (() :: Constraint) where
 
 instance Terminal (ConstC ()) where
   type One = ConstC ()
-  terminal = Nat (unget _Const . terminal)
+  terminal = Nat (beget _Const . terminal)
 
 class Zero ~ t => Initial (t :: i) | i -> t where
   type Zero :: i
@@ -995,13 +1013,13 @@ instance Precartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
   type (*) = Lift2 (*)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
-  Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
+  Nat f &&& Nat g = Nat $ beget _Lift . (f &&& g)
 
 instance Precartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
   type (*) = LiftC (&)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
-  Nat f &&& Nat g = Nat $ unget _Lift . (f &&& g)
+  Nat f &&& Nat g = Nat $ beget _Lift . (f &&& g)
 
 infixl 6 +
 class (h ~ (~>), Symmetric ((+)::i->i->i), Semitensor ((+)::i->i->i)) => Precocartesian (h :: i -> i -> *) | i -> h where
@@ -1021,14 +1039,14 @@ instance Precocartesian (->) where
 
 instance Precocartesian (Nat :: (i -> *) -> (i -> *) -> *) where
   type (+) = Lift1 (+)
-  inl = Nat (unget _Lift . inl)
-  inr = Nat (unget _Lift . inr)
+  inl = Nat (beget _Lift . inl)
+  inr = Nat (beget _Lift . inr)
   Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
 
 instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
   type (+) = Lift2 (+)
-  inl = Nat (unget _Lift . inl)
-  inr = Nat (unget _Lift . inr)
+  inl = Nat (beget _Lift . inl)
+  inr = Nat (beget _Lift . inr)
   Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
 
 -- * Factoring
@@ -1075,7 +1093,7 @@ class Curried (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
   curry = get curried
 
   uncurry :: (a ~> e b c) -> p a b ~> c
-  uncurry = unget curried
+  uncurry = beget curried
 
   apply :: Category (Cod2 e) => p (e a b) a ~> b
   apply = uncurry id
@@ -1513,7 +1531,7 @@ ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
 return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
-return = fmap (get lambda . swap) . strength . fmap1 ap0 . unget rho
+return = fmap (get lambda . swap) . strength . fmap1 ap0 . beget rho
 
 class (Functor f, Category (Dom f)) => Cosemimonad f where
   {-# MINIMAL (duplicate | extend) #-}
@@ -1601,10 +1619,10 @@ _Implies = dimap (reify Dict) (\Dict -> implies) where
   reify k = unsafeCoerce (Magic k :: Magic p q r)
 
 instance Contravariant (|-) where
-  contramap f = Nat $ unget _Sub $ un _Implies (. f)
+  contramap f = Nat $ beget _Sub $ un _Implies (. f)
 
 instance Functor ((|-) p) where
-  fmap f = unget _Sub $ un _Implies (f .)
+  fmap f = beget _Sub $ un _Implies (f .)
 
 instance (&) =| (|-) where
   adj1 = ccc
@@ -1827,15 +1845,15 @@ instance (Comonoidal f, Comonoidal g, Comonoid m) => Comonoid (ComposeC f g m) w
 
 instance (f -| g, f' -| g', Category (Dom f), Category (Cod f)) => Compose1 f' f -| Compose1 g g' where
   adj = dimap (fmap1 compose . get adj . get adj . lmap compose)
-              (lmap decompose . unget adj . unget adj . fmap1 decompose)
+              (lmap decompose . beget adj . beget adj . fmap1 decompose)
 
 instance (f -| g, f' -| g', Category (Dom f), Category (Cod f)) => Compose1 f' f -| Compose2 g g' where
   adj = dimap (fmap1 compose . get adj . get adj . lmap compose)
-              (lmap decompose . unget adj . unget adj . fmap1 decompose)
+              (lmap decompose . beget adj . beget adj . fmap1 decompose)
 
 instance (f -| g, f' -| g', Category (Dom f), Category (Cod f)) => Compose1 f' f -| ComposeC g g' where
   adj = dimap (fmap1 compose . get adj . get adj . lmap compose)
-              (lmap decompose . unget adj . unget adj . fmap1 decompose)
+              (lmap decompose . beget adj . beget adj . fmap1 decompose)
 
 ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
 ap2_1 = case limDict :: Dict (Compose Semimonoidal p e) of Dict -> ap2
