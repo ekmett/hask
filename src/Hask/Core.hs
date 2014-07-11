@@ -437,6 +437,9 @@ instance Const1 -| Lim1 where
 newtype Lim2 (f :: i -> j -> *) (y :: j) = Lim2 { getLim2 :: forall x. f x y }
 type instance Lim = Lim2
 
+newtype Lim3 (f :: i -> j -> k -> *) (y :: j) (z :: k) = Lim3 { getLim3 :: forall x. f x y z }
+type instance Lim = Lim3
+
 instance Functor Lim2 where
   fmap f = Nat $ \(Lim2 g) -> Lim2 (runNat (runNat f) g)
 
@@ -466,10 +469,9 @@ instance ConstC -| LimC where
 class k ~ (~>) => Complete (k :: j -> j -> *) where
   -- The explicit witness here allows us to quantify over all kinds i.
   -- Const -| (Lim :: i -> j) -> j)
-  complete :: () :- (Const -| (Lim :: (i -> j) -> j))
-  default complete :: (Const -| (Lim :: (i -> j) -> j)) => () :- (Const -| (Lim :: (i-> j) -> j))
-  complete = Sub Dict
-
+  complete :: Dict (Const -| (Lim :: (i -> j) -> j))
+  default complete :: (Const -| (Lim :: (i -> j) -> j)) => Dict (Const -| (Lim :: (i-> j) -> j))
+  complete = Dict
 
 instance Complete (->)
 instance Complete (Nat :: (i -> *) -> (i -> *) -> *)
@@ -479,12 +481,10 @@ class Functor f => Continuous f where
   continuous :: f (Lim g) ~> Lim (Compose f g)
 
 instance Continuous (Lim1 :: (i -> *) -> *) where
-  continuous f = Lim $ compose $ Lim $ getLim2 $ getLim f
+  continuous f = Lim $ compose $ fmap (Nat getLim2) f
 
--- TODO:
-
--- instance Continuous (Lim2 :: (i -> j -> *) -> j -> *) where
--- instance Continuous (LimC :: (i -> Constraint) -> Constraint) where
+instance Continuous (Lim2 :: (i -> j -> *) -> j -> *) where
+  continuous = Nat $ \f -> Lim2 $ runNat (compose . fmap (nat2 getLim3)) f
 
 -- * Support for Tagged and Proxy
 
