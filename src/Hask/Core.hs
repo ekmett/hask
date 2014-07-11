@@ -549,6 +549,9 @@ instance Contravariant Proxy where
 instance Functor Dict where
   fmap p Dict = Dict \\ p
 
+instance Continuous Dict where
+  continuous = continuousHask
+
 -- * Lift
 
 -- Lifting lets us define things an index up from simpler parts, recycle products, etc.
@@ -582,8 +585,6 @@ instance Post Functor p => Functor (Lift1 p f) where
 
 instance (Functor p, Post Functor p, Functor f, Functor g) => Functor (Lift1 p f g) where
   fmap f = _Lift (bimap (fmap f) (fmap f))
-
-
 
 -- ** LiftC
 
