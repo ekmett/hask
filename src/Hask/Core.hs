@@ -505,6 +505,9 @@ _Tagged = dimap unTagged Tagged
 instance Functor Proxy where
   fmap _ Proxy = Proxy
 
+instance Category ((~>) :: i -> i -> *) => Continuous (Proxy :: i -> *) where
+  continuous Proxy = Lim (compose Proxy)
+
 instance Contravariant Proxy where
   contramap _ Proxy = Proxy
 
