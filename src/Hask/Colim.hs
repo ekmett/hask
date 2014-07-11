@@ -98,3 +98,12 @@ instance Cocomplete (->)
 instance Cocomplete (Nat :: (i -> *) -> (i -> *) -> *)
 -- instance Cocomplete (Nat :: (i -> j -> *) -> (i -> j -> *) -> *)
 -- instance Cocomplete ((:-) :: Constraint -> Constraint -> *)
+
+class Colimited c where
+  colim :: f a ~> c f
+
+instance Colimited Colim1 where
+  colim = Colim
+
+instance Colimited Colim2 where
+  colim = Nat Colim2
