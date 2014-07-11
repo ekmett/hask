@@ -415,7 +415,6 @@ instance Comonoid b => Comonoid (ConstC b a) where
 newtype Lim1 (f :: i -> *) = Lim { getLim :: forall x. f x }
 type instance Lim = Lim1
 
-
 instance Functor Lim1 where
   fmap (Nat f) (Lim g) = Lim (f g)
 
@@ -493,6 +492,9 @@ instance Continuous (Lim2 :: (i -> j -> *) -> j -> *) where
 
 instance Functor Tagged where
   fmap _ = Nat (_Tagged id)
+
+instance Category ((~>) :: i -> i -> *) => Continuous (Tagged :: i -> * -> *) where
+  continuous = Nat $ \t -> Lim2 $ runNat compose (retag t)
 
 instance Functor (Tagged e) where
   fmap = Prelude.fmap
