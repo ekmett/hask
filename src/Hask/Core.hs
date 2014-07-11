@@ -492,41 +492,26 @@ instance Limited Lim3 where
 instance Limited LimC where
   elim = Sub limDict
 
-class Functor f => Continuous f where
-  continuous :: Limited l => f (l g) ~> Lim (Compose f g)
-
 -- all functors to * are continuous
-continuousHask :: (Functor f, Limited l, Category (Dom f)) => f (l g) -> Lim (Compose1 f g)
-continuousHask f = Lim $ compose (fmap elim f)
+continuous :: (Functor f, Limited l, Category (Dom f)) => f (l g) -> Lim (Compose1 f g)
+continuous f = Lim $ compose (fmap elim f)
 
 -- all functors to k -> * are continuous
-continuousHask1 :: (Functor f, Limited l, Category (Dom f)) => f (l g) `Nat` Lim (Compose2 f g)
-continuousHask1 = Nat $ \f -> Lim2 $ runNat (compose . fmap elim) f
+continuous1 :: (Functor f, Limited l, Category (Dom f)) => f (l g) `Nat` Lim (Compose2 f g)
+continuous1 = Nat $ \f -> Lim2 $ runNat (compose . fmap elim) f
 
 -- all functors to Constraint are continuous
-continuousConstraint :: (Functor f, Limited l, Category (Dom f)) => f (l g) :- Lim (ComposeC f g)
-continuousConstraint = limC . fmap elim where
+continuousC :: (Functor f, Limited l, Category (Dom f)) => f (l g) :- Lim (ComposeC f g)
+continuousC = limC . fmap elim where
   limC :: f (g Any) :- LimC (ComposeC f g)
   limC = Sub Dict
 
-instance Continuous (Lim1 :: (i -> *) -> *) where
-  continuous = continuousHask
-  -- continuous f = Lim $ compose $ fmap (Nat getLim2) f
-
-instance Continuous (Lim2 :: (i -> j -> *) -> j -> *) where
-  continuous = continuousHask1
-  -- continuous = Nat $ \f -> Lim2 $ runNat (compose . fmap (nat2 getLim3)) f
-
-instance Continuous (LimC :: (i -> Constraint) -> Constraint) where
-  continuous = continuousConstraint
+-- composition of limits
 
 -- * Support for Tagged and Proxy
 
 instance Functor Tagged where
   fmap _ = Nat (_Tagged id)
-
-instance Category ((~>) :: i -> i -> *) => Continuous (Tagged :: i -> * -> *) where
-  continuous = Nat $ \t -> Lim2 $ runNat compose (retag t)
 
 instance Functor (Tagged e) where
   fmap = Prelude.fmap
@@ -537,9 +522,6 @@ _Tagged = dimap unTagged Tagged
 instance Functor Proxy where
   fmap _ Proxy = Proxy
 
-instance Category ((~>) :: i -> i -> *) => Continuous (Proxy :: i -> *) where
-  continuous Proxy = Lim (compose Proxy)
-
 instance Contravariant Proxy where
   contramap _ Proxy = Proxy
 
@@ -548,9 +530,6 @@ instance Contravariant Proxy where
 -- Dict :: Constraint -> * switches categories from the category of constraints to Hask
 instance Functor Dict where
   fmap p Dict = Dict \\ p
-
-instance Continuous Dict where
-  continuous = continuousHask
 
 -- * Lift
 
