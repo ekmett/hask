@@ -476,17 +476,49 @@ instance Complete (->)
 instance Complete (Nat :: (i -> *) -> (i -> *) -> *)
 instance Complete ((:-) :: Constraint -> Constraint -> *)
 
-class Functor f => Continuous f where
-  continuous :: f (Lim g) ~> Lim (Compose f g)
+-- we should also have Const -| l
+class (l ~ Lim) => Limited (l :: (i -> j) -> j) | i j -> l where
+  elim :: l g ~> g a
 
--- continuousLim :: (Composed o, Constant k, k -| u) => u (Lim g) ~> Lim (u `o` g)
--- continuousLim = get adj $ Nat $ decompose . _wat . counitAdj
+instance Limited Lim1 where
+  elim = getLim
+
+instance Limited Lim2 where
+  elim = Nat getLim2
+
+instance Limited Lim3 where
+  elim = nat2 getLim3
+
+instance Limited LimC where
+  elim = Sub limDict
+
+class Functor f => Continuous f where
+  continuous :: Limited l => f (l g) ~> Lim (Compose f g)
+
+-- all functors to * are continuous
+continuousHask :: (Functor f, Limited l, Category (Dom f)) => f (l g) -> Lim (Compose1 f g)
+continuousHask f = Lim $ compose (fmap elim f)
+
+-- all functors to k -> * are continuous
+continuousHask1 :: (Functor f, Limited l, Category (Dom f)) => f (l g) `Nat` Lim (Compose2 f g)
+continuousHask1 = Nat $ \f -> Lim2 $ runNat (compose . fmap elim) f
+
+-- all functors to Constraint are continuous
+continuousConstraint :: (Functor f, Limited l, Category (Dom f)) => f (l g) :- Lim (ComposeC f g)
+continuousConstraint = limC . fmap elim where
+  limC :: f (g Any) :- LimC (ComposeC f g)
+  limC = Sub Dict
 
 instance Continuous (Lim1 :: (i -> *) -> *) where
-  continuous f = Lim $ compose $ fmap (Nat getLim2) f
+  continuous = continuousHask
+  -- continuous f = Lim $ compose $ fmap (Nat getLim2) f
 
 instance Continuous (Lim2 :: (i -> j -> *) -> j -> *) where
-  continuous = Nat $ \f -> Lim2 $ runNat (compose . fmap (nat2 getLim3)) f
+  continuous = continuousHask1
+  -- continuous = Nat $ \f -> Lim2 $ runNat (compose . fmap (nat2 getLim3)) f
+
+instance Continuous (LimC :: (i -> Constraint) -> Constraint) where
+  continuous = continuousConstraint
 
 -- * Support for Tagged and Proxy
 
