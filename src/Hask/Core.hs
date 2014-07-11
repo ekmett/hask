@@ -1100,7 +1100,7 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 -- this is just another convenient indexed adjunction with the args flipped around
 
 -- p has some notion of association we'd need poly kinds to talk about properly
-class Curried (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
+class Curried p e | p -> e, e -> p where
   {-# MINIMAL curried | (uncurry, curry) #-}
 
   curried :: (?) p =: e -- Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
@@ -1117,6 +1117,17 @@ class Curried (p :: x -> y -> z) (e :: y -> z -> x) | p -> e, e -> p where
 
   unapply :: Category (Cod2 p) => a ~> e b (p a b)
   unapply = curry id
+
+-- e.g. (Lan f g ~> h) is isomorphic to (g ~> Compose h f)
+class Cocurried f u | f -> u , u -> f where
+  cocurried :: f =: (?) u -- Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
+  cocurried = dimap cocurry uncocurry
+
+  cocurry :: (f a b ~> c) -> b ~> u c a
+  cocurry = get cocurried
+
+  uncocurry :: (b ~> u c a) -> f a b ~> c
+  uncocurry = beget cocurried
 
 -- (*) =| Exp from currying
 ccc :: CCC ((~>) :: i -> i -> *) => (*) =: (Exp :: i -> i -> i)
