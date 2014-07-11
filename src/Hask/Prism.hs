@@ -67,13 +67,13 @@ instance Choice Tagged where
   _Left  = bimap inl inl
   _Right = bimap inr inr
 
-instance Precocartesian ((~>) :: i -> i -> *) => Choice (Unget (r :: i)) where
+instance Precocartesian ((~>) :: i -> i -> *) => Choice (Beget (r :: i)) where
   _Left = bimap inl inl
   _Right = bimap inr inr
 
-type Ungetter t b = forall p. (Choice p, Functor p) => p b b -> p t t
+-- In lens terms this is a 'Review'
+type Begetter t b = forall p. (Choice p, Functor p) => p b b -> p t t
 
--- unto :: (b ~> t) -> Ungetter t b
 unto :: Bifunctor p => (b ~> t) -> p b b -> p t t
 unto f = bimap f f
 

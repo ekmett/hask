@@ -75,8 +75,8 @@ foldMapHask f = runWrapMonoid . Base.foldMap (WrapMonoid . f)
 class Functor f => Traversable f where
   traverse :: Monoidal m => (a ~> m b) ~> f a ~> m (f b)
 
-fmapDefault f    = get _Id . traverse (unget _Id . f)
-foldMapDefault f = get _Const . traverse (unget _Const . f)
+fmapDefault f    = get _Id . traverse (beget _Id . f)
+foldMapDefault f = get _Const . traverse (beget _Const . f)
 
 traverseHask :: (Base.Traversable f, Monoidal m) => (a -> m b) -> f a -> m (f b)
 traverseHask f = runWrapMonoidal . Base.traverse (WrapMonoidal . f)

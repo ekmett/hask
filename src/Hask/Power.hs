@@ -148,7 +148,7 @@ flip :: Powered k => (a ~> u ⋔ b) -> u -> k a b
 flip = get _Power
 
 unflip :: Powered k => (u -> k a b) -> a ~> u ⋔ b
-unflip = unget _Power
+unflip = beget _Power
 
 instance Powered (->) where
   type Power = (->)
