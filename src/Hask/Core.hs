@@ -1701,19 +1701,17 @@ instance Functor No where
   fmap !f = Prelude.undefined
 
 class (Compose ~ o) => Composed (o :: (j -> k) -> (i -> j) -> i -> k) | i j k -> o where
-  type Decomposing :: (j -> k) -> Constraint
   -- can't put the iso in here due to ghc #9200
   -- Composed is used to define Post Functor, Post Functor is used in Profunctor, Profunctor is used in Iso
   -- but we recurse polymorphically during the cycle
   compose   :: f (g a) ~> (f `o` g) a
-  decompose :: Decomposing f => (f `o` g) a ~> f (g a)
+  decompose :: (f `o` g) a ~> f (g a)
 
-composed :: (Decomposing f, Composed o) => Iso ((f `o` g) a) ((f' `o` g') a') (f (g a)) (f' (g' a'))
+composed :: Composed o => Iso ((f `o` g) a) ((f' `o` g') a') (f (g a)) (f' (g' a'))
 composed = dimap decompose compose
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
-data Compose1 f g a where
-  Compose1 :: f x -> (x ~> g a) -> Compose1 f g a
+newtype Compose1 f g a = Compose { getCompose :: f (g a) }
 
 associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
                          (Nat (compose . compose . fmap decompose . decompose))
@@ -1723,53 +1721,55 @@ associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
   -- associate = dimap (Nat $ \(Compose1 (Compose1 ax x2by) y2cz) -> Compose1 ax (\x -> Compose1 (x2by x) y2cz))
   --                  (Nat $ \(Compose1 ax x2bcz) -> Compose1 (Compose1 ax (decompose . x2bcz)) id)
 
-data Compose2 f g a b where
-  Compose2 :: f x b -> (x ~> g a) -> Compose2 f g a b
+newtype Compose2 f g a b = Compose2 { getCompose2 :: f (g a) b }
 
 type instance Compose = Compose1
-instance Category ((~>) :: j -> j -> *) => Composed (Compose1 :: (j -> *) -> (i -> j) -> i -> *) where
-  type Decomposing = (Functor :: (j -> *) -> Constraint)
-  compose f = Compose1 f id
-  decompose (Compose1 xs f) = fmap f xs
+instance Composed (Compose1 :: (j -> *) -> (i -> j) -> i -> *) where
+  compose = Compose
+  decompose = getCompose
 
 type instance Compose = Compose2
-instance Category ((~>) :: j -> j -> *) => Composed (Compose2 :: (j -> k -> *) -> (i -> j) -> i -> k -> *) where
-  type Decomposing = (Functor :: (j -> k -> *) -> Constraint)
-  compose   = Nat $ \f -> Compose2 f id
-  decompose = Nat $ \(Compose2 xs f) -> first f xs
+instance Composed (Compose2 :: (j -> k -> *) -> (i -> j) -> i -> k -> *) where
+  compose   = Nat Compose2
+  decompose = Nat getCompose2
 
 type instance Compose = ComposeC
 instance Composed (ComposeC :: (j -> Constraint) -> (i -> j) -> i -> Constraint) where
-  type Decomposing = (Const (() :: Constraint) :: (j -> Constraint) -> Constraint)
   compose   = Sub Dict
   decompose = Sub Dict
 
 instance Functor Compose1 where
-  fmap f = nat2 $ \(Compose1 xs k) -> Compose1 (runNat f xs) k
+  fmap f = nat2 $ composed $ runNat f
 
 instance Functor Compose2 where
-  fmap f = nat3 $ \(Compose2 xs k) -> Compose2 (runNat2 f xs) k
+  fmap f = nat2 $ composed $ runNat f
 
 instance Functor ComposeC where
   fmap f = nat2 $ composed $ runNat f
 
-instance Category (Dom f) => Functor (Compose1 f) where
-  fmap f = Nat $ \(Compose1 xs k) -> Compose1 xs (runNat f . k)
+instance Functor f => Functor (Compose1 f) where
+  fmap f = Nat $ composed $ fmap $ runNat f
 
-instance Category (Dom f) => Functor (Compose2 f) where
-  fmap f = nat2 $ \(Compose2 xs k) -> Compose2 xs (runNat f . k)
+instance Functor f => Functor (Compose2 f) where
+  fmap f = Nat $ composed $ fmap $ runNat f
 
 instance Functor f => Functor (ComposeC f) where
   fmap f = Nat $ composed $ fmap $ runNat f
 
+instance Contravariant f => Contravariant (Compose1 f) where
+  contramap f = Nat $ composed $ contramap $ runNat f
+
+instance Contravariant f => Contravariant (Compose2 f) where
+  contramap f = Nat $ composed $ contramap $ runNat f
+
 instance Contravariant f => Contravariant (ComposeC f) where
   contramap f = Nat $ composed $ contramap $ runNat f
 
-instance (Category (Dom f), Functor g) => Functor (Compose1 f g) where
-  fmap f (Compose1 xs k) = Compose1 xs (fmap f . k)
+instance (Functor f, Functor g) => Functor (Compose1 f g) where
+  fmap = composed . fmap . fmap
 
-instance (Category (Dom f), Functor g) => Functor (Compose2 f g) where
-  fmap f = Nat $ \(Compose2 xs k) -> Compose2 xs (fmap f . k)
+instance (Functor f, Functor g) => Functor (Compose2 f g) where
+  fmap = composed . fmap . fmap
 
 instance (Functor f, Functor g) => Functor (ComposeC f g) where
   fmap = composed . fmap . fmap
