@@ -71,39 +71,35 @@ import Unsafe.Coerce (unsafeCoerce)
 
 -- * A kind-indexed family of categories
 
-infixr 0 ~>, >>
+infixr 0 ~>, `Nat`, `Hom`
 
 -- | All of our categories will be denoted by the kinds of their arguments.
 --
--- This is too parametric to talk just about categories, but I also want to use it for powers.
-
-type family (>>) :: i -> j -> k
-type instance (>>) = (->)   -- @* -> * -> *@
-type instance (>>) = Nat    -- @(i -> j) -> (i -> j) -> *@
-type instance (>>) = (:-)   -- @Constraint -> Constraint -> *@
-type instance (>>) = Unit   -- @() -> () -> *@
-type instance (>>) = Empty  -- @Void -> Void -> *@
-type instance (>>) = Prod   -- @(i,j) -> (i, j) -> *@
-type instance (>>) = Lift (>>) -- automatically support Nat-enrichment, etc.
+-- This is too parametric to talk just about Hom's for categories, but I also want to use it for powers.
+type family Hom :: i -> j -> k
+type instance Hom = (->)     -- @* -> * -> *@
+type instance Hom = Nat      -- @(i -> j) -> (i -> j) -> *@
+type instance Hom = (:-)     -- @Constraint -> Constraint -> *@
+type instance Hom = Unit     -- @() -> () -> *@
+type instance Hom = Empty    -- @Void -> Void -> *@
+type instance Hom = Prod     -- @(i,j) -> (i, j) -> *@
+type instance Hom = Lift Hom -- automatically support Nat-enrichment, etc.
 
 -- a boring unenriched Hom
-type (~>) = ((>>) :: i -> i -> *)
+type (~>) = (Hom :: i -> i -> *)
 
 -- * convenience types that make it so we can avoid explicitly talking about the kinds as much as possible
-type Dom  (f :: i -> j)      = ((~>) :: i -> i -> *)
-type Cod  (f :: i -> j)      = ((~>) :: j -> j -> *)
-type Cod2 (f :: i -> j -> k) = ((~>) :: k -> k -> *)
-type Arr  (a :: i)           = ((~>) :: i -> i -> *)
+type Dom  (f :: i -> j)      = (Hom :: i -> i -> *)
+type Cod  (f :: i -> j)      = (Hom :: j -> j -> *)
+type Cod2 (f :: i -> j -> k) = (Hom :: k -> k -> *)
+type Arr  (a :: i)           = (Hom :: i -> i -> *)
 
-type Enriched (k :: i -> i -> *) = ((>>) :: i -> i -> j)
-type Internal (k :: i -> i -> *) = ((>>) :: i -> i -> i)
+type Enriched (k :: i -> i -> *) = (Hom :: i -> i -> j)
+type Internal (k :: i -> i -> *) = (Hom :: i -> i -> i)
 
 type Co f     = forall a b. (a ~> b) -> (f a ~> f b)
 type Contra f = forall a b. (b ~> a) -> (f a ~> f b)
 type (?) f a b = f b a
-
-type VCo f     = forall a b. (a >> b) >> f a >> f b
-type VContra f = forall a b. (b >> a) >> f a >> f b
 
 -- * Natural transformations (by using parametricity these are very strong)
 
@@ -670,7 +666,7 @@ instance Functor ((->) e) where
 -- ** Constraint
 
 instance Contravariant (:-) where
-  contramap f = Nat $ dimap Hom runHom (lmap f)
+  contramap f = Nat $ dimap Self runSelf (lmap f)
 
 -- * Misc
 
@@ -728,14 +724,14 @@ swapping :: (Profunctor f, Profunctor f', Category (Dom f), Category (Cod2 f), C
 swapping l = case l (Via id id) of
   Via csa dbt -> dimap (dimap csa csa) (dimap dbt dbt)
 
-newtype Hom a b = Hom { runHom :: a ~> b }
-_Hom = dimap runHom Hom
+newtype Self a b = Self { runSelf :: a ~> b }
+_Self = dimap runSelf Self
 
-instance Category ((~>) :: x -> x -> *) => Contravariant (Hom :: x -> x -> *) where
-  contramap f = Nat (_Hom (.f))
+instance Category ((~>) :: x -> x -> *) => Contravariant (Self :: x -> x -> *) where
+  contramap f = Nat (_Self (.f))
 
-instance Category ((~>) :: x -> x -> *) => Functor (Hom e :: x -> *) where
-  fmap g (Hom h) = Hom (g . h)
+instance Category ((~>) :: x -> x -> *) => Functor (Self e :: x -> *) where
+  fmap g (Self h) = Self (g . h)
 
 instance Contravariant (->) where
   contramap f = Nat (. f)
@@ -808,16 +804,16 @@ newtype Un (p::i->i->j) (a::i) (b::i) (s::i) (t::i) = Un { runUn :: p t s ~> p b
 _Un = dimap runUn Un
 
 instance (Category ((~>)::j->j-> *), Post Functor p) => Contravariant (Un (p::i->i->j) a b) where
-  contramap f = Nat $ _Un $ dimap Hom runHom $ lmap (fmap1 f)
+  contramap f = Nat $ _Un $ dimap Self runSelf $ lmap (fmap1 f)
 
 instance (Category ((~>)::j->j-> *), Post Contravariant p) => Functor (Un (p::i->i->j) a b) where
-  fmap f = Nat $ _Un $ dimap Hom runHom $ lmap (contramap1 f)
+  fmap f = Nat $ _Un $ dimap Self runSelf $ lmap (contramap1 f)
 
 instance (Category ((~>)::j->j-> *), Contravariant p) => Functor (Un (p::i->i->j) a b s) where
-  fmap g = _Un $ dimap Hom runHom $ lmap (lmap g)
+  fmap g = _Un $ dimap Self runSelf $ lmap (lmap g)
 
 instance (Category ((~>)::j->j-> *), Functor p) => Contravariant (Un (p::i->i->j) a b s) where
-  contramap f = _Un $ dimap Hom runHom $ lmap (first f)
+  contramap f = _Un $ dimap Self runSelf $ lmap (first f)
 
 un :: (Un p a b a b -> Un p a b s t) -> p t s -> p b a
 un l = runUn $ l (Un id)
