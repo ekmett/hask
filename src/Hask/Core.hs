@@ -241,6 +241,7 @@ type Arr  (a :: i)           = (Hom :: i -> i -> *)
 
 type Enriched (k :: i -> i -> *) = (Hom :: i -> i -> j)
 type Internal (k :: i -> i -> *) = (Hom :: i -> i -> i)
+type External (k :: i -> i -> j) = (Hom :: i -> i -> *)
 
 infixr 8 ^
 type a ^ b = Internal Hom b a
