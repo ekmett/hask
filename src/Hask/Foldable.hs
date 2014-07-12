@@ -10,6 +10,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -29,14 +30,11 @@
 module Hask.Foldable where
 
 import qualified Control.Applicative as Base
-import Control.Category (Category(..))
 import qualified Data.Foldable as Base
 import qualified Data.Functor as Base
 import qualified Data.Monoid as Base
 import qualified Data.Traversable as Base
-import qualified Prelude
 import Hask.Core
-import Prelude (Either(..), ($), Maybe(..))
 
 -- * A kind-indexed family of categories
 

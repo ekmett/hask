@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -18,11 +19,8 @@
 --------------------------------------------------------------------
 module Hask.Constrained where
 
--- import Control.Category (Category(..))
-import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import Hask.Core
 import Hask.Rep
-import Prelude (($))
 
 infixr |=
 

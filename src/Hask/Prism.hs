@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall #-}
 --------------------------------------------------------------------
@@ -18,10 +19,7 @@
 module Hask.Prism where
 
 import qualified Control.Arrow as Arrow
-import Control.Category (Category(..))
 import Hask.Core
-import Data.Tagged
-import Prelude (($))
 
 class (Precocartesian ((~>) :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
   {-# MINIMAL _Left | _Right #-}

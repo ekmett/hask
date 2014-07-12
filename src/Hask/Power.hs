@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall #-}
@@ -19,10 +20,8 @@
 --------------------------------------------------------------------
 module Hask.Power where
 
-import Control.Category (Category(..))
 import Hask.Core
 import qualified Prelude
-import Prelude (($))
 
 infixr 0 ⋔
 type (⋔) = Power

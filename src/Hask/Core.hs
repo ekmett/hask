@@ -50,7 +50,153 @@
 --
 -- Here, much of the time the selection is implicit.
 --------------------------------------------------------------------
-module Hask.Core where
+module Hask.Core
+  ( Hom, type (~>)
+  , Dom, Cod, Cod2, Arr, Enriched, Internal
+  , type (?)
+
+  -- * Natural transformations
+  , Nat(Nat, runNat), nat2, nat3, runNat2, runNat3, runNat4
+
+  -- * Functors
+  , Co, Contra
+  , Functor(fmap), first
+  , Contravariant(contramap), lmap
+
+  -- * Functor composition
+  , Composed(..), type (·), composed, associateCompose
+
+  -- ** In the limit
+  , Post
+
+  -- ** Derived notions
+  , fmap1, contramap1
+  , Bifunctor, bimap
+  , Profunctor, dimap
+  , Phantom
+
+  -- * Colim -| Const -| Lim
+  , Cocomplete(..)
+  , Constant(..)
+  , Complete(..)
+
+  -- * Natural Isomorphisms
+  , Iso
+  -- * Adjunctions
+  , type (-:), (-|)(..)
+  , unitAdj, counitAdj, zipR, absurdL, cozipL
+  -- ** Currying
+  , Curried(..), ccc
+  -- * Automatic Lifting
+  , Lifted(..)
+  -- * Constraints
+  , (:-)(Sub), Dict(Dict), (\\), type (&), (|-)(implies), _Sub, _Implies
+  -- * Lens Esoterica
+
+  -- ** The Yoneda embedding
+  , Get(..), _Get, get
+  , Beget(..), _Beget, beget, (#)
+
+  -- ** Inverting natural isomorphisms
+  , Un(..), _Un, un
+  , Via(..), via, mapping, lmapping, swapping
+
+  -- ** Hom as a Profunctor
+  , Self(..), _Self
+
+  -- * Monoidal Categories
+  , Semitensor(..)
+  , I
+  , Tensor(..)
+  , Symmetric(..)
+
+  -- * Closed Categories
+  , InternalHom(..)
+
+  -- * Terminal and Initial Objects
+  , Terminal(..)
+  , Initial(..)
+
+  -- * Copowers and Cartesian Categories
+  , Copower, type (*)
+  , Precartesian(..)
+  , Cartesian
+
+  , Precocartesian(..)
+  , Cocartesian
+
+  -- * Distributive bicartesian categories
+  , Distributive(..)
+
+  -- * CCC's
+  , type (^) -- TODO: just use Internal Hom
+  , CCC(..)
+
+  -- * Monoidal Functors
+  , Semimonoidal(..), ap, ap2Applicative
+  , Monoidal(..), return
+  , Cosemimonoidal(..)
+  , Comonoidal(..)
+
+  -- * Monads
+  , Semimonad(..)
+  , Monad
+  , Cosemimonad(..)
+  , Comonad(..)
+
+  -- * Monoids
+  , Semigroup(..), multM
+  , Monoid(..), oneM, mappend
+  , Cosemigroup(..), zeroOp
+  , Comonoid(..), comultOp
+
+  -- * Strength
+  , Strength(..)
+  , Costrength(..)
+
+  -- * Identity functors
+  , Identity(..)
+
+  -- * Kan extensions
+  , HasRan(..)
+  , HasLan(..)
+
+  -- * Categories
+  -- ** Products
+  , Prod(..), runProd, runFst, runSnd, diagProdAdj, sumDiagAdj
+  -- ** Unit
+  , Unit(..)
+  -- ** Empty
+  , Empty(..), No
+
+  -- * Candidates for Removal:
+  , Semicategory
+
+  -- * Internals
+  -- ** Categories
+  -- ** Composition
+  , Compose1(..), Compose2(..), ComposeC
+  -- ** Limits
+  , Lim1(..), Lim2(..), Lim3(..), LimC(..)
+  , Const1(..), Const2(..), ConstC
+  , Colim1(..), Colim2(..)
+  -- ** Identities
+  , Id1(..), IdC
+  -- ** Lifts
+  , Lift1(..), Lift2(..), LiftC
+  -- ** Copowers
+  , Copower1(..), Copower2(..), Copower2_1(..)
+  -- ** Kan extensions
+  , Ran1(..), Lan1(..)
+  -- ** Base Re-exports
+  , Constraint
+  -- ** Prelude Re-Exports
+  , undefined, ($)
+  , Either(..), Maybe(..)
+  -- ** Re-exports
+  , Tagged(..), Proxy(..), Category(..), Void, absurd
+  ) where
+
 
 import qualified Control.Applicative as Base
 import qualified Control.Arrow as Arrow
@@ -1850,18 +1996,6 @@ instance (f -| g, f' -| g', Category (Dom f), Category (Cod f)) => Compose1 f' f
 instance (f -| g, f' -| g', Category (Dom f), Category (Cod f)) => Compose1 f' f -| ComposeC g g' where
   adj = dimap (fmap1 compose . get adj . get adj . lmap compose)
               (lmap decompose . beget adj . beget adj . fmap1 decompose)
-
-ap2_1 :: forall p e a b. Post Semimonoidal p => p e a * p e b ~> p e (a * b)
-ap2_1 = case limDict :: Dict (Compose Semimonoidal p e) of Dict -> ap2
-
-ap0_1 :: forall p e. Post Monoidal p => One ~> p e One
-ap0_1 = case limDict :: Dict (Compose Monoidal p e) of Dict -> ap0
-
-op2_1 :: forall p e a b. Post Cosemimonoidal p => p e (a + b) ~> p e a + p e b
-op2_1 = case limDict :: Dict (Compose Cosemimonoidal p e) of Dict -> op2
-
-op0_1 :: forall p e. Post Comonoidal p => p e Zero ~> Zero
-op0_1 = case limDict :: Dict (Compose Comonoidal p e) of Dict -> op0
 
 -- a semigroupoid/semicategory looks like a "self-enriched" profunctor
 -- when we put no other constraints on p

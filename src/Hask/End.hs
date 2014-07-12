@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -22,11 +23,8 @@
 --------------------------------------------------------------------
 module Hask.End where
 
-import Control.Category (Category(..))
-import Data.Constraint ((:-)(Sub), Dict(Dict))
 import Hask.Core
-import Prelude (($))
-import GHC.Exts (Constraint, Any)
+import GHC.Exts (Any)
 import Unsafe.Coerce (unsafeCoerce)
 
 -- * Ends
