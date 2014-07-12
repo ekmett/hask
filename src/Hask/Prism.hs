@@ -1,19 +1,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LiberalTypeSynonyms #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -Wall #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2014
@@ -25,24 +16,11 @@
 --------------------------------------------------------------------
 module Hask.Prism where
 
-import qualified Control.Applicative as Base
 import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
-import qualified Data.Constraint as Constraint
-import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
-import qualified Data.Foldable as Base
-import qualified Data.Functor as Base
-import qualified Data.Functor.Identity as Base
-import qualified Data.Monoid as Base
 import Hask.Core
-import Data.Proxy
 import Data.Tagged
-import qualified Data.Traversable as Base
-import Data.Void
-import qualified Prelude
-import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
-import GHC.Exts (Constraint, Any)
-import Unsafe.Coerce (unsafeCoerce)
+import Prelude (($))
 
 class (Precocartesian ((~>) :: i -> i -> *), Profunctor p) => Choice (p :: i -> i -> *) where
   {-# MINIMAL _Left | _Right #-}
