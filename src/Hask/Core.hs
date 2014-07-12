@@ -135,18 +135,15 @@ lmap = runNat . contramap
 
 -- * Bifunctors/profunctors through limits
 
--- | Const -| Lim
-type family Lim :: (i -> j) -> j
-
 -- | @LimC :: (i -> Constraint) -> Constraint@ takes limits in the category of constraints
+--
+-- @type instance Lim = LimC@
 class LimC (p :: i -> Constraint) where
   limDict :: Dict (p a)
 
-type instance Lim = LimC
+-- Abuses @Any@ because it inhabits every kind, not a good choice of Skolem, but the best we have
 
--- Abuses Any because it inhabits every kind, not a good choice of Skolem, but the best we have
-
--- If you make any instances for Any, this will burn your house down and scatter the ashes. Don't do that.
+-- If you make any instances for @Any@, this will burn your house down and scatter the ashes. Don't do that.
 instance p Any => LimC (p :: i -> Constraint) where
   limDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
     Sub d -> d
@@ -156,10 +153,10 @@ instance Functor LimC where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
 
-class (c ~ Hom) => Composed (c :: k -> k -> *) | k -> c where
+class (hom ~ Hom) => Composed (hom :: k -> k -> *) | k -> hom where
   type Compose :: (j -> k) -> (i -> j) -> i -> k
-  compose   :: f (g a) `c` Compose f g a
-  decompose :: Compose f g a `c` f (g a)
+  compose   :: f (g a) `hom` Compose f g a
+  decompose :: Compose f g a `hom` f (g a)
 
 infixr 9 ·
 type (·) = Compose
@@ -173,7 +170,7 @@ instance Composed (:-) where
   compose   = Sub Dict
   decompose = Sub Dict
 
-type Post f p = Lim (f · p)
+type Post f p = LimC (f · p)
 
 fmap1 :: forall p c. Post Functor p => Co (p c) -- (a ~> b) -> p c a ~> p c b
 fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
@@ -393,9 +390,8 @@ instance Cosemigroup b => Cosemigroup (ConstC b a) where
 instance Comonoid b => Comonoid (ConstC b a) where
   zero = zero . get _Const
 
-
 newtype Lim1 (f :: i -> *) = Lim { getLim :: forall x. f x }
-type instance Lim = Lim1
+-- type instance Lim = Lim1
 
 instance Functor Lim1 where
   fmap (Nat f) (Lim g) = Lim (f g)
@@ -416,10 +412,10 @@ instance Const1 -| Lim1 where
   adj = dimap (\f a -> Lim (runNat f (Const a))) $ \h -> Nat $ getLim . h . getConst
 
 newtype Lim2 (f :: i -> j -> *) (y :: j) = Lim2 { getLim2 :: forall x. f x y }
-type instance Lim = Lim2
+-- type instance Lim = Lim2
 
 newtype Lim3 (f :: i -> j -> k -> *) (y :: j) (z :: k) = Lim3 { getLim3 :: forall x. f x y z }
-type instance Lim = Lim3
+-- type instance Lim = Lim3
 
 instance Functor Lim2 where
   fmap f = Nat $ \(Lim2 g) -> Lim2 (runNat (runNat f) g)
@@ -447,47 +443,50 @@ instance ConstC -| LimC where
 
 -- | A complete category has all small limits.
 
-class k ~ (~>) => Complete (k :: j -> j -> *) where
+class hom ~ Hom => Complete (hom :: j -> j -> *) | j -> hom where
+  type Lim :: (i -> j) -> j
+
+  elim :: hom (Lim g) (g a)
+
   -- The explicit witness here allows us to quantify over all kinds i.
-  -- Const -| (Lim :: i -> j) -> j)
   complete :: Dict (Const -| (Lim :: (i -> j) -> j))
   default complete :: (Const -| (Lim :: (i -> j) -> j)) => Dict (Const -| (Lim :: (i-> j) -> j))
   complete = Dict
 
-instance Complete (->)
-instance Complete (Nat :: (i -> *) -> (i -> *) -> *)
-instance Complete ((:-) :: Constraint -> Constraint -> *)
-
--- we should also have Const -| l
-class (l ~ Lim) => Limited (l :: (i -> j) -> j) | i j -> l where
-  elim :: l g ~> g a
-
-instance Limited Lim1 where
+instance Complete (->) where
+  type Lim = Lim1
   elim = getLim
+  complete = Dict
 
-instance Limited Lim2 where
+instance Complete (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Lim = Lim2
   elim = Nat getLim2
+  complete = Dict
 
-instance Limited Lim3 where
-  elim = nat2 getLim3
-
-instance Limited LimC where
+instance Complete ((:-) :: Constraint -> Constraint -> *) where
+  type Lim = LimC
   elim = Sub limDict
+  complete = Dict
 
+--instance Limited Lim3 where
+--  elim = nat2 getLim3
+
+{-
 -- all functors to * are continuous
-continuous :: (Functor f, Limited l, Category (Dom f)) => f (l g) -> Lim (f · g)
+continuous :: (Functor f, Complete (Dom f)) => f (l g) -> Lim (f · g)
 continuous f = Lim $ compose (fmap elim f)
 
 -- all functors to k -> * are continuous
-continuous1 :: (Functor f, Limited l, Category (Dom f)) => f (l g) `Nat` Lim (Compose2 f g)
+continuous1 :: (Functor f, Complete (Dom f)) => f (l g) `Nat` Lim (Compose2 f g)
 continuous1 = Nat $ \f -> Lim2 $ runNat (compose . fmap elim) f
 
 -- all functors to Constraint are continuous
-continuousC :: (Functor f, Limited l, Category (Dom f)) => f (l g) :- Lim (ComposeC f g)
+continuousC :: (Functor f, Complete (Dom f)) => f (l g) :- Lim (ComposeC f g)
 continuousC = limC . fmap elim where
   limC :: f (g Any) :- LimC (ComposeC f g)
   limC = Sub Dict
 
+-}
 -- * Support for Tagged and Proxy
 
 instance Functor Tagged where
