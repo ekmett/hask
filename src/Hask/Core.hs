@@ -1918,4 +1918,28 @@ instance Curried Copower2 Nat where
   curry f a = nat2 $ \b -> runNat2 f (Copower2 a b)
   uncurry f = nat2 $ \(Copower2 a b) -> runNat2 (f a) b
 
+-- Nat :: (i -> j -> *) -> (i -> j -> *) -> * is tensored. (Copowered over Nat :: (i -> *) -> (i -> *) -> *)
+data Copower2_1 x f a b = Copower2_1 (x a) (f a b)
+type instance Copower = Copower2_1
 
+instance Functor Copower2_1 where
+  fmap f = nat3 $ \(Copower2_1 xa fab) -> Copower2_1 (runNat f xa) fab
+
+instance Functor (Copower2_1 x) where
+  fmap f = nat2 $ \(Copower2_1 xa fab) -> Copower2_1 xa (runNat2 f fab)
+
+instance (Functor x, Functor f) => Functor (Copower2_1 x f) where
+  fmap f = Nat $ \(Copower2_1 xa fab) -> Copower2_1 (fmap f xa) (first f fab)
+
+instance (Contravariant x, Contravariant f) => Contravariant (Copower2_1 x f) where
+  contramap f = Nat $ \(Copower2_1 xa fab) -> Copower2_1 (contramap f xa) (lmap f fab)
+
+instance Post Functor f => Functor (Copower2_1 x f a) where
+  fmap f (Copower2_1 xa fab) = Copower2_1 xa (fmap1 f fab)
+
+instance Post Contravariant f => Contravariant (Copower2_1 x f a) where
+  contramap f (Copower2_1 xa fab) = Copower2_1 xa (contramap1 f fab)
+
+instance Curried Copower2_1 (Lift1 Nat) where
+  curry f = Nat $ \a -> Lift $ Nat $ \b -> runNat2 f $ Copower2_1 a b
+  uncurry f = nat2 $ \(Copower2_1 a b) -> runNat (lower (runNat f a)) b

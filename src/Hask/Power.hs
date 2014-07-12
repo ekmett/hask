@@ -44,38 +44,6 @@ import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
-{-
-
--- Nat :: (i -> j -> *) -> (i -> j -> *) -> * is tensored. (Copowered over Nat :: (i -> *) -> (i -> *) -> *)
-data Copower2_1 f x a b = Copower2_1 (f a b) (x a)
-
-instance Functor Copower2_1 where
-  fmap f = nat3 $ \(Copower2_1 fab x) -> Copower2_1 (runNat2 f fab) x
-
-instance Functor (Copower2_1 f) where
-  fmap f = nat2 $ \(Copower2_1 fab x) -> Copower2_1 fab (runNat f x)
-
-instance (Functor f, Functor x) => Functor (Copower2_1 f x) where
-  fmap f = Nat $ \(Copower2_1 fa x) -> Copower2_1 (first f fa) (fmap f x)
-
-instance (Contravariant f, Contravariant x) => Contravariant (Copower2_1 f x) where
-  contramap f = Nat $ \(Copower2_1 fa x) -> Copower2_1 (lmap f fa) (contramap f x)
-
-instance Post Functor f => Functor (Copower2_1 f x a) where
-  fmap f (Copower2_1 fab x) = Copower2_1 (fmap1 f fab) x
-
-instance Post Contravariant f => Contravariant (Copower2_1 f x a) where
-  contramap f (Copower2_1 fab x) = Copower2_1 (contramap1 f fab) x
-
-instance Copower2_1 =| Lift1 Nat where
-  adj1 = dimap (\f -> Nat $ \a -> Lift $ Nat $ \e -> runNat2 f (Copower2_1 e a))
-               (\f -> nat2 $ \(Copower2_1 e a) -> runNat (lower (runNat f a)) e)
-
-instance Copower2_1 e -| Lift1 Nat e where
-  adj = adj1
-
--}
-
 class (Profunctor (Power :: * -> j -> j), k ~ (~>)) => Powered (k :: j -> j -> *) | j -> k where
   type Power :: * -> j -> j
   -- | Power _ b -| (_ ~> b) a contravariant adjunction
