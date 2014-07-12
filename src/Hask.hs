@@ -1,6 +1,5 @@
 module Hask
   ( module Hask.At
-  , module Hask.Colim
   , module Hask.Constrained
   , module Hask.Core
   , module Hask.End
@@ -15,7 +14,6 @@ module Hask
   ) where
 
 import Hask.At
-import Hask.Colim
 import Hask.Constrained
 import Hask.Core
 import Hask.End

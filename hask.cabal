@@ -32,7 +32,6 @@ library
   exposed-modules:
     Hask
     Hask.At
-    Hask.Colim
     Hask.Constrained
     Hask.Core
     Hask.End
