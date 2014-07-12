@@ -53,13 +53,12 @@
 module Hask.Core
   ( Hom, type (~>), type (^)
   , Dom, Cod, Cod2, Arr, Enriched, Internal, External
-  , type (?)
 
   -- * Natural transformations
   , Nat(Nat, runNat), nat2, nat3, runNat2, runNat3, runNat4
 
   -- * Functors
-  , Co, Contra
+  , Co, Contra, type (?)
   , Functor(fmap), first
   , Contravariant(contramap), lmap
 
