@@ -48,31 +48,32 @@ import Unsafe.Coerce (unsafeCoerce)
 
 -- * Ends
 
-type family End :: (i -> i -> j) -> j
+class hom ~ Hom => Ended (hom :: j -> j -> *) | j -> hom where
+  type End :: (i -> i -> j) -> j
+  end :: End p `hom` p a a
 
 newtype End1 f = End { getEnd :: forall x. f x x }
-type instance End = End1
 
 instance Functor End1 where
   fmap f (End fcc) = End $ runNat2 f fcc
 
+instance Ended (->) where
+  type End = End1
+  end = getEnd
+
 newtype End2 f y = End2 { getEnd2 :: forall x. f x x y }
-type instance End = End2
 
 instance Functor End2 where
   fmap f = Nat $ \(End2 fcc) -> End2 $ runNat3 f fcc
 
-newtype End3 f y z = End3 { getEnd3 :: forall x. f x x y z }
-type instance End = End3
+-- instance Post (Post Functor) f => Functor (End2 f) where
 
-instance Functor End3 where
-  fmap f = nat2 $ \(End3 fcc) -> End3 $ runNat4 f fcc
+instance Ended (Nat :: (i -> *) -> (i -> *) -> *) where
+  type End = End2
+  end = Nat getEnd2
 
--- assumes p is contravariant in its first argument, covariant in its second
 class EndC (p :: i -> i -> Constraint) where
   endDict :: Dict (p a a)
-
-type instance End = EndC
 
 instance p Any Any => EndC (p :: i -> i -> Constraint) where
   endDict = case unsafeCoerce (id :: p Any Any :- p Any Any) :: p Any Any :- p a a of
@@ -83,14 +84,22 @@ instance Functor EndC where
     runAny :: (p ~> q) -> p Any Any ~> q Any Any
     runAny = runNat2
 
+instance Ended (:-) where
+  type End = EndC
+  end = Sub endDict
+
 -- * Coends
 
-type family Coend :: (i -> i -> j) -> j
+class hom ~ Hom => Coended (hom :: j -> j -> *) | j -> hom where
+  type Coend :: (i -> i -> j) -> j
+  coend :: p a a `hom` Coend p
 
 data Coend1 f where
   Coend :: f x x -> Coend1 f
 
-type instance Coend = Coend1
+instance Coended (->) where
+  type Coend = Coend1
+  coend = Coend
 
 instance Functor Coend1 where
   fmap f (Coend fcc) = Coend $ runNat2 f fcc
@@ -98,7 +107,9 @@ instance Functor Coend1 where
 data Coend2 f y where
   Coend2 :: f x x y -> Coend2 f y
 
-type instance Coend = Coend2
+instance Coended (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Coend = Coend2
+  coend = Nat Coend2
 
 instance Functor Coend2 where
   fmap f = Nat $ \(Coend2 fcc) -> Coend2 $ runNat3 f fcc
