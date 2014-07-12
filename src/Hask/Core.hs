@@ -91,7 +91,7 @@ module Hask.Core
   -- ** Currying
   , Curried(..), curried, ccc
   -- ** Cocurrying
-  , Cocurried(..)
+  , Cocurried(..), cocurried
   -- * Automatic Lifting
   , Lifted(..)
   -- * Constraints
@@ -328,7 +328,8 @@ instance Composed (:-) where
   compose   = Sub Dict
   decompose = Sub Dict
 
-type Post f p = LimC (f · p)
+class LimC (f · p) => Post f p
+instance LimC (f · p) => Post f p
 
 fmap1 :: forall p c. Post Functor p => Co (p c) -- (a ~> b) -> p c a ~> p c b
 fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
@@ -723,21 +724,23 @@ instance Post Contravariant p => Contravariant (Lift2 p f) where
 
 -- Lifting adjunctions
 
--- TODO: used Curried instead?
+curry1 :: forall a b c p q x. (Curried p q, Post (Curryable p) a) => (p (a x) (b x) ~> c x) -> a x ~> q (b x) (c x)
+curry1 = case limDict :: Dict (Compose (Curryable p) a x) of Dict -> curry
 
-{-
-instance (p =| q) => Lift1 p =| Lift1 q where
-  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
-               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
+instance Curried p q => Curried (Lift1 p) (Lift1 q) where
+  type Curryable (Lift1 p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
-instance (p =| q) => Lift2 p =| Lift2 q where
-  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
-               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
+instance Curried p q => Curried (Lift2 p) (Lift2 q) where
+  type Curryable (Lift2 p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
-instance (p =| q) => LiftC p =| LiftC q where
-  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
-               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
--}
+instance Curried p q => Curried (LiftC p) (LiftC q) where
+  type Curryable (LiftC p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
 -- instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where ?
 -- instance (Post Functor p, Post Functor q, Compose p =| Compose q) => Lift1 p e -| Lift1 q e ?
@@ -1296,13 +1299,6 @@ instance CCC (->)
 
 instance (,) e -| (->) e where
   adj = ccc
-
-instance Curried (Lift1 (,)) (Lift1 (->)) where
-  curry   (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
-  uncurry (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
-
--- instance Lift1 (,) =| Lift1 (->) where
---   adj1 = ccc
 
 instance CCC (Nat :: (i -> *) -> (i -> *) -> *)
 
