@@ -58,7 +58,6 @@ module Hask.Core
   , Nat(Nat, runNat), nat2, nat3, runNat2, runNat3, runNat4
 
   -- * Functors
-  , Co, Contra, type (?)
   , Functor(fmap), first
   , Contravariant(contramap), lmap
 
@@ -91,7 +90,7 @@ module Hask.Core
   -- ** Currying
   , Curried(..), curried, ccc
   -- ** Cocurrying
-  , Cocurried(..)
+  , Cocurried(..), cocurried
   -- * Automatic Lifting
   , Lifted(..)
   -- * Constraints
@@ -252,10 +251,6 @@ type Natural  (k :: j -> j -> *) = (Hom :: (i -> j) -> (i -> j) -> *)
 infixr 8 ^
 type a ^ b = Internal Hom b a
 
-type Co f     = forall a b. (a ~> b) -> (f a ~> f b)
-type Contra f = forall a b. (b ~> a) -> (f a ~> f b)
-type (?) f a b = f b a
-
 -- * Natural transformations (by using parametricity these are very strong)
 
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
@@ -277,18 +272,18 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
 -- * Functors between these kind-indexed categories
 
 class Functor (f :: x -> y) where
-  fmap :: Co f -- :: (a ~> b) -> f a ~> f b
+  fmap :: (a ~> b) -> f a ~> f b
 
 instance Functor [] where fmap = Base.fmap
 instance Functor Maybe where fmap = Base.fmap
 
-first :: Functor f => Co (f ? a) -- (a ~> b) -> p a c ~> p b c
+first :: Functor f => (a ~> b) -> f a c ~> f b c
 first = runNat . fmap
 
 class Contravariant f where
-  contramap :: Contra f -- (b ~> a) -> f a ~> f b
+  contramap :: (b ~> a) -> f a ~> f b
 
-lmap :: Contravariant f => Contra (f ? a) -- (a ~> b) -> p b c ~> p a c
+lmap :: Contravariant f => (a ~> b) -> f b c ~> f a c
 lmap = runNat . contramap
 
 -- * Bifunctors/profunctors through limits
@@ -330,10 +325,10 @@ instance Composed (:-) where
 
 type Post f p = LimC (f · p)
 
-fmap1 :: forall p c. Post Functor p => Co (p c) -- (a ~> b) -> p c a ~> p c b
+fmap1 :: forall p a b c. Post Functor p => (a ~> b) -> p c a ~> p c b
 fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
 
-contramap1 :: forall p c. Post Contravariant p => Contra (p c) -- (a ~> b) -> p c b ~> p c a
+contramap1 :: forall p a b c. Post Contravariant p => (a ~> b) -> p c b ~> p c a
 contramap1 f = case limDict :: Dict (Compose Contravariant p c) of Dict -> contramap f
 
 class (Functor p, Post Functor p) => Bifunctor p
