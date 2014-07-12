@@ -19,7 +19,6 @@ module Hask.Rep where
 import Data.Constraint
 import Hask.Core
 import Hask.Prof
-import Control.Category
 
 -- * Representability
 

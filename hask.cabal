@@ -53,7 +53,7 @@ library
     void >= 0.5.4.2 && < 1
 
   hs-source-dirs: src
-  -- ghc-options: -Wall
+  ghc-options: -Wall -fno-warn-missing-signatures
 
   if flag(Optimize)
     ghc-options: -funbox-strict-fields -O2

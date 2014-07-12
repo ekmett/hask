@@ -116,7 +116,7 @@ module Hask.Core
   , Symmetric(..)
 
   -- * Closed Categories
-  , InternalHom(..)
+  , Closed(..)
 
   -- * Terminal and Initial Objects
   , Terminal(..)
@@ -1040,23 +1040,23 @@ instance Tensor p => Tensor (LiftC p) where
 
 -- * Internal hom of a closed category
 
-class (Profunctor e, Category (Cod2 e), e ~ Internal Hom) => InternalHom (e :: x -> x -> x)  where
-  iota :: Curryable b => Iso (e (I e) a) (e (I e) b) a b
-  default iota :: (CCC (Cod2 e), e ~ Internal Hom, Curryable b) => Iso (e (I e) a) (e (I e) b) a b
+class (Profunctor (Internal k), Category k) => Closed (k :: i -> i -> *)  where
+  iota :: Curryable b => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
+  default iota :: (CCC k, Curryable b) => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
-  jot  :: I e ~> e a a
-  default jot :: (CCC (Cod2 e), e ~ Internal Hom) => I e ~> e a a
+  jot  :: I (Internal k) ~> Internal k a a
+  default jot :: CCC k => I (Internal k) ~> Internal k a a
   jot = curry (get lambda)
 
 type instance I (->) = ()
 type instance I (|-) = (() :: Constraint)
 
-instance InternalHom (->)
-instance InternalHom (|-)
-instance InternalHom (Lift1 (->))
+instance Closed (->)
+instance Closed (:-)
+instance Closed (Nat :: (i -> *) -> (i -> *) -> *)
 
--- instance InternalHom (Lift2 (Lift1 (->)))
+-- instance Closed (Nat :: (i -> j -> *) -> (i -> j -> *) -> *)
 
 
 -- symmetric monoidal category
@@ -1281,9 +1281,9 @@ ccc = dimap (. swap) (. swap) . curried
 
 class
   ( Cartesian k
+  , Closed k
   , Curried (*) (Internal k)
   , I (Internal k) ~ I (*)
-  , InternalHom (Internal k)
   , Curryable (I (Internal k))
   ) => CCC (k :: x -> x -> *) | x -> k
 
@@ -1865,8 +1865,8 @@ associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
 
 whiskerComposeL k = Nat $ composed $ runNat k
 whiskerComposeR k = Nat $ composed $ fmap (runNat k)
-lambdaCompose = dimap (compose . beget _Id) (get _Id . decompose)
-rhoCompose = dimap (compose . fmap (beget _Id)) (fmap (get _Id) . decompose)
+lambdaCompose = dimap (Nat (compose . beget _Id)) (Nat (get _Id . decompose))
+rhoCompose = dimap (Nat (compose . fmap (beget _Id))) (Nat (fmap (get _Id) . decompose))
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
 newtype Compose1 f g a = Compose { getCompose :: f (g a) }
@@ -2150,6 +2150,13 @@ class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
   default ranDict :: Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
   ranDict = Dict
 
+  -- yoneda lemma in right Kan extension form
+  iotaRan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor g, Identity id) => Iso (Ran id f) (Ran id g) f g
+
+  -- | return for Codensity
+  jotRan  :: forall (f :: i -> k). Id ~> Ran f f
+
+
 data Ran1 f g a = forall z. Functor z => Ran (Compose z f ~> g) (z a)
 
 instance Curried Compose1 Ran1 where
@@ -2159,6 +2166,13 @@ instance Curried Compose1 Ran1 where
 
 instance HasRan (->) where
   type Ran = Ran1
+  iotaRan = dimap (Nat yoneda) (Nat $ Ran $ Nat (fmap (get _Id) . decompose)) where
+    yoneda :: Ran Id f a -> f a
+    yoneda = undefined
+
+  jotRan = get curried $ beget lambdaCompose
+
+
 
 instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \(Ran k z) -> Ran (f . k) z

@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE UndecidableInstances #-}
 --------------------------------------------------------------------
 -- |
@@ -18,7 +19,6 @@ module Hask.Lens where
 import Control.Category
 import Data.Constraint
 import Hask.Core
-import qualified Prelude
 
 -- todo make this a pre-req to Tensor?
 class (Precartesian ((~>) :: i -> i -> *), Profunctor p) => Strong (p :: i -> i -> *) where

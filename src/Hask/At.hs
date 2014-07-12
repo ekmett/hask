@@ -12,7 +12,6 @@
 module Hask.At where
 
 import Hask.Core
-import Control.Category (Category(..))
 
 -- We can define a functor from the category of natural transformations to Hask
 newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }

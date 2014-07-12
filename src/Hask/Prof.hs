@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
@@ -21,10 +22,7 @@
 --------------------------------------------------------------------
 module Hask.Prof where
 
-import Control.Category
 import Hask.Core
-import qualified Prelude
-import Prelude (($), undefined)
 
 -- forward profunctor composition forms a weak category.
 data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
@@ -57,13 +55,17 @@ associateProf = dimap
   (nat2 $ \ (Prof (Prof a b) c) -> Prof a (Prof b c))
   (nat2 $ \ (Prof a (Prof b c)) -> Prof (Prof a b) c)
 
-{-
-lambdaProf :: (Contravariant p, Category q, q ~> (~>)) => Prof q p ~> p
-lambdaProf = nat2 $ \(Prof h p) -> lmap h p
+whiskerProfL :: (p ~> q) -> Prof p r ~> Prof q r
+whiskerProfL = first
 
-rhoProf :: (Category q, q ~ (~>)) => p ~> Prof p q
-rhoProf = nat2 $ \p -> Prof p id
--}
+whiskerProfR :: (p ~> q) -> Prof l p ~> Prof l q
+whiskerProfR = fmap
+
+lambdaProf :: (Category k, k ~ Hom, Post Functor p) => Iso (Prof k p) (Prof k q) p q
+lambdaProf = dimap (nat2 $ \(Prof k p) -> fmap1 k p) (nat2 $ Prof id)
+
+rhoProf :: (Category k, k ~ Hom, Contravariant p) => Iso (Prof p k) (Prof q k) p q
+rhoProf = dimap (nat2 $ \(Prof p k) -> lmap k p) (nat2 $ \q -> Prof q id)
 
 newtype ProfR p q a b = ProfR { runProfR :: forall x. p x a -> q x b }
 
