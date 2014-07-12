@@ -51,7 +51,7 @@
 -- Here, much of the time the selection is implicit.
 --------------------------------------------------------------------
 module Hask.Core
-  ( Hom, type (~>)
+  ( Hom, type (~>), type (^)
   , Dom, Cod, Cod2, Arr, Enriched, Internal
   , type (?)
 
@@ -129,8 +129,7 @@ module Hask.Core
   , Distributive(..)
 
   -- * CCC's
-  , type (^) -- TODO: just use Internal Hom
-  , CCC(..)
+  , CCC
 
   -- * Monoidal Functors
   , Semimonoidal(..), ap, ap2Applicative
@@ -229,6 +228,7 @@ type instance Hom = Unit     -- @() -> () -> *@
 type instance Hom = Empty    -- @Void -> Void -> *@
 type instance Hom = Prod     -- @(i,j) -> (i, j) -> *@
 type instance Hom = Lift Hom -- automatically support Nat-enrichment, etc.
+type instance Hom = (|-)     -- @Constraint -> Constraint -> Constraint@ the internal hom of (:-)
 
 -- a boring unenriched Hom
 type (~>) = (Hom :: i -> i -> *)
@@ -241,6 +241,9 @@ type Arr  (a :: i)           = (Hom :: i -> i -> *)
 
 type Enriched (k :: i -> i -> *) = (Hom :: i -> i -> j)
 type Internal (k :: i -> i -> *) = (Hom :: i -> i -> i)
+
+infixr 8 ^
+type a ^ b = Internal Hom b a
 
 type Co f     = forall a b. (a ~> b) -> (f a ~> f b)
 type Contra f = forall a b. (b ~> a) -> (f a ~> f b)
@@ -1030,13 +1033,13 @@ instance Tensor p => Tensor (LiftC p) where
 
 -- * Internal hom of a closed category
 
-class (Profunctor e, Category (Cod2 e)) => InternalHom (e :: x -> x -> x)  where
+class (Profunctor e, Category (Cod2 e), e ~ Internal Hom) => InternalHom (e :: x -> x -> x)  where
   iota :: Iso (e (I e) a) (e (I e) b) a b
-  default iota :: (CCC (Cod2 e), e ~ Exp) => Iso (e (I e) a) (e (I e) b) a b
+  default iota :: (CCC (Cod2 e), e ~ Internal Hom) => Iso (e (I e) a) (e (I e) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
   jot  :: I e ~> e a a
-  default jot :: (CCC (Cod2 e), e ~ Exp) => I e ~> e a a
+  default jot :: (CCC (Cod2 e), e ~ Internal Hom) => I e ~> e a a
   jot = curry (get lambda)
 
 type instance I (->) = ()
@@ -1261,24 +1264,18 @@ ccc = dimap (. swap) (. swap) . curried
 
 -- * CCCs
 
-type a ^ b = Exp b a
-infixr 8 ^
-
 class
   ( Cartesian k
-  , Curried (*) (Exp::x->x->x)
-  , I (Exp::x->x->x) ~ I (*)
-  , InternalHom (Exp::x->x->x)
-  ) => CCC (k :: x -> x -> *) | x -> k where
-  -- may be worth splitting out if we ever want non-cartesian closed categories
-  type Exp :: x -> x -> x
+  , Curried (*) (Internal k)
+  , I (Internal k) ~ I (*)
+  , InternalHom (Internal k)
+  ) => CCC (k :: x -> x -> *) | x -> k
 
 instance Curried (,) (->) where
   curry = Prelude.curry
   uncurry = Prelude.uncurry
 
-instance CCC (->) where
-  type Exp = (->)
+instance CCC (->)
 
 instance (,) e -| (->) e where
   adj = ccc
@@ -1290,8 +1287,7 @@ instance Curried (Lift1 (,)) (Lift1 (->)) where
 -- instance Lift1 (,) =| Lift1 (->) where
 --   adj1 = ccc
 
-instance CCC (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Exp = Lift (->)
+instance CCC (Nat :: (i -> *) -> (i -> *) -> *)
 
 -- semimonoidal functors preserve the structure of our pretensor and take semimonoid objects to semimonoid objects
 class (Precartesian ((~>) :: x -> x -> *), Precartesian ((~>) :: y -> y -> *), Functor f) => Semimonoidal (f :: x -> y) where
@@ -1780,8 +1776,7 @@ instance Curried (&) (|-) where
     unapplyConstraint :: p :- q |- (p & q)
     unapplyConstraint = Sub $ get _Implies (Sub Dict)
 
-instance CCC (:-) where
-  type Exp = (|-)
+instance CCC (:-)
 
 -- * The terminal category with one object
 
