@@ -120,9 +120,12 @@ instance Monoid p => Monoidal (EnvC p) where
 instance Semimonad (EnvC p) where
   join (EnvC Dict p) = p
 
+{-
 instance EnvC =| (|=) where
   adj1 = dimap (\eab a -> Constrained $ eab (EnvC Dict a))
                (\aeb (EnvC Dict a) -> runConstrained (aeb a))
+-}
 
 instance EnvC e -| (|=) e where
-  adj = adj1
+  adj = dimap (\eab a -> Constrained $ eab (EnvC Dict a))
+              (\aeb (EnvC Dict a) -> runConstrained (aeb a))

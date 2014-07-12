@@ -194,7 +194,7 @@ type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
 -- * Adjunctions
 
-infixr 0 -|, -:, =|, =:
+infixr 0 -|, -:
 
 -- | the type of an isomorphism that witnesses f -| u
 type f -: u = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
@@ -202,13 +202,6 @@ type f -: u = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u 
 -- | @f -| u@ indicates f is left adjoint to u
 class (Functor f, Functor u) => f -| u | f -> u, u -> f where
   adj :: f -: u
-
--- | the type of an isomorphism that witnesses an indexed adjunction f e -| u e
-type f =: u = forall e e' a b a' b'. Iso (f e a ~> b) (f e' a' ~> b') (a ~> u e b) (a' ~> u e' b')
-
--- | @f =| u@ indicates f_e is left adjoint to u_e via an indexed adjunction
-class (Post Functor f, Post Functor u) => f =| u | f -> u, u -> f where
-  adj1 :: f =: u
 
 unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
@@ -227,29 +220,14 @@ zipR :: (f -| u, Cartesian (Dom u), Cartesian (Cod u))
 zipR = dimap (get adj (beget adj fst &&& beget adj snd))
              (fmap fst &&& fmap snd)
 
--- given f =| u, u is a strong indexed monoidal functor
-zipR1 :: (f =| u, Cartesian (Cod2 u), Cartesian (Cod2 f))
-     => Iso (u e a * u e b) (u e' a' * u e' b') (u e (a * b)) (u e' (a' * b'))
-zipR1 = dimap (get adj1 (beget adj1 fst &&& beget adj1 snd))
-              (fmap1 fst &&& fmap1 snd)
-
 absurdL :: (f -| u, Initial z) => Iso z z (f z) (f z)
 absurdL = dimap initial (beget adj initial)
-
-absurdL1 :: (f =| u, Initial z) => Iso z z (f e z) (f e' z)
-absurdL1 = dimap initial (beget adj1 initial)
 
 cozipL :: (f -| u, Cocartesian (Cod u), Cocartesian (Cod f))
        => Iso (f (a + b)) (f (a' + b')) (f a + f b) (f a' + f b')
 cozipL = dimap
   (beget adj (get adj inl ||| get adj inr))
   (fmap inl ||| fmap inr)
-
-cozipL1 :: (f =| u, Cocartesian (Cod2 u), Cocartesian (Cod2 f))
-       => Iso (f e (a + b)) (f e' (a' + b')) (f e a + f e b) (f e' a' + f e' b')
-cozipL1 = dimap
-  (beget adj1 (get adj1 inl ||| get adj1 inr))
-  (fmap1 inl ||| fmap1 inr)
 
 -- tabulated :: (f -| u) => Iso (a ^ f One) (b ^ f One) (u a) (u b)
 -- splitL :: (f -| u) => Iso (f a) (f a') (a * f One) (a' * f One)
@@ -590,6 +568,9 @@ instance Post Contravariant p => Contravariant (Lift2 p f) where
 
 -- Lifting adjunctions
 
+-- TODO: used Curried instead?
+
+{-
 instance (p =| q) => Lift1 p =| Lift1 q where
   adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
                (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
@@ -601,6 +582,7 @@ instance (p =| q) => Lift2 p =| Lift2 q where
 instance (p =| q) => LiftC p =| LiftC q where
   adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
                (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
+-}
 
 -- instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where ?
 -- instance (Post Functor p, Post Functor q, Compose p =| Compose q) => Lift1 p e -| Lift1 q e ?
@@ -1088,7 +1070,7 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 class Curried p e | p -> e, e -> p where
   {-# MINIMAL curried | (uncurry, curry) #-}
 
-  curried :: (?) p =: e -- Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
+  curried :: Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
   curried = dimap curry uncurry
 
   curry :: (p a b ~> c) -> a ~> e b c
@@ -1105,7 +1087,7 @@ class Curried p e | p -> e, e -> p where
 
 -- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
 class Cocurried f u | f -> u , u -> f where
-  cocurried :: f =: (?) u -- Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
+  cocurried :: Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
   cocurried = dimap cocurry uncocurry
 
   cocurry :: (f a b ~> c) -> b ~> u c a
@@ -1114,8 +1096,7 @@ class Cocurried f u | f -> u , u -> f where
   uncocurry :: (b ~> u c a) -> f a b ~> c
   uncocurry = beget cocurried
 
--- (*) =| Exp from currying
-ccc :: CCC ((~>) :: i -> i -> *) => (*) =: (Exp :: i -> i -> i)
+ccc :: (Category (Cod2 p), Symmetric p, Curried p e) => p i -: e i
 ccc = dimap (. swap) (. swap) . curried
 
 -- * CCCs
@@ -1124,7 +1105,7 @@ type a ^ b = Exp b a
 infixr 8 ^
 
 class
-  ( Cartesian k, (*) =| (Exp::x->x->x)
+  ( Cartesian k
   , Curried (*) (Exp::x->x->x)
   , I (Exp::x->x->x) ~ I (*)
   , InternalHom (Exp::x->x->x)
@@ -1138,9 +1119,6 @@ instance Curried (,) (->) where
 
 instance CCC (->) where
   type Exp = (->)
-
-instance (,) =| (->) where
-  adj1 = ccc
 
 instance (,) e -| (->) e where
   adj = ccc
@@ -1198,6 +1176,7 @@ instance Semigroup (f :- m) where -- every m is a semimonoid
 instance Monoid m => Monoid (f :- m) where
   one = oneM
 
+{-
 instance Semimonoidal (Lift1 (->) f) where
   ap2 = get zipR1
 
@@ -1209,6 +1188,7 @@ instance Semigroup m => Semigroup (Lift1 (->) f m) where
 
 instance Monoid m => Monoid (Lift1 (->) f m) where
   one = oneM
+-}
 
 -- instance Monoidal (LiftC (|-) f) where
 --  ap0 = curry fst
@@ -1624,8 +1604,8 @@ instance Contravariant (|-) where
 instance Functor ((|-) p) where
   fmap f = beget _Sub $ un _Implies (f .)
 
-instance (&) =| (|-) where
-  adj1 = ccc
+--instance (&) =| (|-) where
+--  adj1 = ccc
 
 instance (&) p -| (|-) p where
   adj = ccc
