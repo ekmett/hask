@@ -46,8 +46,25 @@ import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
+-- more general indexing is possible. how should we explore them?
+
+type family Store :: i -> i -> i
+
+data Store0 s a = Store (s -> a) s
+type instance Store = Store0
+
+instance Functor (Store0 s) where
+  fmap f (Store g s) = Store (f . g) s
+
+instance Cosemimonad (Store0 s) where
+  duplicate (Store f s) = Store (Store f) s
+
+instance Comonad (Store0 s) where
+  extract (Store f s) = f s
+
 -- indexed store
 data Store1 s a i = Store1 (s ~> a) (s i)
+type instance Store = Store1
 
 instance Functor (Store1 s) where
   fmap f = Nat $ \(Store1 g s) -> Store1 (f . g) s
