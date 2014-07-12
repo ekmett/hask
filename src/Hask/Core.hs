@@ -114,7 +114,7 @@ module Hask.Core
   , Symmetric(..)
 
   -- * Closed Categories
-  , InternalHom(..)
+  , Closed(..)
 
   -- * Terminal and Initial Objects
   , Terminal(..)
@@ -1038,23 +1038,23 @@ instance Tensor p => Tensor (LiftC p) where
 
 -- * Internal hom of a closed category
 
-class (Profunctor e, Category (Cod2 e), e ~ Internal Hom) => InternalHom (e :: x -> x -> x)  where
-  iota :: Iso (e (I e) a) (e (I e) b) a b
-  default iota :: (CCC (Cod2 e), e ~ Internal Hom) => Iso (e (I e) a) (e (I e) b) a b
+class (Profunctor (Internal k), Category k) => Closed (k :: i -> i -> *)  where
+  iota :: Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
+  default iota :: CCC k => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
-  jot  :: I e ~> e a a
-  default jot :: (CCC (Cod2 e), e ~ Internal Hom) => I e ~> e a a
+  jot  :: I (Internal k) ~> Internal k a a
+  default jot :: CCC k => I (Internal k) ~> Internal k a a
   jot = curry (get lambda)
 
 type instance I (->) = ()
 type instance I (|-) = (() :: Constraint)
 
-instance InternalHom (->)
-instance InternalHom (|-)
-instance InternalHom (Lift1 (->))
+instance Closed (->)
+instance Closed (:-)
+instance Closed (Nat :: (i -> *) -> (i -> *) -> *)
 
--- instance InternalHom (Lift2 (Lift1 (->)))
+-- instance Closed (Nat :: (i -> j -> *) -> (i -> j -> *) -> *)
 
 
 -- symmetric monoidal category
@@ -1271,9 +1271,9 @@ ccc = dimap (. swap) (. swap) . curried
 
 class
   ( Cartesian k
+  , Closed k
   , Curried (*) (Internal k)
   , I (Internal k) ~ I (*)
-  , InternalHom (Internal k)
   ) => CCC (k :: x -> x -> *) | x -> k
 
 instance Curried (,) (->) where
