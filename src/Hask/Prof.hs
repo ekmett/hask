@@ -132,6 +132,12 @@ instance Category (Cod f) => Functor (Up f a) where
 instance Precartesian (Cod f) => Semimonoidal (Up f a) where
   ap2 (f, g) = Up $ runUp f &&& runUp g
 
+instance (Precartesian (Cod f), Semigroup b) => Semigroup (Up f a b) where
+  mult = multM
+
+instance (Cartesian (Cod f), Monoid b) => Monoid (Up f a b) where
+  one = oneM
+
 instance Cartesian (Cod f) => Monoidal (Up f a) where
   ap0 () = Up terminal
 
@@ -162,3 +168,9 @@ instance Monoidal f => Monoidal (Down f a) where
 
 instance Semimonad f => Semimonad (Down f a) where
   join f = Down $ \r -> join $ fmap (\g -> runDown g r) $ runDown f r
+
+instance (Semimonoidal f, Semigroup b) => Semigroup (Down f a b) where
+  mult = multM
+
+instance (Monoidal f, Monoid b) => Monoid (Down f a b) where
+  one = oneM
