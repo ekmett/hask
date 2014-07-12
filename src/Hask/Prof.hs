@@ -141,3 +141,9 @@ instance Category (Cod f) => Contravariant (Down f) where
 
 instance (Functor f, Category (Cod f)) => Functor (Down f a) where
   fmap f = _Down (fmap f .)
+
+instance Semimonoidal f => Semimonoidal (Down f a) where
+  ap2 (f, g) = Down $ ap2 . (runDown f &&& runDown g)
+
+instance Monoidal f => Monoidal (Down f a) where
+  ap0 () = Down $ ap0 . terminal
