@@ -980,8 +980,12 @@ instance Initial i => Initial (ConstC i) where
   initial = Nat $ initial . get _Const
 
 infixl 7 *
+
+-- | This is factored out of Precartesian so that we can also use it for copowers/tensors
+type family Copower :: i -> j -> j
+type (*) = (Copower :: i -> i -> i) -- (*) is a self-copower
+
 class (h ~ (~>), Symmetric ((*)::i->i->i), Semitensor ((*)::i->i->i)) => Precartesian (h :: i -> i -> *) | i -> h where
-  type (*) :: i -> i -> i
   fst   :: forall (a::i) (b::i). a * b ~> a
   snd   :: forall (a::i) (b::i). a * b ~> b
   (&&&) :: forall (a::i) (b::i) (c::i). (a ~> b) -> (a ~> c) -> a ~> b * c
@@ -989,32 +993,32 @@ class (h ~ (~>), Symmetric ((*)::i->i->i), Semitensor ((*)::i->i->i)) => Precart
 class    (h ~ (~>), Tensor ((*)::i->i->i), Terminal (I ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *) | i -> h
 instance (h ~ (~>), Tensor ((*)::i->i->i), Terminal (I ((*)::i->i->i)), Precartesian h) => Cartesian (h ::i->i-> *)
 
+type instance Copower = (,)
 instance Precartesian (->) where
-  type (*) = (,)
   fst   = Prelude.fst
   snd   = Prelude.snd
   (&&&) = (Arrow.&&&)
 
+type instance Copower = (&)
 instance Precartesian (:-) where
-  type (*) = (&)
   fst = Sub Dict
   snd = Sub Dict
   p &&& q = Sub $ Dict \\ p \\ q
 
+type instance Copower = Lift (,)
 instance Precartesian (Nat :: (i -> *) -> (i -> *) -> *) where
-  type (*) = Lift (,)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ Lift . (f &&& g)
 
+type instance Copower = Lift2 (*)
 instance Precartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
-  type (*) = Lift2 (*)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ beget _Lift . (f &&& g)
 
+type instance Copower = LiftC (&)
 instance Precartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
-  type (*) = LiftC (&)
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ beget _Lift . (f &&& g)
@@ -1505,7 +1509,7 @@ instance Semigroup (Const1 Void) where
 -- instance Comonoid (Const2 (Const1 Void)) where
 
 class Functor f => Strength f where
-  strength :: a * f b ~> f (a * b)
+  strength :: a * f b ~> f (a * b) -- this should be able to be an arbitrary copower instead
 
 -- instance (Functor f, Base.Functor f) => Strength f where
 instance Functor f => Strength (f :: * -> *) where

@@ -46,65 +46,52 @@ import Unsafe.Coerce (unsafeCoerce)
 
 -- * Work in progress
 
--- | Copower e -| (~>) e
---
--- note this is forced to be on the 'wrong side' like products in Haskell.
-type family Copower :: x -> y -> x
-
-type instance Copower = (,)
-type instance Copower = Copower1
-type instance Copower = Copower2_1
-type instance Copower = Copower2
-
 -- Nat :: (i -> *) -> (i -> *) -> * is tensored. (Copowered over Hask)
-data Copower1 f x a = Copower (f a) x
+data Copower1 x f a = Copower x (f a)
+type instance Copower = Copower1
 
 instance Functor Copower1 where
-  fmap (Nat f) = nat2 $ \(Copower fa x) -> Copower (f fa) x
+  fmap f = nat2 $ \(Copower x fa) -> Copower (f x) fa
 
-instance Functor (Copower1 f) where
-  fmap f = Nat $ \(Copower fa x) -> Copower fa (f x)
+instance Functor (Copower1 x) where
+  fmap f = Nat $ \(Copower x fa) -> Copower x (runNat f fa)
 
-instance Functor f => Functor  (Copower1 f a) where
-  fmap f (Copower fa x) = Copower (fmap f fa) x
+instance Functor f => Functor (Copower1 x f) where
+  fmap f (Copower x fa) = Copower x (fmap f fa)
 
-instance Contravariant f => Contravariant (Copower1 f a) where
-  contramap f (Copower fa x) = Copower (contramap f fa) x
+instance Contravariant f => Contravariant (Copower1 x f) where
+  contramap f (Copower x fa) = Copower x (contramap f fa)
 
-instance Copower1 =| Nat where
-  adj1 = dimap (\(Nat f) a -> Nat $ \e -> f (Copower e a))
-              (\f -> Nat $ \(Copower e a) -> runNat (f a) e)
+instance Curried Copower1 Nat where
+  curry f a = Nat $ \e -> runNat f (Copower a e)
+  uncurry f = Nat $ \(Copower a e) -> runNat (f a) e
 
-instance Copower1 e -| Nat e where
-  adj = adj1
-
--- Nat :: (i -> j -> *) -> (i -> j -> *) -> * is tensored. (Copowered over Hask)
-data Copower2 f x a b = Copower2 (f a b) x
+data Copower2 x f a b = Copower2 x (f a b)
+type instance Copower = Copower2
 
 instance Functor Copower2 where
-  fmap f = nat3 $ \(Copower2 fab x) -> Copower2 (runNat2 f fab) x
+  fmap f = nat3 $ \(Copower2 x fab) -> Copower2 (f x) fab
 
-instance Functor (Copower2 f) where
-  fmap f = nat2 $ \(Copower2 fab x) -> Copower2 fab (f x)
+instance Functor (Copower2 x) where
+  fmap f = nat2 $ \(Copower2 x fab) -> Copower2 x (runNat2 f fab)
 
-instance Functor f => Functor (Copower2 f x) where
-  fmap f = Nat $ \(Copower2 fa x) -> Copower2 (first f fa) x
+instance Functor f => Functor (Copower2 x f) where
+  fmap f = Nat $ \(Copower2 x fab) -> Copower2 x (first f fab)
 
-instance Contravariant f => Contravariant (Copower2 f x) where
-  contramap f = Nat $ \(Copower2 fa x) -> Copower2 (lmap f fa) x
+instance Post Functor f => Functor (Copower2 x f a) where
+  fmap f (Copower2 x fab) = Copower2 x (fmap1 f fab)
 
-instance Post Functor f => Functor (Copower2 f x a) where
-  fmap f (Copower2 fab x) = Copower2 (fmap1 f fab) x
+instance Contravariant f => Contravariant (Copower2 x f) where
+  contramap f = Nat $ \(Copower2 x fab) -> Copower2 x (lmap f fab)
 
-instance Post Contravariant f => Contravariant (Copower2 f x a) where
-  contramap f (Copower2 fab x) = Copower2 (contramap1 f fab) x
+instance Post Contravariant f => Contravariant (Copower2 x f a) where
+  contramap f (Copower2 x fab) = Copower2 x (contramap1 f fab)
 
-instance Copower2 =| Nat where
-  adj1 = dimap (\f a -> nat2 $ \e -> runNat (runNat f) (Copower2 e a))
-              (\f -> nat2 $ \(Copower2 e a) -> runNat2 (f a) e)
+instance Curried Copower2 Nat where
+  curry f a = nat2 $ \b -> runNat2 f (Copower2 a b)
+  uncurry f = nat2 $ \(Copower2 a b) -> runNat2 (f a) b
 
-instance Copower2 e -| Nat e where
-  adj = adj1
+{-
 
 -- Nat :: (i -> j -> *) -> (i -> j -> *) -> * is tensored. (Copowered over Nat :: (i -> *) -> (i -> *) -> *)
 data Copower2_1 f x a b = Copower2_1 (f a b) (x a)
@@ -133,6 +120,8 @@ instance Copower2_1 =| Lift1 Nat where
 
 instance Copower2_1 e -| Lift1 Nat e where
   adj = adj1
+
+-}
 
 class (Profunctor (Power :: * -> j -> j), k ~ (~>)) => Powered (k :: j -> j -> *) | j -> k where
   type Power :: * -> j -> j
@@ -197,6 +186,6 @@ instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
      (\k -> Nat $ \a' -> Power $ \u' -> runNat (k u') a')
 
 -- (i -> *) is bipowered over Hask
-instance Curried Copower1 Power1 where
-  curry (Nat f) = Nat $ \a -> Power $ \b -> f (Copower a b)
-  uncurry (Nat f) = Nat $ \(Copower a b) -> runPower (f a) b
+--instance Copower1 =| Power1 where
+--  curry (Nat f) = Nat $ \a -> Power $ \b -> f (Copower a b)
+--  uncurry (Nat f) = Nat $ \(Copower a b) -> runPower (f a) b
