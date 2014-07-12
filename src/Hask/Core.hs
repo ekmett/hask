@@ -52,7 +52,7 @@
 --------------------------------------------------------------------
 module Hask.Core
   ( Hom, type (~>), type (^)
-  , Dom, Cod, Cod2, Arr, Enriched, Internal, External
+  , Dom, Cod, Cod2, Arr, Enriched, Internal, External, Natural
 
   -- * Natural transformations
   , Nat(Nat, runNat), nat2, nat3, runNat2, runNat3, runNat4
@@ -64,6 +64,10 @@ module Hask.Core
 
   -- * Functor composition
   , Composed(..), type (·), composed, associateCompose
+  , whiskerComposeL
+  , whiskerComposeR
+  , lambdaCompose
+  , rhoCompose
 
   -- ** In the limit
   , Post
@@ -241,6 +245,7 @@ type Arr  (a :: i)           = (Hom :: i -> i -> *)
 type Enriched (k :: i -> i -> *) = (Hom :: i -> i -> j)
 type Internal (k :: i -> i -> *) = (Hom :: i -> i -> i)
 type External (k :: i -> i -> j) = (Hom :: i -> i -> *)
+type Natural  (k :: j -> j -> *) = (Hom :: (i -> j) -> (i -> j) -> *)
 
 infixr 8 ^
 type a ^ b = Internal Hom b a
@@ -1848,6 +1853,11 @@ composed = dimap decompose compose
 
 associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
                          (Nat (compose . compose . fmap decompose . decompose))
+
+whiskerComposeL k = Nat $ composed $ runNat k
+whiskerComposeR k = Nat $ composed $ fmap (runNat k)
+lambdaCompose = dimap (compose . beget _Id) (get _Id . decompose)
+rhoCompose = dimap (compose . fmap (beget _Id)) (fmap (get _Id) . decompose)
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
 newtype Compose1 f g a = Compose { getCompose :: f (g a) }
