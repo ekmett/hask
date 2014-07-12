@@ -1268,14 +1268,11 @@ curried = dimap curry uncurry
 
 -- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
 class Cocurried f u | f -> u , u -> f where
-  cocurried :: Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
-  cocurried = dimap cocurry uncocurry
-
-  cocurry :: (f a b ~> c) -> b ~> u c a
-  cocurry = get cocurried
-
+  cocurry   :: (f a b ~> c) -> b ~> u c a
   uncocurry :: (b ~> u c a) -> f a b ~> c
-  uncocurry = beget cocurried
+
+cocurried :: Cocurried f u => Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
+cocurried = dimap cocurry uncocurry
 
 ccc :: (Category (Cod2 p), Symmetric p, Curried p e, Curryable p a) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
 ccc = dimap (. swap) (. swap) . curried
