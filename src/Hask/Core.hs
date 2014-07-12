@@ -16,6 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -Wall -fno-warn-missing-signatures -fno-warn-unused-imports #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2008-2014 and Sjoerd Visscher 2014
@@ -56,10 +57,8 @@ import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
 import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
-import qualified Data.Foldable as Base
 import qualified Data.Functor as Base
 import qualified Data.Functor.Identity as Base
-import qualified Data.Monoid as Base
 import Data.Proxy
 import Data.Tagged
 import qualified Data.Traversable as Base
@@ -1666,7 +1665,8 @@ newtype Empty (a :: Void) (b :: Void) = Empty (Empty a b)
 
 instance Category Empty where
   id = Empty id
-  (.) (!f) = spin f where spin (Empty f) = spin f
+  (.) (!f0) = spin f0 where
+    spin (Empty f) = spin f
 
 instance Symmetric Empty where
   swap (Empty f) = Empty (swap f)
@@ -1687,7 +1687,7 @@ instance Contravariant (Empty a) where
 data No (a :: Void)
 
 instance Functor No where
-  fmap !f = Prelude.undefined
+  fmap !_ = Prelude.undefined
 
 -- * More about composition
 
