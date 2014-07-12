@@ -37,7 +37,6 @@ library
     Hask.End
     Hask.Foldable
     Hask.Groupoid
-    Hask.Kan
     Hask.Key
     Hask.Lens
     Hask.Power
