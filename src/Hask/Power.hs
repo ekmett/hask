@@ -44,27 +44,31 @@ import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
-class (Profunctor (Power :: * -> j -> j), k ~ (~>)) => Powered (k :: j -> j -> *) | j -> k where
-  type Power :: * -> j -> j
-  -- | Power _ b -| (_ ~> b) a contravariant adjunction
-  _Power :: forall (u :: *) (u' :: *) (a :: j) (a' :: j) (b :: j) (b' :: j).
-             Iso (a ~> Power u b) (a' ~> Power u' b') (u -> (a ~> b)) (u' -> (a' ~> b'))
-
--- powers are traditionally denoted ⋔ in prefix, but ⋔ is an operator
 infixr 0 ⋔
 type (⋔) = Power
 
-flip :: Powered k => (a ~> u ⋔ b) -> u -> k a b
-flip = get _Power
+class (Category ((~>) :: i -> i -> *), hom ~ Hom) => Powered (hom :: j -> j -> i) where
+  type Power :: i -> j -> j
+  flipped :: forall (a :: j) (u :: i) (b :: j) (a' :: j) (u' :: i) (b' :: j).
+    Iso (hom a (Power u b)) (hom a' (Power u' b')) (u `Hom` hom a b) (u' `Hom` hom a' b')
 
-unflip :: Powered k => (u -> k a b) -> a ~> u ⋔ b
-unflip = beget _Power
+flip :: Powered hom => hom a (Power u b) ~> Hom u (hom a b)
+flip = get flipped
+
+unflip :: Powered hom => Hom u (hom a b) ~> hom a (Power u b)
+unflip = beget flipped
 
 instance Powered (->) where
   type Power = (->)
-  _Power = dimap Prelude.flip Prelude.flip
+  flipped = dimap Prelude.flip Prelude.flip
 
 newtype Power1 v f a = Power { runPower :: v -> f a }
+
+instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Power = Power1
+  flipped = dimap
+     (\k v -> Nat $ \f -> runPower (runNat k f) v)
+     (\k -> Nat $ \a' -> Power $ \u' -> runNat (k u') a')
 
 instance Contravariant Power1 where
   contramap f = nat2 $ Power . lmap f . runPower
@@ -98,15 +102,3 @@ instance (Monoidal f, Monoid m) => Monoid (Power1 v f m) where
 
 instance Functor f => Functor (Power1 v f) where
   fmap f = Power . fmap1 (fmap f) . runPower
-
--- (i -> *) is powered over Hask
-instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
-  type Power = Power1
-  _Power = dimap
-     (\k v -> Nat $ \f -> runPower (runNat k f) v)
-     (\k -> Nat $ \a' -> Power $ \u' -> runNat (k u') a')
-
--- (i -> *) is bipowered over Hask
---instance Copower1 =| Power1 where
---  curry (Nat f) = Nat $ \a -> Power $ \b -> f (Copower a b)
---  uncurry (Nat f) = Nat $ \(Copower a b) -> runPower (f a) b
