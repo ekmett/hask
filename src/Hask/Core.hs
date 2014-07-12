@@ -654,6 +654,8 @@ instance Contravariant (:-) where
 instance Functor (Either e) where
   fmap = Arrow.right
 
+-- ** Lens esoterica
+
 data Via (a :: x) (b :: x) (s :: x) (t :: x) where
   Via :: (s ~> a) -> (b ~> t) -> Via a b s t
 
@@ -1712,6 +1714,14 @@ composed = dimap decompose compose
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
 data Compose1 f g a where
   Compose1 :: f x -> (x ~> g a) -> Compose1 f g a
+
+associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
+                         (Nat (compose . compose . fmap decompose . decompose))
+
+--instance Semitensor Compose1 where
+  -- needs a functor on b to decompose
+  -- associate = dimap (Nat $ \(Compose1 (Compose1 ax x2by) y2cz) -> Compose1 ax (\x -> Compose1 (x2by x) y2cz))
+  --                  (Nat $ \(Compose1 ax x2bcz) -> Compose1 (Compose1 ax (decompose . x2bcz)) id)
 
 data Compose2 f g a b where
   Compose2 :: f x b -> (x ~> g a) -> Compose2 f g a b
