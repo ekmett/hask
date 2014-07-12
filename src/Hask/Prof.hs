@@ -129,6 +129,12 @@ instance (Functor f, Category (Cod f)) => Contravariant (Up f) where
 instance Category (Cod f) => Functor (Up f a) where
   fmap f = _Up (f .)
 
+instance Precartesian (Cod f) => Semimonoidal (Up f a) where
+  ap2 (f, g) = Up $ runUp f &&& runUp g
+
+instance Cartesian (Cod f) => Monoidal (Up f a) where
+  ap0 () = Up terminal
+
 -- Cat -> Prof, Representable, companion
 data Down f a b = Down { runDown :: a ~> f b }
 _Down = dimap runDown Down
