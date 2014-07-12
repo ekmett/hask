@@ -1041,8 +1041,8 @@ instance Tensor p => Tensor (LiftC p) where
 -- * Internal hom of a closed category
 
 class (Profunctor (Internal k), Category k) => Closed (k :: i -> i -> *)  where
-  iota :: Curryable b => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
-  default iota :: (CCC k, Curryable b) => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
+  iota :: Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
+  default iota :: (CCC k, Curryable (*) b) => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
   jot  :: I (Internal k) ~> Internal k a a
@@ -1235,17 +1235,20 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 -- gives us a notion of a closed category when applied to the exponential
 --
 -- this is just another convenient indexed adjunction with the args flipped around
-type family Curryable (a :: k) :: Constraint
-type instance Curryable (a :: *) = (() :: Constraint)
-type instance Curryable (a :: Constraint) = (() :: Constraint)
-type instance Curryable (a :: i -> *) = Functor a
+-- type family Curryable (p :: k -> i -> j) (a :: k) :: Constraint
+-- type instance Curryable (a :: *) = (() :: Constraint)
+-- type instance Curryable (a :: Constraint) = (() :: Constraint)
+-- type instance Curryable (a :: i -> *) = Functor a
 
 -- p has some notion of association we'd need poly kinds to talk about properly
-class Curried p e | p -> e, e -> p where
+class Curried (p :: k -> i -> j) (e :: i -> j -> k) | p -> e, e -> p where
+  type Curryable (p :: k -> i -> j) :: k -> Constraint
+  type Curryable p = Const (() :: Constraint)
+
   {-# MINIMAL (curry, uncurry) | (apply, unapply) #-}
 
-  curry :: Curryable a => (p a b ~> c) -> a ~> e b c
-  default curry :: (Post Functor e, Category (Cod2 e), Category (Cod2 p), Curryable a) => (p a b ~> c) -> a ~> e b c
+  curry :: Curryable p a => (p a b ~> c) -> a ~> e b c
+  default curry :: (Post Functor e, Category (Cod2 e), Category (Cod2 p), Curryable p a) => (p a b ~> c) -> a ~> e b c
   curry q = fmap1 q . unapply
 
   uncurry :: (a ~> e b c) -> p a b ~> c
@@ -1256,11 +1259,11 @@ class Curried p e | p -> e, e -> p where
   default apply :: Category (Cod2 e) => p (e a b) a ~> b
   apply = uncurry id
 
-  unapply :: Curryable a => a ~> e b (p a b)
-  default unapply :: (Category (Cod2 p), Curryable a) => a ~> e b (p a b)
+  unapply :: Curryable p a => a ~> e b (p a b)
+  default unapply :: (Category (Cod2 p), Curryable p a) => a ~> e b (p a b)
   unapply = curry id
 
-curried :: (Curried p e, Curryable a) => Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
+curried :: (Curried p e, Curryable p a) => Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
 curried = dimap curry uncurry
 
 -- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
@@ -1274,7 +1277,7 @@ class Cocurried f u | f -> u , u -> f where
   uncocurry :: (b ~> u c a) -> f a b ~> c
   uncocurry = beget cocurried
 
-ccc :: (Category (Cod2 p), Symmetric p, Curried p e, Curryable a) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
+ccc :: (Category (Cod2 p), Symmetric p, Curried p e, Curryable p a) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
 ccc = dimap (. swap) (. swap) . curried
 
 -- * CCCs
@@ -1284,8 +1287,9 @@ class
   , Closed k
   , Curried (*) (Internal k)
   , I (Internal k) ~ I (*)
-  , Curryable (I (Internal k))
+  , Curryable (*) (I (Internal k))
   ) => CCC (k :: x -> x -> *) | x -> k
+
 
 instance Curried (,) (->) where
   curry = Prelude.curry
@@ -1623,7 +1627,7 @@ instance Semigroup (p :: Constraint) where
 instance Monoid (() :: Constraint) where
   one = id
 
-mappend :: (Semigroup m, CCC (Arr m), Curryable m) => m ~> m^m
+mappend :: (Semigroup m, CCC (Arr m), Curryable (*) m) => m ~> m^m
 mappend = curry mult
 
 class Precocartesian (Arr m) => Cosemigroup m where
@@ -1679,7 +1683,7 @@ class Functor f => Costrength (f :: x -> x) where
 instance (Functor f, Base.Traversable f) => Costrength f where
   costrength = Base.sequence
 
-ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f), Curryable (f (b ^ a))) => f (b ^ a) ~> f b ^ f a
+ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f), Curryable (*) (f (b ^ a))) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
 return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
@@ -2160,6 +2164,7 @@ class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
 data Ran1 f g a = forall z. Functor z => Ran (Compose z f ~> g) (z a)
 
 instance Curried Compose1 Ran1 where
+  type Curryable Compose1 = Functor
   curry l = Nat (Ran l)
   uncurry l = Nat $ \ (Compose ab) -> case runNat l ab of
     Ran czfg za -> runNat czfg (Compose za)
