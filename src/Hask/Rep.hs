@@ -28,6 +28,7 @@ module Hask.Rep where
 import Data.Constraint
 import Hask.Core
 import Hask.Prof
+import Control.Category
 import qualified Prelude
 
 -- * Representability
@@ -52,8 +53,22 @@ instance Representable (Down f) where
   type Rep (Down f) = f
   _Rep = dimap runDown Down
 
--- instance (Representable p, Representable q) => Representable (Prof p q :: i -> j -> *) where
---  type Rep (Prof p q) = Up (Rep q) (Rep p)
+instance ( Representable p
+         , Representable q
+         , Composed (Compose :: (j -> i) -> (k -> j) -> k -> i)
+         , Functor (Rep q)
+         , Category (Hom :: i -> i -> *)
+         , Category (Hom :: j -> j -> *)
+         ) => Representable (Prof (p :: j -> k -> *) (q :: i -> j -> *)) where
+  type Rep (Prof p q) = Compose (Rep q) (Rep p)
+  _Rep = dimap (\(Prof p q) -> compose . fmap (get _Rep p) . get _Rep q)
+               (\k -> Prof (beget _Rep id) (beget _Rep (decompose . k)))
+
+{-
+downs = dimap hither yon where
+  hither (Prof (Down xgc) (Down dfx)) = Down (Compose . fmap xgc . dfx)
+  yon (Down dfgc) = Prof (Down id) (Down (getCompose . dfgc))
+-}
 
 class Corepresentable (p :: x -> y -> *) where
   type Corep p :: x -> y
@@ -74,3 +89,20 @@ instance Corepresentable (:-) where
 instance Corepresentable (Up f) where
   type Corep (Up f) = f
   _Corep = dimap runUp Up
+
+instance ( Corepresentable p
+         , Corepresentable q
+         , Composed (Compose :: (j -> k) -> (i -> j) -> i -> k)
+         , Functor (Corep p)
+         , Category (Hom :: j -> j -> *)
+         , Category (Hom :: k -> k -> *)
+         ) => Corepresentable (Prof (p :: j -> k -> *) (q :: i -> j -> *)) where
+  type Corep (Prof p q) = Compose (Corep p) (Corep q)
+  _Corep = dimap (\(Prof p q) -> get _Corep p . fmap (get _Corep q) . decompose)
+                 (\k -> Prof (beget _Corep (k . compose)) (beget _Corep id))
+
+{-
+ups = dimap hither yon where
+  hither (Prof (Up gxc) (Up fdx)) = Up (gxc . fmap fdx . getCompose)
+  yon (Up dgfc) = Prof (Up (dgfc . Compose)) (Up id)
+-}
