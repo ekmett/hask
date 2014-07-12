@@ -16,6 +16,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -Wall -fno-warn-missing-signatures #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2014
@@ -28,23 +29,14 @@
 module Hask.Foldable where
 
 import qualified Control.Applicative as Base
-import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
-import qualified Data.Constraint as Constraint
-import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Data.Foldable as Base
 import qualified Data.Functor as Base
-import qualified Data.Functor.Identity as Base
 import qualified Data.Monoid as Base
-import Data.Proxy
-import Data.Tagged
 import qualified Data.Traversable as Base
-import Data.Void
 import qualified Prelude
 import Hask.Core
-import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
-import GHC.Exts (Constraint, Any)
-import Unsafe.Coerce (unsafeCoerce)
+import Prelude (Either(..), ($), Maybe(..))
 
 -- * A kind-indexed family of categories
 
@@ -81,11 +73,9 @@ foldMapDefault f = get _Const . traverse (beget _Const . f)
 traverseHask :: (Base.Traversable f, Monoidal m) => (a -> m b) -> f a -> m (f b)
 traverseHask f = runWrapMonoidal . Base.traverse (WrapMonoidal . f)
 
-instance Functor [] where fmap = Base.fmap
 instance Foldable [] where foldMap = foldMapHask
 instance Traversable [] where traverse = traverseHask
 
-instance Functor Maybe where fmap = Base.fmap
 instance Foldable Maybe where foldMap = foldMapHask
 instance Traversable Maybe where traverse = traverseHask
 
@@ -103,10 +93,10 @@ instance Foldable (Lift2 (Lift1 (,)) e) where foldMap f = f . snd
 -- coproducts
 instance Foldable (Lift1 Either e) where
   foldMap f = Nat $ \case
-    Lift (Left a)  -> runNat one (Const ())
+    Lift (Left _)  -> runNat one (Const ())
     Lift (Right b) -> runNat f b
 
 instance Foldable (Lift2 (Lift1 Either) e) where
   foldMap f = Nat $ Nat $ \case
-    Lift2 (Lift (Left a))  -> runNat2 one (Const2 (Const ()))
+    Lift2 (Lift (Left _))  -> runNat2 one (Const2 (Const ()))
     Lift2 (Lift (Right b)) -> runNat2 f b

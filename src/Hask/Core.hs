@@ -124,6 +124,9 @@ instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j)
 class Functor (f :: x -> y) where
   fmap :: Co f -- :: (a ~> b) -> f a ~> f b
 
+instance Functor [] where fmap = Base.fmap
+instance Functor Maybe where fmap = Base.fmap
+
 first :: Functor f => Co (f ? a) -- (a ~> b) -> p a c ~> p b c
 first = runNat . fmap
 
