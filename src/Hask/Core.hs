@@ -52,7 +52,7 @@
 --------------------------------------------------------------------
 module Hask.Core
   ( Hom, type (~>), type (^)
-  , Dom, Cod, Cod2, Arr, Enriched, Internal
+  , Dom, Cod, Cod2, Arr, Enriched, Internal, External
   , type (?)
 
   -- * Natural transformations
