@@ -323,7 +323,8 @@ instance Composed (:-) where
   compose   = Sub Dict
   decompose = Sub Dict
 
-type Post f p = LimC (f · p)
+class LimC (f · p) => Post f p
+instance LimC (f · p) => Post f p
 
 fmap1 :: forall p a b c. Post Functor p => (a ~> b) -> p c a ~> p c b
 fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
@@ -718,21 +719,23 @@ instance Post Contravariant p => Contravariant (Lift2 p f) where
 
 -- Lifting adjunctions
 
--- TODO: used Curried instead?
+curry1 :: forall a b c p q x. (Curried p q, Post (Curryable p) a) => (p (a x) (b x) ~> c x) -> a x ~> q (b x) (c x)
+curry1 = case limDict :: Dict (Compose (Curryable p) a x) of Dict -> curry
 
-{-
-instance (p =| q) => Lift1 p =| Lift1 q where
-  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
-               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
+instance Curried p q => Curried (Lift1 p) (Lift1 q) where
+  type Curryable (Lift1 p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
-instance (p =| q) => Lift2 p =| Lift2 q where
-  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
-               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
+instance Curried p q => Curried (Lift2 p) (Lift2 q) where
+  type Curryable (Lift2 p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
-instance (p =| q) => LiftC p =| LiftC q where
-  adj1 = dimap (\f -> Nat $ beget _Lift . get adj1 (runNat f . beget _Lift))
-               (\g -> Nat $ beget adj1 (get _Lift . runNat g) . get _Lift)
--}
+instance Curried p q => Curried (LiftC p) (LiftC q) where
+  type Curryable (LiftC p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
 -- instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where ?
 -- instance (Post Functor p, Post Functor q, Compose p =| Compose q) => Lift1 p e -| Lift1 q e ?
@@ -977,8 +980,17 @@ type family I (p :: x -> x -> x) :: x
 
 -- tensor for a monoidal category
 class Semitensor p => Tensor (p :: x -> x -> x) where
-  lambda    :: Iso (p (I p) a) (p (I p) a') a a'
-  rho       :: Iso (p a (I p)) (p a' (I p)) a a'
+  type Tensorable (p :: x -> x -> x) :: x -> Constraint
+  type Tensorable p = Const (() :: Constraint)
+  
+  lambda :: Tensorable p a => Iso (p (I p) a) (p (I p) a) a a
+  rho    :: Tensorable p a => Iso (p a (I p)) (p a (I p)) a a
+
+lambda1 :: forall a p x. (Tensor p, Post (Tensorable p) a) => Iso (p (I p) (a x)) (p (I p) (a x)) (a x) (a x)
+lambda1 = case limDict :: Dict (Compose (Tensorable p) a x) of Dict -> lambda
+
+rho1 :: forall a p x. (Tensor p, Post (Tensorable p) a) => Iso (p (a x) (I p)) (p (a x) (I p)) (a x) (a x)
+rho1 = case limDict :: Dict (Compose (Tensorable p) a x) of Dict -> rho
 
 type instance I (,) = ()
 instance Tensor (,) where
@@ -1002,10 +1014,11 @@ instance Semitensor p => Semitensor (Lift1 p) where
 
 type instance I (Lift1 p) = Const1 (I p)
 instance Tensor p => Tensor (Lift1 p) where
-  lambda = dimap (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-                 (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
+  type Tensorable (Lift1 p) = Post (Tensorable p)
+  lambda = dimap (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
+                 (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
 instance Semitensor p => Semitensor (Lift2 p) where
   associate   = dimap
@@ -1014,11 +1027,12 @@ instance Semitensor p => Semitensor (Lift2 p) where
 
 type instance I (Lift2 p) = Const2 (I p)
 instance Tensor p => Tensor (Lift2 p) where
+  type Tensorable (Lift2 p) = Post (Tensorable p)
   lambda = dimap
-    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
+    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
+    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
 instance Semitensor p => Semitensor (LiftC p) where
   associate   = dimap
@@ -1027,21 +1041,23 @@ instance Semitensor p => Semitensor (LiftC p) where
 
 type instance I (LiftC p) = ConstC (I p)
 instance Tensor p => Tensor (LiftC p) where
+  type Tensorable (LiftC p) = Post (Tensorable p)
   lambda = dimap
-    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
+    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
+    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
 -- * Internal hom of a closed category
 
 class (Profunctor (Internal k), Category k) => Closed (k :: i -> i -> *)  where
   iota :: Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
-  default iota :: (CCC k, Curryable (*) b) => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
+  default iota :: (CCC k, Curryable (*) b, Tensorable (*) b, Tensorable (*) (Internal k (I (*)) a)) 
+               => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
   jot  :: I (Internal k) ~> Internal k a a
-  default jot :: CCC k => I (Internal k) ~> Internal k a a
+  default jot :: (CCC k, Tensorable (*) a) => I (Internal k) ~> Internal k a a
   jot = curry (get lambda)
 
 type instance I (->) = ()
@@ -1291,13 +1307,6 @@ instance CCC (->)
 
 instance (,) e -| (->) e where
   adj = ccc
-
-instance Curried (Lift1 (,)) (Lift1 (->)) where
-  curry   (Nat f) = Nat $ \a -> Lift $ \b -> f (Lift (a, b))
-  uncurry (Nat f) = Nat $ \(Lift (a,b)) -> lower (f a) b
-
--- instance Lift1 (,) =| Lift1 (->) where
---   adj1 = ccc
 
 instance CCC (Nat :: (i -> *) -> (i -> *) -> *)
 
@@ -1678,7 +1687,7 @@ instance (Functor f, Base.Traversable f) => Costrength f where
 ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f), Curryable (*) (f (b ^ a))) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
-return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
+return :: (Monoidal f, Strength f, CCC (Dom f), Tensorable (*) a) => a ~> f a
 return = fmap (get lambda . swap) . strength . fmap1 ap0 . beget rho
 
 class (Functor f, Category (Dom f)) => Cosemimonad f where

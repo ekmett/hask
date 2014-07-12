@@ -31,6 +31,12 @@ data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
 instance Category ((~>) :: i -> i -> *) => Semitensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
   associate = associateProf
 
+type instance I Prof = (~>)
+instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
+  type Tensorable Prof = Profunctor
+  lambda = lambdaProf
+  rho = rhoProf
+
 instance Functor Prof where
   fmap f = nat3 $ \(Prof p q) -> Prof (runNat2 f p) q
 
