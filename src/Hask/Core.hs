@@ -985,8 +985,17 @@ type family I (p :: x -> x -> x) :: x
 
 -- tensor for a monoidal category
 class Semitensor p => Tensor (p :: x -> x -> x) where
-  lambda    :: Iso (p (I p) a) (p (I p) a') a a'
-  rho       :: Iso (p a (I p)) (p a' (I p)) a a'
+  type Tensorable (p :: x -> x -> x) :: x -> Constraint
+  type Tensorable p = Const (() :: Constraint)
+  
+  lambda :: Tensorable p a => Iso (p (I p) a) (p (I p) a) a a
+  rho    :: Tensorable p a => Iso (p a (I p)) (p a (I p)) a a
+
+lambda1 :: forall a p x. (Tensor p, Post (Tensorable p) a) => Iso (p (I p) (a x)) (p (I p) (a x)) (a x) (a x)
+lambda1 = case limDict :: Dict (Compose (Tensorable p) a x) of Dict -> lambda
+
+rho1 :: forall a p x. (Tensor p, Post (Tensorable p) a) => Iso (p (a x) (I p)) (p (a x) (I p)) (a x) (a x)
+rho1 = case limDict :: Dict (Compose (Tensorable p) a x) of Dict -> rho
 
 type instance I (,) = ()
 instance Tensor (,) where
@@ -1010,10 +1019,11 @@ instance Semitensor p => Semitensor (Lift1 p) where
 
 type instance I (Lift1 p) = Const1 (I p)
 instance Tensor p => Tensor (Lift1 p) where
-  lambda = dimap (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-                 (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
+  type Tensorable (Lift1 p) = Post (Tensorable p)
+  lambda = dimap (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
+                 (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
 instance Semitensor p => Semitensor (Lift2 p) where
   associate   = dimap
@@ -1022,11 +1032,12 @@ instance Semitensor p => Semitensor (Lift2 p) where
 
 type instance I (Lift2 p) = Const2 (I p)
 instance Tensor p => Tensor (Lift2 p) where
+  type Tensorable (Lift2 p) = Post (Tensorable p)
   lambda = dimap
-    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
+    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
+    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
 instance Semitensor p => Semitensor (LiftC p) where
   associate   = dimap
@@ -1035,21 +1046,23 @@ instance Semitensor p => Semitensor (LiftC p) where
 
 type instance I (LiftC p) = ConstC (I p)
 instance Tensor p => Tensor (LiftC p) where
+  type Tensorable (LiftC p) = Post (Tensorable p)
   lambda = dimap
-    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda))
-    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho))
+    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
+    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
 -- * Internal hom of a closed category
 
 class (Profunctor (Internal k), Category k) => Closed (k :: i -> i -> *)  where
   iota :: Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
-  default iota :: (CCC k, Curryable (*) b) => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
+  default iota :: (CCC k, Curryable (*) b, Tensorable (*) b, Tensorable (*) (Internal k (I (*)) a)) 
+               => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
   jot  :: I (Internal k) ~> Internal k a a
-  default jot :: CCC k => I (Internal k) ~> Internal k a a
+  default jot :: (CCC k, Tensorable (*) a) => I (Internal k) ~> Internal k a a
   jot = curry (get lambda)
 
 type instance I (->) = ()
@@ -1679,7 +1692,7 @@ instance (Functor f, Base.Traversable f) => Costrength f where
 ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f), Curryable (*) (f (b ^ a))) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
-return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
+return :: (Monoidal f, Strength f, CCC (Dom f), Tensorable (*) a) => a ~> f a
 return = fmap (get lambda . swap) . strength . fmap1 ap0 . beget rho
 
 class (Functor f, Category (Dom f)) => Cosemimonad f where
