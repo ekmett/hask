@@ -1,20 +1,13 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -Wall #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2014
@@ -26,23 +19,10 @@
 --------------------------------------------------------------------
 module Hask.Power where
 
-import qualified Control.Applicative as Base
-import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
-import qualified Data.Constraint as Constraint
-import qualified Data.Foldable as Base
-import qualified Data.Functor as Base
-import qualified Data.Functor.Identity as Base
-import qualified Data.Monoid as Base
-import Data.Proxy
-import Data.Tagged
-import qualified Data.Traversable as Base
-import Data.Void
 import Hask.Core
 import qualified Prelude
-import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
-import GHC.Exts (Constraint, Any)
-import Unsafe.Coerce (unsafeCoerce)
+import Prelude (($))
 
 infixr 0 ⋔
 type (⋔) = Power
@@ -80,7 +60,7 @@ instance Semimonoidal (Power1 v) where
   ap2 = Nat $ \(Lift (Power va, Power vb)) -> Power $ \v -> Lift (va v, vb v)
 
 instance Monoidal (Power1 v) where
-  ap0 = Nat $ \(Const ()) -> Power $ \v -> Const ()
+  ap0 = Nat $ \(Const ()) -> Power $ \_ -> Const ()
 
 instance Semigroup m => Semigroup (Power1 v m) where
   mult = multM
