@@ -47,11 +47,12 @@ import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
--- Lan g -| Compose ? g -| Ran g
-type family Lan  :: (i -> j) -> (i -> k) -> j -> k
-type family Ran  :: (i -> j) -> (i -> k) -> j -> k
+class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
+  type Ran :: (i -> j) -> (i -> k) -> j -> k
+  ranDict :: Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
+  default ranDict :: Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
+  ranDict = Dict
 
-type instance Ran = Ran1
 data Ran1 f g a = forall z. Ran (Compose z f ~> g) (z a)
 
 instance Curried Compose1 Ran1 where
@@ -59,15 +60,26 @@ instance Curried Compose1 Ran1 where
   uncurry l = Nat $ \ (Compose ab) -> case runNat l ab of
     Ran czfg za -> runNat czfg (Compose za)
 
+instance HasRan (->) where
+  type Ran = Ran1
+
 instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \(Ran k z) -> Ran (f . k) z
 
-type instance Lan = Lan1
-data Lan1 f g a = Lan { runLan :: forall z. (g ~> Compose z f) ~> z a }
+class (c ~ Hom) => HasLan (c :: k -> k -> *) | k -> c where
+  type Lan :: (i -> j) -> (i -> k) -> j -> k
+  lanDict :: Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
+  default lanDict :: Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose => Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
+  lanDict = Dict
+
+newtype Lan1 f g a = Lan { runLan :: forall z. (g ~> Compose z f) ~> z a }
 
 instance Cocurried Lan1 Compose1 where
   cocurry l = Nat $ \b -> Compose $ runNat l (Lan $ \f -> case runNat f b of Compose z -> z)
   uncocurry k = Nat $ \xs -> runLan xs k
+
+instance HasLan (->) where
+  type Lan = Lan1
 
 instance Category (Hom :: j -> j -> *) => Functor (Lan1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \l -> Lan $ \k -> runLan l (k . f)
