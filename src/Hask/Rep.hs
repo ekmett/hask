@@ -27,11 +27,12 @@ module Hask.Rep where
 
 import Data.Constraint
 import Hask.Core
+import Hask.Prof
 import qualified Prelude
 
 -- * Representability
 
-class Functor (Rep p) => Representable (p :: x -> y -> *) where
+class Representable (p :: x -> y -> *) where
   type Rep p :: y -> x
   _Rep :: Iso (p a b) (p a' b') (a ~> Rep p b) (a' ~> Rep p b')
 
@@ -46,6 +47,10 @@ instance Representable (Nat :: (i -> *) -> (i -> *) -> *) where
 instance Representable (:-) where
   type Rep (:-) = Id
   _Rep = un (mapping _Id)
+
+instance Representable (Down f) where
+  type Rep (Down f) = f
+  _Rep = dimap runDown Down
 
 -- instance (Representable p, Representable q) => Representable (Prof p q :: i -> j -> *) where
 --  type Rep (Prof p q) = Up (Rep q) (Rep p)
@@ -65,3 +70,7 @@ instance Corepresentable (Nat :: (i -> *) -> (i -> *) -> *) where
 instance Corepresentable (:-) where
   type Corep (:-) = Id
   _Corep = lmapping _Id
+
+instance Corepresentable (Up f) where
+  type Rep (Up f) = f
+  _Rep = dimap runUp Up
