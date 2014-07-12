@@ -135,6 +135,12 @@ instance Precartesian (Cod f) => Semimonoidal (Up f a) where
 instance Cartesian (Cod f) => Monoidal (Up f a) where
   ap0 () = Up terminal
 
+instance Semimonad (Up f a) where
+  join k = Up $ \a -> runUp (runUp k a) a
+
+-- instance Cartesian (Cod f) => Semimonad (Up f a) where
+--  join (Up f) = TODO
+
 -- Cat -> Prof, Representable, companion
 data Down f a b = Down { runDown :: a ~> f b }
 _Down = dimap runDown Down
@@ -153,3 +159,6 @@ instance Semimonoidal f => Semimonoidal (Down f a) where
 
 instance Monoidal f => Monoidal (Down f a) where
   ap0 () = Down $ ap0 . terminal
+
+instance Semimonad f => Semimonad (Down f a) where
+  join f = Down $ \r -> join $ fmap (\g -> runDown g r) $ runDown f r
