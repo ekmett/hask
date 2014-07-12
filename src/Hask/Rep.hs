@@ -72,5 +72,5 @@ instance Corepresentable (:-) where
   _Corep = lmapping _Id
 
 instance Corepresentable (Up f) where
-  type Rep (Up f) = f
-  _Rep = dimap runUp Up
+  type Corep (Up f) = f
+  _Corep = dimap runUp Up
