@@ -699,8 +699,20 @@ _Self = dimap runSelf Self
 instance Category ((~>) :: x -> x -> *) => Contravariant (Self :: x -> x -> *) where
   contramap f = Nat (_Self (.f))
 
-instance Category ((~>) :: x -> x -> *) => Functor (Self e :: x -> *) where
+instance Category (Arr a) => Functor (Self a) where
   fmap g (Self h) = Self (g . h)
+
+instance Precartesian (Arr a) => Semimonoidal (Self a :: x -> *) where
+  ap2 (ea, eb) = Self (runSelf ea &&& runSelf eb)
+
+instance Cartesian (Arr a) => Monoidal (Self a :: x -> *) where
+  ap0 () = Self terminal
+
+instance (Precartesian (Arr a), Semigroup b) => Semigroup (Self a b) where
+  mult = multM
+
+instance (Cartesian (Arr a), Monoid b) => Monoid (Self a b) where
+  one = oneM
 
 instance Contravariant (->) where
   contramap f = Nat (. f)
