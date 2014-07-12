@@ -1870,7 +1870,7 @@ associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
 whiskerComposeL k = Nat $ composed $ runNat k
 whiskerComposeR k = Nat $ composed $ fmap (runNat k)
 lambdaCompose = dimap (Nat (compose . beget _Id)) (Nat (get _Id . decompose))
-rhoCompose = dimap (Nat (compose . fmap (beget _Id))) (Nat (fmap (get _Id) . decompose))
+rhoCompose = dimap (Nat (fmap (get _Id) . decompose)) (Nat (compose . fmap (beget _Id)))
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
 newtype Compose1 f g a = Compose { getCompose :: f (g a) }
@@ -2171,8 +2171,8 @@ instance Curried Compose1 Ran1 where
 
 instance HasRan (->) where
   type Ran = Ran1
-  iotaRan = dimap (Nat $ \(Ran k z) -> runNat k (runNat (get rhoCompose) z)) (Nat $ Ran $ beget rhoCompose) where
-  jotRan = get curried $ beget lambdaCompose
+  iotaRan = dimap (apply . beget rhoCompose) (curry (get rhoCompose))
+  jotRan = curry (beget lambdaCompose)
 
 instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \(Ran k z) -> Ran (f . k) z
