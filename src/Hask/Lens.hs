@@ -47,6 +47,10 @@ instance Strong (Nat::(i-> Constraint)->(i-> Constraint)-> *) where
 instance Precartesian ((~>)::i->i-> *) => Strong (Get (r::i)) where
   _1 = _Get (. fst)
 
+instance Precartesian ((~>)::i->i-> *) => Strong (Self :: i -> i -> *) where
+  _1 = _Self first
+  _2 = _Self fmap1
+
 -- A Freyd category over a category is an arrow
 class (Strong p, Category p) => Freyd p
 instance (Strong p, Category p) => Freyd p

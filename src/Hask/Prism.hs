@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall #-}
 --------------------------------------------------------------------
 -- |
@@ -48,6 +49,10 @@ instance Choice Tagged where
 instance Precocartesian ((~>) :: i -> i -> *) => Choice (Beget (r :: i)) where
   _Left = bimap inl inl
   _Right = bimap inr inr
+
+instance Precocartesian ((~>)::i->i-> *) => Choice (Self :: i -> i -> *) where
+  _Left  = _Self first
+  _Right = _Self fmap1
 
 -- In lens terms this is a 'Review'
 type Begetter t b = forall p. (Choice p, Functor p) => p b b -> p t t

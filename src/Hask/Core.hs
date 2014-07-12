@@ -693,6 +693,8 @@ swapping :: (Profunctor f, Profunctor f', Category (Dom f), Category (Cod2 f), C
 swapping l = case l (Via id id) of
   Via csa dbt -> dimap (dimap csa csa) (dimap dbt dbt)
 
+-- * The @Hom@ of an (unenriched) category explicitly as a Profunctor
+
 newtype Self a b = Self { runSelf :: a ~> b }
 _Self = dimap runSelf Self
 
@@ -713,6 +715,7 @@ instance (Precartesian (Arr a), Semigroup b) => Semigroup (Self a b) where
 
 instance (Cartesian (Arr a), Monoid b) => Monoid (Self a b) where
   one = oneM
+
 
 instance Contravariant (->) where
   contramap f = Nat (. f)
