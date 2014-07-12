@@ -118,6 +118,26 @@ instance Curried Prof ProfR where
 
 -- Cat^op -> Prof, Corepresentable, conjoint
 data Up f a b = Up { runUp :: f a ~> b }
+_Up = dimap runUp Up
+
+instance Category (Hom :: j -> j -> *) => Contravariant (Up :: (i -> j) -> i -> j -> *) where
+  contramap f = nat2 $ _Up (. runNat f)
+
+instance (Functor f, Category (Cod f)) => Contravariant (Up f) where
+  contramap f = Nat $ _Up (. fmap f)
+
+instance Category (Cod f) => Functor (Up f a) where
+  fmap f = _Up (f .)
 
 -- Cat -> Prof, Representable, companion
 data Down f a b = Down { runDown :: a ~> f b }
+_Down = dimap runDown Down
+
+instance Category (Hom :: i -> i -> *) => Functor (Down :: (j -> i) -> i -> j -> *) where
+  fmap f = nat2 $ _Down (runNat f .)
+
+instance Category (Cod f) => Contravariant (Down f) where
+  contramap f = Nat $ _Down (. f)
+
+instance (Functor f, Category (Cod f)) => Functor (Down f a) where
+  fmap f = _Down (fmap f .)
