@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2014
@@ -13,7 +14,6 @@
 module Hask.Key where
 
 import Hask.Core
-import Prelude (($))
 
 -- The dual of Conor McBride's "Atkey" adapted to this formalism
 --
