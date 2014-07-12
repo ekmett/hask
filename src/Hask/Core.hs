@@ -269,25 +269,6 @@ instance Category ((~>) :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) wher
 instance Functor ((:-) f) where
   fmap = fmap1
 
--- We can define a functor from the category of natural transformations to Hask
-newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
-_At = dimap getAt At
-
-instance Functor (At x) where
-  fmap (Nat f) = _At f
-
-instance Semimonoidal (At x) where
-  ap2 (At fx, At fy) = At (Lift (fx, fy))
-
-instance Monoidal (At x) where
-  ap0 = At . Const
-
-instance Semigroup m => Semigroup (At x m) where
-  mult = multM
-
-instance Monoid m => Monoid (At x m) where
-  one = oneM
-
 -- .. and back
 class Const ~ k => Constant (k :: j -> i -> j) | j i -> k where
   type Const :: j -> i -> j
@@ -1320,18 +1301,6 @@ instance Cosemigroup m => Cosemigroup (Base.Identity m) where
 instance Comonoid m => Comonoid (Base.Identity m) where
   zero = zeroOp
 
-instance Cosemimonoidal (At x) where
-  op2 (At (Lift eab))= bimap At At eab
-
-instance Comonoidal (At x) where
-  op0 (At (Const x)) = x
-
-instance Cosemigroup m => Cosemigroup (At x m) where
-  comult = comultOp
-
-instance Comonoid m => Comonoid (At x m) where
-  zero = zeroOp
-
 -- lift all of these through Lift? its a limit
 
 -- instance Cosemimonoidal p => Cosemimonoidal (Lift1 p e) where
@@ -1358,7 +1327,6 @@ instance Cosemigroup m => Cosemigroup (Tagged s m) where
 
 instance Comonoid m => Comonoid (Tagged s m) where
   zero = zeroOp
-
 
 -- * Identity functors
 
