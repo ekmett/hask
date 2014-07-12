@@ -78,6 +78,10 @@ type instance Lan = Lan1
 data Lan1 f g a where
   Lan1 :: Copower (g b) (f b ~> a) -> Lan1 f g a
 
+-- instance Category ((~>) :: j -> j -> *) => Cocurried Lan1 (Compose1 :: (j -> *) -> (i -> j) -> i -> *) where
+cocurryLan l = Nat $ \b -> compose (runNat l (Lan1(b,id)))
+uncocurryLan r = Nat $ \(Lan1(b,f)) -> fmap f $ decompose $ runNat r b
+
 type instance Lan = Lan2
 data Lan2 f g a x where
   Lan2 :: Copower (g b) (f b ~> a) x -> Lan2 f g a x
