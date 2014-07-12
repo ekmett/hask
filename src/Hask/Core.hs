@@ -2171,16 +2171,14 @@ instance Curried Compose1 Ran1 where
 
 instance HasRan (->) where
   type Ran = Ran1
-  iotaRan = dimap (Nat yoneda) (Nat $ Ran $ Nat (fmap (get _Id) . decompose)) where
-    yoneda :: Ran Id f a -> f a
-    yoneda = undefined
-
+  iotaRan = dimap (Nat $ \(Ran k z) -> runNat k (runNat (get rhoCompose) z)) (Nat $ Ran $ beget rhoCompose) where
   jotRan = get curried $ beget lambdaCompose
-
-
 
 instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \(Ran k z) -> Ran (f . k) z
+
+instance Functor (Ran1 f g) where
+  fmap f (Ran k z) = Ran k (fmap f z)
 
 class (c ~ Hom) => HasLan (c :: k -> k -> *) | k -> c where
   type Lan :: (i -> j) -> (i -> k) -> j -> k
