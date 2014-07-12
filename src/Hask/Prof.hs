@@ -16,36 +16,16 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett 2014 and Sjoerd Visscher
+-- Copyright :  (c) Edward Kmett 2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- This package explores category theory via a couple of non-standard
--- tricks.
---
--- First, we use lens-style isomorphism-families to talk about
--- most operations.
---
--- Second, we heavily abuse parametricity as a proxy for naturality.
--- This means that the category Nat that gets used throughout is a
--- particularly well-behaved. An inhabitant of @Nat :: (i -> j) -> (i -> j) -> *@
--- is required to be polymorphic in its argument.
---
--- Parametricity is a very strong notion of naturality. Notably, we
--- don't have to care if i or j are co -or- contravariant. (forall a. f a ~> g a)
--- respects _both_.
---
--- Third, we use kind-indexing to pick the category. This means it
--- is harder to talk about Kleisli categories, etc. but in exchange
--- most of the category selection _just works_. A central working
--- hypothesis of this code is that this is sufficient to talk about
--- interesting categories, and it certainly results in less verbose
--- code than more explicit encodings which clutter up every type class
--- talking about the choice of category.
---
--- Here, much of the time the selection is implicit.
+-- @
+-- Prof  :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> *
+-- ProfR :: (i -> j -> *) -> (i -> k -> *) -> j -> k -> *
+-- @
 --------------------------------------------------------------------
 module Hask.Prof where
 
@@ -124,6 +104,17 @@ jotProf = nat2 $ \f -> ProfR (fmap1 f)
 instance Curried Prof ProfR where
   curried = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof p q))
                   (\k -> nat2 $ \(Prof p q) -> runProfR (runNat2 k p) q)
+
+-- To cocurry Prof we'd have the following universal property:
+
+--newtype ProfL p q a b = ProfL { runProfL :: forall r. (q ~> Prof r p) ~> r a b }
+--
+--instance Cocurried ProfL Prof where
+--  uncocurry l = nat2 $ \k -> runProfL k l
+--
+--  -- but to cocurry, we'd need to be able to 'smuggle information out' in c.
+--  cocurry l = nat2 $ \b -> case runNat2 l (ProfL $ \f -> case runNat2 f b of Prof p q -> _uh) of
+--    x -> _wat
 
 -- Cat^op -> Prof, Corepresentable, conjoint
 data Up f a b = Up { runUp :: f a ~> b }
