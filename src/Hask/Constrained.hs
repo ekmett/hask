@@ -51,8 +51,8 @@ infixr |=
 
 -- |
 -- @(|=) :: Constraint -> * -> *@
-
--- This is a corepresentable functor
+--
+-- This is a corepresentable profunctor
 newtype p |= q = Constrained { runConstrained :: p => q }
 
 instance Contravariant (|=) where
@@ -83,11 +83,11 @@ instance Cosemimonad ((|=) e) where
 instance Monoid e => Comonad ((|=) e) where
   extract cc = runConstrained cc \\ (one :: () :- e)
 
--- we can make an indexed adjunction for this
 instance Corepresentable (|=) where
   type Corep (|=) = Dict
   _Corep = dimap (\ab Dict -> case ab of Constrained b -> b) (\ab -> Constrained $ ab Dict)
 
+-- | We could flip this around to permit a @Curried@ instance, but then we lose a lot of structure.
 data EnvC p q = EnvC (Dict p) q
 
 -- EnvC p (Either a b) -> Either (EnvC p a) (EnvC p b)
@@ -119,12 +119,6 @@ instance Monoid p => Monoidal (EnvC p) where
 
 instance Semimonad (EnvC p) where
   join (EnvC Dict p) = p
-
-{-
-instance EnvC =| (|=) where
-  adj1 = dimap (\eab a -> Constrained $ eab (EnvC Dict a))
-               (\aeb (EnvC Dict a) -> runConstrained (aeb a))
--}
 
 instance EnvC e -| (|=) e where
   adj = dimap (\eab a -> Constrained $ eab (EnvC Dict a))
