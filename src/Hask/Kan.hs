@@ -52,39 +52,22 @@ type family Lan  :: (i -> j) -> (i -> k) -> j -> k
 type family Ran  :: (i -> j) -> (i -> k) -> j -> k
 
 type instance Ran = Ran1
-newtype Ran1 (f :: i -> j) (g :: i -> *) (a :: j) = Ran { runRan :: forall r. (a ~> f r) ⋔ g r }
+data Ran1 f g a = forall z. Ran (Compose z f ~> g) (z a)
 
 instance Curried Compose1 Ran1 where
-  curry l = Nat $ \f -> Ran $ \k -> runNat l (Compose1 f k)
-  uncurry l = Nat $ \(Compose1 xs f) -> runRan (runNat l xs) f
+  curry l = Nat (Ran l)
+  uncurry l = Nat $ \ (Compose ab) -> case runNat l ab of
+    Ran czfg za -> runNat czfg (Compose za)
 
--- alternately, by universal property
--- data Ran f g a = forall z. Functor z => Ran (forall x. z (f x) ~> g x) (z a)
-
-instance Category ((~>) :: j -> j -> *) => Contravariant (Ran1 :: (i -> j) -> (i -> *) -> j -> *) where
-  contramap (Nat f) = nat2 $ \(Ran k) -> Ran $ k . (f .)
-
-instance Category (Cod f) => Functor (Ran1 f) where
-  fmap (Nat f) = Nat $ \(Ran k) -> Ran $ f . k
-
-type instance Ran = Ran2
-newtype Ran2 f g a x = Ran2 { runRan2 :: forall r. ((a ~> f r) ⋔ g r) x }
-
-instance Curried Compose2 Ran2 where
-  curry l   = nat2 $ \f -> Ran2 $ Power $ \k -> runNat2 l (Compose2 f k)
-  uncurry l = nat2 $ \(Compose2 xs f) -> runPower (runRan2 (runNat2 l xs)) f
+instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
+  fmap f = Nat $ \(Ran k z) -> Ran (f . k) z
 
 type instance Lan = Lan1
-data Lan1 f g a where
-  Lan1 :: Copower (g b) (f b ~> a) -> Lan1 f g a
+data Lan1 f g a = Lan { runLan :: forall z. (g ~> Compose z f) ~> z a }
 
--- instance Category ((~>) :: j -> j -> *) => Cocurried Lan1 (Compose1 :: (j -> *) -> (i -> j) -> i -> *) where
-cocurryLan l = Nat $ \b -> compose (runNat l (Lan1(b,id)))
-uncocurryLan r = Nat $ \(Lan1(b,f)) -> fmap f $ decompose $ runNat r b
+instance Cocurried Lan1 Compose1 where
+  cocurry l = Nat $ \b -> Compose $ runNat l (Lan $ \f -> case runNat f b of Compose z -> z)
+  uncocurry k = Nat $ \xs -> runLan xs k
 
-type instance Lan = Lan2
-data Lan2 f g a x where
-  Lan2 :: Copower (g b) (f b ~> a) x -> Lan2 f g a x
-
--- newtype Codensity f a = Codensity { runCodensity :: forall r. f r^a ~> f r }
--- newtype Yoneda f a = Yoneda { runYoneda :: forall r. r^a ~> f r }
+instance Category (Hom :: j -> j -> *) => Functor (Lan1 f :: (i -> *) -> (j -> *)) where
+  fmap f = Nat $ \l -> Lan $ \k -> runLan l (k . f)
