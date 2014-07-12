@@ -44,9 +44,18 @@ import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
 import GHC.Exts (Constraint, Any)
 import Unsafe.Coerce (unsafeCoerce)
 
-type family Colim :: (i -> j) -> j
-type instance Colim = Colim1
-type instance Colim = Colim2
+class (k ~ (~>)) => Cocomplete (k :: j -> j -> *) where
+  type Colim :: (i -> j) -> j
+
+  colim :: k (f a) (Colim f)
+
+  -- The explicit witness here allows us to quantify over all kinds i.
+  -- Colim -| Const
+  cocomplete :: Dict ((Colim :: (i -> j) -> j) -| Const)
+  default cocomplete :: ((Colim :: (i -> j) -> j) -| Const) => Dict ((Colim :: (i -> j) -> j) -| Const)
+  cocomplete = Dict
+
+-- * @(->)@ is cocomplete
 
 data Colim1 (f :: i -> *) where
   Colim :: f x -> Colim1 f
@@ -69,41 +78,23 @@ instance Comonoid m => Comonoid (Colim1 m) where
 instance Colim1 -| Const1 where
   adj = dimap (\f -> Nat $ Const . f . Colim) $ \(Nat g2cb) (Colim g) -> getConst (g2cb g)
 
+instance Cocomplete (->) where
+  type Colim = Colim1
+  colim = Colim
+
+-- * The cocompletion of @(j -> *)@ borrows its structure from @*@
+
 data Colim2 (f :: i -> j -> *) (x :: j) where
   Colim2 :: f y x -> Colim2 f x
 
 instance Functor Colim2 where
   fmap f = Nat $ \(Colim2 g) -> Colim2 (runNat (runNat f) g)
 
--- instance Comonoidal Colim2
--- instance Comonoid m => Comonoid (Colim1 m)
-
 instance Colim2 -| Const2 where
   adj = dimap (\(Nat f) -> nat2 $ Const2 . f . Colim2) $
                \ f -> Nat $ \ xs -> case xs of
                  Colim2 fyx -> getConst2 $ runNat2 f fyx
 
---class ColimC (f :: i -> Constraint) where
---  colimDict :: Colim (Up f Dict)
---    p (f a) :- ColimC f
-
-class k ~ (~>) => Cocomplete (k :: j -> j -> *) where
-  -- The explicit witness here allows us to quantify over all kinds i.
-  -- Colim -| Const
-  cocomplete :: () :- ((Colim :: (i -> j) -> j) -| Const)
-  default cocomplete :: ((Colim :: (i -> j) -> j) -| Const) => () :- ((Colim :: (i -> j) -> j) -| Const)
-  cocomplete = Sub Dict
-
-instance Cocomplete (->)
-instance Cocomplete (Nat :: (i -> *) -> (i -> *) -> *)
--- instance Cocomplete (Nat :: (i -> j -> *) -> (i -> j -> *) -> *)
--- instance Cocomplete ((:-) :: Constraint -> Constraint -> *)
-
-class Colimited c where
-  colim :: f a ~> c f
-
-instance Colimited Colim1 where
-  colim = Colim
-
-instance Colimited Colim2 where
+instance Cocomplete (Nat :: (i -> *) -> (i -> *) -> *) where
+  type Colim = Colim2
   colim = Nat Colim2
