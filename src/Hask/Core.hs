@@ -83,7 +83,7 @@ module Hask.Core
   -- * Natural Isomorphisms
   , Iso
   -- * Adjunctions
-  , type (-:), (-|)(..)
+  , (-|)(..)
   , unitAdj, counitAdj, zipR, absurdL, cozipL
   -- ** Currying
   , Curried(..), ccc
@@ -342,14 +342,11 @@ type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
 -- * Adjunctions
 
-infixr 0 -|, -:
-
--- | the type of an isomorphism that witnesses f -| u
-type f -: u = forall a b a' b'. Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
+infixr 0 -|
 
 -- | @f -| u@ indicates f is left adjoint to u
 class (Functor f, Functor u) => f -| u | f -> u, u -> f where
-  adj :: f -: u
+  adj :: Iso (f a ~> b) (f a' ~> b') (a ~> u b) (a' ~> u b')
 
 unitAdj :: (f -| u, Category (Dom u)) => a ~> u (f a)
 unitAdj = get adj id
@@ -1259,7 +1256,7 @@ class Cocurried f u | f -> u , u -> f where
   uncocurry :: (b ~> u c a) -> f a b ~> c
   uncocurry = beget cocurried
 
-ccc :: (Category (Cod2 p), Symmetric p, Curried p e) => p i -: e i
+ccc :: (Category (Cod2 p), Symmetric p, Curried p e) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
 ccc = dimap (. swap) (. swap) . curried
 
 -- * CCCs
