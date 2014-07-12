@@ -156,7 +156,10 @@ instance Functor LimC where
     runAny :: (p ~> q) -> p Any ~> q Any
     runAny = runNat
 
-type family Compose :: (j -> k) -> (i -> j) -> i -> k
+class (c ~ Hom) => Composed (c :: k -> k -> *) | k -> c where
+  type Compose :: (j -> k) -> (i -> j) -> i -> k
+  compose   :: f (g a) `c` Compose f g a
+  decompose :: Compose f g a `c` f (g a)
 
 infixr 9 ·
 type (·) = Compose
@@ -165,10 +168,12 @@ type (·) = Compose
 class f (g a) => ComposeC f g a
 instance f (g a) => ComposeC f g a
 
-type instance Compose = ComposeC
+instance Composed (:-) where
+  type Compose = ComposeC
+  compose   = Sub Dict
+  decompose = Sub Dict
 
 type Post f p = Lim (f · p)
--- Functor1 and Post Contravariant are defined later using limits
 
 fmap1 :: forall p c. Post Functor p => Co (p c) -- (a ~> b) -> p c a ~> p c b
 fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
@@ -470,7 +475,7 @@ instance Limited LimC where
   elim = Sub limDict
 
 -- all functors to * are continuous
-continuous :: (Functor f, Limited l, Category (Dom f)) => f (l g) -> Lim (Compose1 f g)
+continuous :: (Functor f, Limited l, Category (Dom f)) => f (l g) -> Lim (f · g)
 continuous f = Lim $ compose (fmap elim f)
 
 -- all functors to k -> * are continuous
@@ -482,8 +487,6 @@ continuousC :: (Functor f, Limited l, Category (Dom f)) => f (l g) :- Lim (Compo
 continuousC = limC . fmap elim where
   limC :: f (g Any) :- LimC (ComposeC f g)
   limC = Sub Dict
-
--- composition of limits
 
 -- * Support for Tagged and Proxy
 
@@ -1097,7 +1100,7 @@ class Curried p e | p -> e, e -> p where
   unapply :: Category (Cod2 p) => a ~> e b (p a b)
   unapply = curry id
 
--- e.g. (Lan f g ~> h) is isomorphic to (g ~> Compose h f)
+-- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
 class Cocurried f u | f -> u , u -> f where
   cocurried :: f =: (?) u -- Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
   cocurried = dimap cocurry uncocurry
@@ -1700,21 +1703,20 @@ data No (a :: Void)
 instance Functor No where
   fmap !f = Prelude.undefined
 
-class (Compose ~ o) => Composed (o :: (j -> k) -> (i -> j) -> i -> k) | i j k -> o where
-  -- can't put the iso in here due to ghc #9200
-  -- Composed is used to define Post Functor, Post Functor is used in Profunctor, Profunctor is used in Iso
-  -- but we recurse polymorphically during the cycle
-  compose   :: f (g a) ~> (f `o` g) a
-  decompose :: (f `o` g) a ~> f (g a)
+-- * More about composition
 
-composed :: Composed o => Iso ((f `o` g) a) ((f' `o` g') a') (f (g a)) (f' (g' a'))
 composed = dimap decompose compose
+
+associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
+                         (Nat (compose . compose . fmap decompose . decompose))
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
 newtype Compose1 f g a = Compose { getCompose :: f (g a) }
 
-associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
-                         (Nat (compose . compose . fmap decompose . decompose))
+instance Composed (->) where
+  type Compose = Compose1
+  compose = Compose
+  decompose = getCompose
 
 --instance Semitensor Compose1 where
   -- needs a functor on b to decompose
@@ -1723,20 +1725,11 @@ associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
 
 newtype Compose2 f g a b = Compose2 { getCompose2 :: f (g a) b }
 
-type instance Compose = Compose1
-instance Composed (Compose1 :: (j -> *) -> (i -> j) -> i -> *) where
-  compose = Compose
-  decompose = getCompose
 
-type instance Compose = Compose2
-instance Composed (Compose2 :: (j -> k -> *) -> (i -> j) -> i -> k -> *) where
+instance Composed (Nat :: (k -> *) -> (k -> *) -> *) where
+  type Compose = Compose2
   compose   = Nat Compose2
   decompose = Nat getCompose2
-
-type instance Compose = ComposeC
-instance Composed (ComposeC :: (j -> Constraint) -> (i -> j) -> i -> Constraint) where
-  compose   = Sub Dict
-  decompose = Sub Dict
 
 instance Functor Compose1 where
   fmap f = nat2 $ composed $ runNat f

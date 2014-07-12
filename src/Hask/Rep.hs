@@ -55,12 +55,12 @@ instance Representable (Down f) where
 
 instance ( Representable p
          , Representable q
-         , Composed (Compose :: (j -> i) -> (k -> j) -> k -> i)
+         , Composed (Hom :: i -> i -> *)
          , Functor (Rep q)
          , Category (Hom :: i -> i -> *)
          , Category (Hom :: j -> j -> *)
          ) => Representable (Prof (p :: j -> k -> *) (q :: i -> j -> *)) where
-  type Rep (Prof p q) = Compose (Rep q) (Rep p)
+  type Rep (Prof p q) = Rep q · Rep p
   _Rep = dimap (\(Prof p q) -> compose . fmap (get _Rep p) . get _Rep q)
                (\k -> Prof (beget _Rep id) (beget _Rep (decompose . k)))
 
@@ -92,12 +92,12 @@ instance Corepresentable (Up f) where
 
 instance ( Corepresentable p
          , Corepresentable q
-         , Composed (Compose :: (j -> k) -> (i -> j) -> i -> k)
+         , Composed (Hom :: k -> k -> *)
          , Functor (Corep p)
          , Category (Hom :: j -> j -> *)
          , Category (Hom :: k -> k -> *)
          ) => Corepresentable (Prof (p :: j -> k -> *) (q :: i -> j -> *)) where
-  type Corep (Prof p q) = Compose (Corep p) (Corep q)
+  type Corep (Prof p q) = Corep p · Corep q
   _Corep = dimap (\(Prof p q) -> get _Corep p . fmap (get _Corep q) . decompose)
                  (\k -> Prof (beget _Corep (k . compose)) (beget _Corep id))
 
