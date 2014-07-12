@@ -76,7 +76,7 @@ infixr 0 ~>, `Nat`, `Hom`
 -- | All of our categories will be denoted by the kinds of their arguments.
 --
 -- This is too parametric to talk just about Hom's for categories, but I also want to use it for powers.
-type family Hom :: i -> j -> k
+type family Hom :: i -> i -> k
 type instance Hom = (->)     -- @* -> * -> *@
 type instance Hom = Nat      -- @(i -> j) -> (i -> j) -> *@
 type instance Hom = (:-)     -- @Constraint -> Constraint -> *@
