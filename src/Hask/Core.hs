@@ -1870,3 +1870,52 @@ op0_1 = case limDict :: Dict (Compose Comonoidal p e) of Dict -> op0
 
 class    (Profunctor p, p ~ (~>)) => Semicategory p
 instance (Profunctor p, p ~ (~>)) => Semicategory p
+
+-- * Work in progress
+
+-- Nat :: (i -> *) -> (i -> *) -> * is tensored. (Copowered over Hask)
+data Copower1 x f a = Copower x (f a)
+type instance Copower = Copower1
+
+instance Functor Copower1 where
+  fmap f = nat2 $ \(Copower x fa) -> Copower (f x) fa
+
+instance Functor (Copower1 x) where
+  fmap f = Nat $ \(Copower x fa) -> Copower x (runNat f fa)
+
+instance Functor f => Functor (Copower1 x f) where
+  fmap f (Copower x fa) = Copower x (fmap f fa)
+
+instance Contravariant f => Contravariant (Copower1 x f) where
+  contramap f (Copower x fa) = Copower x (contramap f fa)
+
+instance Curried Copower1 Nat where
+  curry f a = Nat $ \e -> runNat f (Copower a e)
+  uncurry f = Nat $ \(Copower a e) -> runNat (f a) e
+
+data Copower2 x f a b = Copower2 x (f a b)
+type instance Copower = Copower2
+
+instance Functor Copower2 where
+  fmap f = nat3 $ \(Copower2 x fab) -> Copower2 (f x) fab
+
+instance Functor (Copower2 x) where
+  fmap f = nat2 $ \(Copower2 x fab) -> Copower2 x (runNat2 f fab)
+
+instance Functor f => Functor (Copower2 x f) where
+  fmap f = Nat $ \(Copower2 x fab) -> Copower2 x (first f fab)
+
+instance Post Functor f => Functor (Copower2 x f a) where
+  fmap f (Copower2 x fab) = Copower2 x (fmap1 f fab)
+
+instance Contravariant f => Contravariant (Copower2 x f) where
+  contramap f = Nat $ \(Copower2 x fab) -> Copower2 x (lmap f fab)
+
+instance Post Contravariant f => Contravariant (Copower2 x f a) where
+  contramap f (Copower2 x fab) = Copower2 x (contramap1 f fab)
+
+instance Curried Copower2 Nat where
+  curry f a = nat2 $ \b -> runNat2 f (Copower2 a b)
+  uncurry f = nat2 $ \(Copower2 a b) -> runNat2 (f a) b
+
+
