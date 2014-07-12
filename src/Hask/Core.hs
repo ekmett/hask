@@ -1856,8 +1856,8 @@ associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
 
 whiskerComposeL k = Nat $ composed $ runNat k
 whiskerComposeR k = Nat $ composed $ fmap (runNat k)
-lambdaCompose = dimap (compose . beget _Id) (get _Id . decompose)
-rhoCompose = dimap (compose . fmap (beget _Id)) (fmap (get _Id) . decompose)
+lambdaCompose = dimap (Nat (compose . beget _Id)) (Nat (get _Id . decompose))
+rhoCompose = dimap (Nat (compose . fmap (beget _Id))) (Nat (fmap (get _Id) . decompose))
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
 newtype Compose1 f g a = Compose { getCompose :: f (g a) }
@@ -2141,6 +2141,13 @@ class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
   default ranDict :: Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
   ranDict = Dict
 
+  -- yoneda lemma in right Kan extension form
+  iotaRan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor g, Identity id) => Iso (Ran id f) (Ran id g) f g
+
+  -- | return for Codensity
+  jotRan  :: forall (f :: i -> k). Id ~> Ran f f
+
+
 data Ran1 f g a = forall z. Ran (Compose z f ~> g) (z a)
 
 instance Curried Compose1 Ran1 where
@@ -2150,6 +2157,13 @@ instance Curried Compose1 Ran1 where
 
 instance HasRan (->) where
   type Ran = Ran1
+  iotaRan = dimap (Nat yoneda) (Nat $ Ran $ Nat (fmap (get _Id) . decompose)) where
+    yoneda :: Ran Id f a -> f a
+    yoneda = undefined
+
+  jotRan = get curried $ beget lambdaCompose
+
+
 
 instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \(Ran k z) -> Ran (f . k) z
