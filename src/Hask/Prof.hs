@@ -94,8 +94,8 @@ jotProf :: Post Functor p => (~>) ~> ProfR p p
 jotProf = nat2 $ \f -> ProfR (fmap1 f)
 
 instance Curried Prof ProfR where
-  curried = dimap (\k -> nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof p q))
-                  (\k -> nat2 $ \(Prof p q) -> runProfR (runNat2 k p) q)
+  curry k = nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof p q)
+  uncurry k = nat2 $ \(Prof p q) -> runProfR (runNat2 k p) q
 
 -- To cocurry Prof we'd have the following universal property:
 

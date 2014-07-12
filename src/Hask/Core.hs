@@ -89,7 +89,9 @@ module Hask.Core
   , (-|)(..)
   , unitAdj, counitAdj, zipR, absurdL, cozipL
   -- ** Currying
-  , Curried(..), ccc
+  , Curried(..), curried, ccc
+  -- ** Cocurrying
+  , Cocurried(..)
   -- * Automatic Lifting
   , Lifted(..)
   -- * Constraints
@@ -1039,8 +1041,8 @@ instance Tensor p => Tensor (LiftC p) where
 -- * Internal hom of a closed category
 
 class (Profunctor e, Category (Cod2 e), e ~ Internal Hom) => InternalHom (e :: x -> x -> x)  where
-  iota :: Iso (e (I e) a) (e (I e) b) a b
-  default iota :: (CCC (Cod2 e), e ~ Internal Hom) => Iso (e (I e) a) (e (I e) b) a b
+  iota :: Curryable b => Iso (e (I e) a) (e (I e) b) a b
+  default iota :: (CCC (Cod2 e), e ~ Internal Hom, Curryable b) => Iso (e (I e) a) (e (I e) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
   jot  :: I e ~> e a a
@@ -1233,25 +1235,33 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 -- gives us a notion of a closed category when applied to the exponential
 --
 -- this is just another convenient indexed adjunction with the args flipped around
+type family Curryable (a :: k) :: Constraint
+type instance Curryable (a :: *) = (() :: Constraint)
+type instance Curryable (a :: Constraint) = (() :: Constraint)
+type instance Curryable (a :: i -> *) = Functor a
 
 -- p has some notion of association we'd need poly kinds to talk about properly
 class Curried p e | p -> e, e -> p where
-  {-# MINIMAL curried | (uncurry, curry) #-}
+  {-# MINIMAL (curry, uncurry) | (apply, unapply) #-}
 
-  curried :: Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
-  curried = dimap curry uncurry
-
-  curry :: (p a b ~> c) -> a ~> e b c
-  curry = get curried
+  curry :: Curryable a => (p a b ~> c) -> a ~> e b c
+  default curry :: (Post Functor e, Category (Cod2 e), Category (Cod2 p), Curryable a) => (p a b ~> c) -> a ~> e b c
+  curry q = fmap1 q . unapply
 
   uncurry :: (a ~> e b c) -> p a b ~> c
-  uncurry = beget curried
+  default uncurry :: (Functor p, Category (Cod2 e), Category (Cod2 p)) => (a ~> e b c) -> p a b ~> c
+  uncurry p = apply . first p
 
-  apply :: Category (Cod2 e) => p (e a b) a ~> b
+  apply :: p (e a b) a ~> b
+  default apply :: Category (Cod2 e) => p (e a b) a ~> b
   apply = uncurry id
 
-  unapply :: Category (Cod2 p) => a ~> e b (p a b)
+  unapply :: Curryable a => a ~> e b (p a b)
+  default unapply :: (Category (Cod2 p), Curryable a) => a ~> e b (p a b)
   unapply = curry id
+
+curried :: (Curried p e, Curryable a) => Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
+curried = dimap curry uncurry
 
 -- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
 class Cocurried f u | f -> u , u -> f where
@@ -1264,7 +1274,7 @@ class Cocurried f u | f -> u , u -> f where
   uncocurry :: (b ~> u c a) -> f a b ~> c
   uncocurry = beget cocurried
 
-ccc :: (Category (Cod2 p), Symmetric p, Curried p e) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
+ccc :: (Category (Cod2 p), Symmetric p, Curried p e, Curryable a) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
 ccc = dimap (. swap) (. swap) . curried
 
 -- * CCCs
@@ -1274,6 +1284,7 @@ class
   , Curried (*) (Internal k)
   , I (Internal k) ~ I (*)
   , InternalHom (Internal k)
+  , Curryable (I (Internal k))
   ) => CCC (k :: x -> x -> *) | x -> k
 
 instance Curried (,) (->) where
@@ -1612,7 +1623,7 @@ instance Semigroup (p :: Constraint) where
 instance Monoid (() :: Constraint) where
   one = id
 
-mappend :: (Semigroup m, CCC (Arr m)) => m ~> m^m
+mappend :: (Semigroup m, CCC (Arr m), Curryable m) => m ~> m^m
 mappend = curry mult
 
 class Precocartesian (Arr m) => Cosemigroup m where
@@ -1668,7 +1679,7 @@ class Functor f => Costrength (f :: x -> x) where
 instance (Functor f, Base.Traversable f) => Costrength f where
   costrength = Base.sequence
 
-ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f)) => f (b ^ a) ~> f b ^ f a
+ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f), Curryable (f (b ^ a))) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
 
 return :: (Monoidal f, Strength f, CCC (Dom f)) => a ~> f a
@@ -1772,8 +1783,6 @@ instance (&) p -| (|-) p where
   adj = ccc
 
 instance Curried (&) (|-) where
-  curry q = fmap q . unapply
-  uncurry p = apply . first p
   apply = applyConstraint where
     applyConstraint :: forall p q. (p |- q & p) :- q
     applyConstraint = Sub $ Dict \\ (implies :: p :- q)
@@ -2141,7 +2150,7 @@ class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
   default ranDict :: Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
   ranDict = Dict
 
-data Ran1 f g a = forall z. Ran (Compose z f ~> g) (z a)
+data Ran1 f g a = forall z. Functor z => Ran (Compose z f ~> g) (z a)
 
 instance Curried Compose1 Ran1 where
   curry l = Nat (Ran l)
