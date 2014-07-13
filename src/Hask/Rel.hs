@@ -115,3 +115,13 @@ instance RelComposed Base.Identity where
 instance RelComposed Id1 where
   type RelCompose = Compose2
   rcompose = firstly (un epsilonLan)
+
+newtype ComposeConst1 (f :: * -> i -> *) (g :: * -> i -> *) (a :: *) (b :: i) = ComposeConst1 { decomposeConst1 :: Compose (Lan Const1 f) g a b }
+
+-- instance Functor ComposeConst1
+-- instance Functor (ComposeConst1 f)
+-- instance Functor g => Functor (ComposeConst1 f g)
+
+instance RelComposed Const1 where
+  type RelCompose = ComposeConst1
+  rcompose = dimap (nat2 decomposeConst1) (nat2 ComposeConst1)
