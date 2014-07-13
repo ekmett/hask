@@ -112,6 +112,6 @@ instance RelComposed Base.Identity where
   type RelCompose = Compose1
   rcompose = firstly (un epsilonLan)
 
---instance RelComposed Id1 where
---  type RelCompose = Compose2
---  rcompose = firstly (un epsilonLan)
+instance RelComposed Id1 where
+  type RelCompose = Compose2
+  rcompose = firstly (un epsilonLan)
