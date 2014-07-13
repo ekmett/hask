@@ -103,7 +103,7 @@ module Hask.Core
 
   -- ** Inverting natural isomorphisms
   , Un(..), _Un, un
-  , Via(..), via, mapping, lmapping, swapping, post, pre
+  , Via(..), via, mapping, lmapping, swapping, firstly, post, pre
 
   -- ** Hom as a Profunctor
   , Self(..), _Self
@@ -834,6 +834,10 @@ via l m = case l (Via id id) of
 mapping :: (Functor f, Functor f', Category (Dom f)) => (Via a b a b -> Via a b s t) -> Iso (f s) (f' t) (f a) (f' b)
 mapping l = case l (Via id id) of
   Via csa dbt -> dimap (fmap csa) (fmap dbt)
+
+firstly :: (Functor f, Functor f', Category (Dom f)) => (Via a b a b -> Via a b s t) -> Iso (f s x) (f' t y) (f a x) (f' b y)
+firstly l = case l (Via id id) of
+  Via csa dbt -> dimap (first csa) (first dbt)
 
 lmapping :: (Contravariant f, Contravariant f', Category (Dom f)) => (Via s t s t -> Via s t a b) -> Iso (f s x) (f' t y) (f a x) (f' b y)
 lmapping l = case l (Via id id) of
