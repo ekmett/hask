@@ -2191,6 +2191,10 @@ class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
   default ranProfunctor :: Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k))
   ranProfunctor = Dict
 
+  ranFunctor :: Dict (Functor (Ran f g :: j -> k))
+  default ranFunctor :: Functor (Ran f g :: j -> k) => Dict (Functor (Ran f g :: j -> k))
+  ranFunctor = Dict
+
   -- yoneda lemma in right Kan extension form
   iotaRan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor g, Identity id) => Iso (Ran id f) (Ran id g) f g
 
@@ -2229,6 +2233,10 @@ class (c ~ Hom) => HasLan (c :: k -> k -> *) | k -> c where
   lanProfunctor :: Category (Hom :: j -> j -> *) => Dict (Profunctor (Lan :: (i -> j) -> (i -> k) -> j -> k))
   default lanProfunctor :: Profunctor (Lan :: (i -> j) -> (i -> k) -> j -> k) => Dict (Profunctor (Lan :: (i -> j) -> (i -> k) -> j -> k))
   lanProfunctor = Dict
+
+  lanFunctor :: Dict (Functor (Lan f g :: j -> k))
+  default lanFunctor :: Functor (Lan f g :: j -> k) => Dict (Functor (Lan f g :: j -> k))
+  lanFunctor = Dict
 
   -- yoneda again
   epsilonLan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor f, Identity id) => Iso (Lan id f) (Lan id g) f g
