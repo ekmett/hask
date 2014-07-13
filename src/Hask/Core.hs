@@ -2178,7 +2178,7 @@ class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
   default ranCurried :: Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
   ranCurried = Dict
 
-  ranProfunctor :: Category ((~>) :: j -> j -> *) => Dict (Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k))
+  ranProfunctor :: Category (Hom :: j -> j -> *) => Dict (Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k))
   default ranProfunctor :: Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k))
   ranProfunctor = Dict
 
@@ -2217,6 +2217,10 @@ class (c ~ Hom) => HasLan (c :: k -> k -> *) | k -> c where
   default lanCocurried :: Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose => Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
   lanCocurried = Dict
 
+  lanProfunctor :: Category (Hom :: j -> j -> *) => Dict (Profunctor (Lan :: (i -> j) -> (i -> k) -> j -> k))
+  default lanProfunctor :: Profunctor (Lan :: (i -> j) -> (i -> k) -> j -> k) => Dict (Profunctor (Lan :: (i -> j) -> (i -> k) -> j -> k))
+  lanProfunctor = Dict
+
   -- yoneda again
   epsilonLan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor f, Identity id) => Iso (Lan id f) (Lan id g) f g
 
@@ -2232,6 +2236,9 @@ instance HasLan (->) where
   epsilonLan = dimap (Nat $ \l -> runLan l (beget rhoCompose))
                      (Nat $ \f -> Lan $ \k -> runNat (get rhoCompose . k) f)
 
+instance Contravariant Lan1 where
+  contramap f = nat2 $ \l -> Lan $ \k -> runLan l (Nat (compose . fmap (runNat f) . decompose) . k)
+
 instance Category (Hom :: j -> j -> *) => Functor (Lan1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \l -> Lan $ \k -> runLan l (k . f)
 
@@ -2242,10 +2249,14 @@ instance Cocurried Lan2 Compose2 where
   cocurry l = nat2 $ \b -> Compose2 $ runNat2 l (Lan2 $ \f -> case runNat2 f b of Compose2 z -> z)
   uncocurry k = nat2 $ \xs -> runLan2 xs k
 
+
 instance HasLan (Nat :: (i -> *) -> (i -> *) -> *)  where
   type Lan = Lan2
   epsilonLan = dimap (nat2 $ \l -> runLan2 l (beget rhoCompose))
                      (nat2 $ \f -> Lan2 $ \k -> runNat2 (get rhoCompose . k) f)
+
+instance Contravariant Lan2 where
+  contramap f = nat3 $ \l -> Lan2 $ \k -> runLan2 l (Nat (compose . fmap (runNat f) . decompose) . k)
 
 instance Category (Hom :: j -> j -> *) => Functor (Lan2 f :: (i -> k -> *) -> (j -> k -> *)) where
   fmap f = nat2 $ \l -> Lan2 $ \k -> runLan2 l (k . f)
