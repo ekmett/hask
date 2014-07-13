@@ -102,6 +102,7 @@ instance RelMonad ConstC where
   runit = id
   rbind = id
 
+-- this should form a tensor with unit Rel
 class rel ~ Rel => RelComposed (rel :: j -> c) where
   type RelCompose :: (j -> c) -> (j -> c) -> (j -> c)
 
@@ -110,3 +111,7 @@ class rel ~ Rel => RelComposed (rel :: j -> c) where
 instance RelComposed Base.Identity where
   type RelCompose = Compose1
   rcompose = firstly (un epsilonLan)
+
+--instance RelComposed Id1 where
+--  type RelCompose = Compose2
+--  rcompose = firstly (un epsilonLan)
