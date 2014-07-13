@@ -55,7 +55,7 @@ module Hask.Core
   , Dom, Cod, Cod2, Arr, Enriched, Internal, External, Natural
 
   -- * Natural transformations
-  , Nat(Nat, runNat), nat2, nat3, runNat2, runNat3, runNat4
+  , Nat(Nat, runNat), nat2, nat3, nat4, runNat2, runNat3, runNat4
 
   -- * Functors
   , Functor(fmap), first
@@ -73,6 +73,7 @@ module Hask.Core
 
   -- ** Derived notions
   , fmap1, contramap1
+  , fmap2
   , Bifunctor, bimap
   , Profunctor, dimap
   , Phantom
@@ -261,6 +262,9 @@ nat2 f = Nat (Nat f)
 nat3 :: (forall a b c. f a b c ~> g a b c) -> f ~> g
 nat3 f = Nat (Nat (Nat f))
 
+nat4 :: (forall a b c d. f a b c d ~> g a b c d) -> f ~> g
+nat4 f = Nat (Nat (Nat (Nat f)))
+
 runNat2 = runNat . runNat
 runNat3 = runNat . runNat . runNat
 runNat4 = runNat . runNat . runNat . runNat
@@ -328,6 +332,11 @@ instance LimC (f · p) => Post f p
 
 fmap1 :: forall p a b c. Post Functor p => (a ~> b) -> p c a ~> p c b
 fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
+
+fmap2 :: forall p a b c d. Post (Post Functor) p => (a ~> b) -> p c d a ~> p c d b
+fmap2 f = case limDict :: Dict (Compose (Post Functor) p c) of
+            Dict -> case limDict :: Dict (Compose Functor (p c) d) of
+              Dict -> fmap f
 
 contramap1 :: forall p a b c. Post Contravariant p => (a ~> b) -> p c b ~> p c a
 contramap1 f = case limDict :: Dict (Compose Contravariant p c) of Dict -> contramap f
@@ -2252,7 +2261,6 @@ instance Cocurried Lan2 Compose2 where
   cocurry l = nat2 $ \b -> Compose2 $ runNat2 l (Lan2 $ \f -> case runNat2 f b of Compose2 z -> z)
   uncocurry k = nat2 $ \xs -> runLan2 xs k
 
-
 instance HasLan (Nat :: (i -> *) -> (i -> *) -> *)  where
   type Lan = Lan2
   epsilonLan = dimap (nat2 $ \l -> runLan2 l (beget rhoCompose))
@@ -2260,7 +2268,6 @@ instance HasLan (Nat :: (i -> *) -> (i -> *) -> *)  where
 
 instance Contravariant Lan2 where
   contramap f = nat3 $ \l -> Lan2 $ \k -> runLan2 l (Nat (compose . fmap (runNat f) . decompose) . k)
-
 
 instance Category (Hom :: j -> j -> *) => Functor (Lan2 f :: (i -> k -> *) -> (j -> k -> *)) where
   fmap f = nat2 $ \l -> Lan2 $ \k -> runLan2 l (k . f)

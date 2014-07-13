@@ -106,7 +106,7 @@ instance RelMonad ConstC where
 class rel ~ Rel => RelComposed (rel :: j -> c) where
   type RelCompose :: (j -> c) -> (j -> c) -> (j -> c)
 
-  rcompose :: Cocurryable RelCompose f' => Iso (RelCompose f g) (RelCompose f' g') (Compose (Lan rel f) g) (Compose (Lan rel f') g')
+  rcompose :: Functor f' => Iso (RelCompose f g) (RelCompose f' g') (Compose (Lan rel f) g) (Compose (Lan rel f') g')
 
 instance RelComposed Base.Identity where
   type RelCompose = Compose1
@@ -116,11 +116,13 @@ instance RelComposed Id1 where
   type RelCompose = Compose2
   rcompose = firstly (un epsilonLan)
 
-newtype ComposeConst1 (f :: * -> i -> *) (g :: * -> i -> *) (a :: *) (b :: i) = ComposeConst1 { decomposeConst1 :: Compose (Lan Const1 f) g a b }
+newtype ComposeConst1 (f :: * -> i -> *) (g :: * -> i -> *) (a :: *) (b :: i) = ComposeConst1 { decomposeConst1 :: Compose2 (Lan2 Const1 f) g a b }
 
--- instance Functor ComposeConst1
--- instance Functor (ComposeConst1 f)
--- instance Functor g => Functor (ComposeConst1 f g)
+instance Functor ComposeConst1 where
+  fmap f = Nat $ dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ first $ fmap1 f
+
+instance Functor (ComposeConst1 f) where
+  fmap f = dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ Nat $ composed $ fmap2 (runNat f)
 
 instance RelComposed Const1 where
   type RelCompose = ComposeConst1
