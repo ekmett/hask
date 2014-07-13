@@ -103,7 +103,7 @@ module Hask.Core
 
   -- ** Inverting natural isomorphisms
   , Un(..), _Un, un
-  , Via(..), via, mapping, lmapping, swapping
+  , Via(..), via, mapping, lmapping, swapping, post, pre
 
   -- ** Hom as a Profunctor
   , Self(..), _Self
@@ -843,6 +843,14 @@ swapping :: (Profunctor f, Profunctor f', Category (Dom f), Category (Cod2 f), C
          => (Via a b a b -> Via a b s t) -> Iso (f a s) (f' b t) (f s a) (f' t b)
 swapping l = case l (Via id id) of
   Via csa dbt -> dimap (dimap csa csa) (dimap dbt dbt)
+
+post :: Category (Arr i) => (Via a b a b -> Via a b s t) -> Iso (i ~> s) (j ~> t) (i ~> a) (j ~> b)
+post l = case l (Via id id) of
+  Via csa dbt -> dimap (csa .) (dbt .)
+
+pre :: Category (Arr i) => (Via a b a b -> Via a b s t) -> Iso (a ~> i) (b ~> j) (s ~> i) (t ~> j)
+pre l = case l (Via id id) of
+  Via csa dbt -> dimap (. csa) (. dbt)
 
 -- * The @Hom@ of an (unenriched) category explicitly as a Profunctor
 
