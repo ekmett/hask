@@ -2173,16 +2173,20 @@ instance Cocomplete (Nat :: (i -> *) -> (i -> *) -> *) where
 
 class (c ~ Hom) => HasRan (c :: k -> k -> *) | k -> c where
   type Ran :: (i -> j) -> (i -> k) -> j -> k
-  ranDict :: Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
-  default ranDict :: Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
-  ranDict = Dict
+
+  ranCurried :: Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
+  default ranCurried :: Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Curried Compose (Ran :: (i -> j) -> (i -> k) -> j -> k))
+  ranCurried = Dict
+
+  ranProfunctor :: Category ((~>) :: j -> j -> *) => Dict (Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k))
+  default ranProfunctor :: Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k) => Dict (Profunctor (Ran :: (i -> j) -> (i -> k) -> j -> k))
+  ranProfunctor = Dict
 
   -- yoneda lemma in right Kan extension form
   iotaRan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor g, Identity id) => Iso (Ran id f) (Ran id g) f g
 
   -- | return for Codensity
   jotRan  :: forall (f :: i -> k). Id ~> Ran f f
-
 
 data Ran1 f g a = forall z. Functor z => Ran (Compose z f ~> g) (z a)
 
@@ -2196,6 +2200,9 @@ instance HasRan (->) where
   type Ran = Ran1
   iotaRan = dimap (apply . beget rhoCompose) (curry (get rhoCompose))
   jotRan = curry (beget lambdaCompose)
+
+instance Contravariant Ran1 where
+  contramap f = nat2 $ \(Ran k z) -> Ran (k . Nat (compose . fmap (runNat f) . decompose)) z
 
 instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \(Ran k z) -> Ran (f . k) z
