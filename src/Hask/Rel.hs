@@ -77,26 +77,39 @@ instance (Colim1 :: (i -> *) -> *) ~| (Const1 :: * -> i -> *) where radj = adj.p
 
 
 -- | Relative monads
-class Functor m => RelativeMonad (m :: j -> c) where
+class Functor m => RelMonad (m :: j -> c) where
   runit :: Rel a ~> m a
   rbind :: (Rel a ~> m b) -> m a ~> m b
 
-instance RelativeMonad Id1 where
+instance RelMonad Id1 where
   runit = id
   rbind = id
 
-instance RelativeMonad IdC where
+instance RelMonad IdC where
   runit = id
   rbind = id
 
-instance RelativeMonad Const1 where
+instance RelMonad Const1 where
   runit = id
   rbind = id
 
-instance RelativeMonad Const2 where
+instance RelMonad Const2 where
   runit = id
   rbind = id
 
-instance RelativeMonad ConstC where
+instance RelMonad ConstC where
   runit = id
   rbind = id
+
+{-
+class rel ~ Rel => RelComposed (rel :: j -> c) where
+  type RelCompose :: (j -> c) -> (j -> c) -> (j -> c)
+
+  rcompose :: Iso (RelCompose f g) (RelCompose f' g') (Compose (Lan rel f) g) (Compose (Lan rel f) g')
+
+newtype Lan1 f g a = Lan { runLan :: forall z. Functor z => (g ~> Compose z f) ~> z a }
+
+instance RelComposed Base.Identity where
+  type RelCompose = Compose1
+  rcompose = dimap (first _todo) undefined
+-}
