@@ -1285,16 +1285,22 @@ class Curried (p :: k -> i -> j) (e :: i -> j -> k) | p -> e, e -> p where
 curried :: (Curried p e, Curryable p a) => Iso (p a b ~> c) (p a' b' ~> c') (a ~> e b c) (a' ~> e b' c')
 curried = dimap curry uncurry
 
--- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
-class Cocurried f u | f -> u , u -> f where
-  cocurry   :: (f a b ~> c) -> b ~> u c a
-  uncocurry :: (b ~> u c a) -> f a b ~> c
-
-cocurried :: Cocurried f u => Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
-cocurried = dimap cocurry uncocurry
-
 ccc :: (Category (Cod2 p), Symmetric p, Curried p e, Curryable p a) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
 ccc = dimap (. swap) (. swap) . curried
+
+-- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
+
+-- Cocurried :: (k -> k1 -> k2) -> (k2 -> k -> k1) -> Constraint
+
+class Cocurried (f :: i -> j -> k) (u :: k -> i -> j) | f -> u , u -> f where
+  type Cocurryable (u :: k -> i -> j) :: k -> Constraint
+  type Cocurryable p = Const (() :: Constraint)
+
+  cocurry   :: (f a b ~> c) -> b ~> u c a
+  uncocurry :: Cocurryable u c => (b ~> u c a) -> f a b ~> c
+
+cocurried :: (Cocurried f u, Cocurryable u c') => Iso (f a b ~> c) (f a' b' ~> c') (b ~> u c a) (b' ~> u c' a')
+cocurried = dimap cocurry uncocurry
 
 -- * CCCs
 
@@ -1305,7 +1311,6 @@ class
   , I (Internal k) ~ I (*)
   , Curryable (*) (I (Internal k))
   ) => CCC (k :: x -> x -> *) | x -> k
-
 
 instance Curried (,) (->) where
   curry = Prelude.curry
@@ -2200,9 +2205,10 @@ class (c ~ Hom) => HasLan (c :: k -> k -> *) | k -> c where
   default lanDict :: Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose => Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
   lanDict = Dict
 
-newtype Lan1 f g a = Lan { runLan :: forall z. (g ~> Compose z f) ~> z a }
+newtype Lan1 f g a = Lan { runLan :: forall z. Functor z => (g ~> Compose z f) ~> z a }
 
 instance Cocurried Lan1 Compose1 where
+  type Cocurryable Compose1 = Functor
   cocurry l = Nat $ \b -> Compose $ runNat l (Lan $ \f -> case runNat f b of Compose z -> z)
   uncocurry k = Nat $ \xs -> runLan xs k
 
