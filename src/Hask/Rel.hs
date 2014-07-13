@@ -19,13 +19,13 @@ import Data.Functor.Identity as Base
 --
 -- This provides the inclusion functor for a subcategory with objects indexed in @i@ into a category with objects in @j@
 type family Rel :: i -> j
-type instance Rel = Const1 -- * -> j -> *
-type instance Rel = Const2 -- (i -> *) -> j -> i -> *
-type instance Rel = ConstC -- Constraint -> i -> Constraint
-type instance Rel = Base.Identity
-type instance Rel = Id1 -- (i - *) -> i -> *
-type instance Rel = IdC -- i -> i
--- type instance Rel = Id2 -- full
+type instance Rel = Const1        -- @* -> j -> *@
+type instance Rel = Const2        -- @(i -> *) -> j -> i -> *@
+type instance Rel = ConstC        -- @Constraint -> i -> Constraint@
+type instance Rel = Base.Identity -- @* -> *@
+type instance Rel = Id1           -- @(i - *) -> i -> *@
+type instance Rel = IdC           -- @i -> i@
+-- type instance Rel = Id2
 
 -- | The <http://en.wikipedia.org/wiki/Reflective_subcategory "reflector"> of a
 -- reflective sub-category with objects in @j@ of a category with objects in @i@.
