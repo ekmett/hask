@@ -190,7 +190,7 @@ module Hask.Core
   -- ** Copowers
   , Copower1(..), Copower2(..), Copower2_1(..)
   -- ** Kan extensions
-  , Ran1(..), Lan1(..)
+  , Ran1(..), Lan1(..), Lan2(..)
   -- ** Base Re-exports
   , Constraint
   -- ** Prelude Re-Exports
@@ -2224,6 +2224,20 @@ instance HasLan (->) where
   epsilonLan = dimap (Nat $ \l -> runLan l (beget rhoCompose))
                      (Nat $ \f -> Lan $ \k -> runNat (get rhoCompose . k) f)
 
-
 instance Category (Hom :: j -> j -> *) => Functor (Lan1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \l -> Lan $ \k -> runLan l (k . f)
+
+newtype Lan2 f g a b = Lan2 { runLan2 :: forall z. Functor z => (g ~> Compose z f) ~> z a b }
+
+instance Cocurried Lan2 Compose2 where
+  type Cocurryable Compose2 = Functor
+  cocurry l = nat2 $ \b -> Compose2 $ runNat2 l (Lan2 $ \f -> case runNat2 f b of Compose2 z -> z)
+  uncocurry k = nat2 $ \xs -> runLan2 xs k
+
+instance HasLan (Nat :: (i -> *) -> (i -> *) -> *)  where
+  type Lan = Lan2
+  epsilonLan = dimap (nat2 $ \l -> runLan2 l (beget rhoCompose))
+                     (nat2 $ \f -> Lan2 $ \k -> runNat2 (get rhoCompose . k) f)
+
+instance Category (Hom :: j -> j -> *) => Functor (Lan2 f :: (i -> k -> *) -> (j -> k -> *)) where
+  fmap f = nat2 $ \l -> Lan2 $ \k -> runLan2 l (k . f)
