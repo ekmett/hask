@@ -41,6 +41,7 @@ library
     Hask.Power
     Hask.Prism
     Hask.Prof
+    Hask.Rel
     Hask.Rep
     Hask.Store
 

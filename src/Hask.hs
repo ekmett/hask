@@ -8,6 +8,7 @@ module Hask
   , module Hask.Lens
   , module Hask.Prism
   , module Hask.Prof
+  , module Hask.Rel
   , module Hask.Rep
   , module Hask.Store
   ) where
@@ -21,5 +22,6 @@ import Hask.Foldable
 import Hask.Lens
 import Hask.Prism
 import Hask.Prof
+import Hask.Rel
 import Hask.Rep
 import Hask.Store
