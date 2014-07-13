@@ -1424,7 +1424,12 @@ instance Cartesian ((~>) :: i -> i -> *) => Monoidal (Proxy :: i -> *) where
 -- * Monads over our kind-indexed categories
 
 class Semimonoidal (m :: x -> x) => Semimonad (m :: x -> x) where
+  {-# MINIMAL join | bind #-}
   join :: m (m a) ~> m a
+  join = bind id
+
+  bind :: Semimonad m => (a ~> m b) ~> m a ~> m b
+  bind f = join . fmap f
 
 -- todo: prove join must respect this?
 class (Monoidal m, Semimonad m) => Monad m
