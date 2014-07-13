@@ -122,7 +122,7 @@ instance Functor ComposeConst1 where
   fmap f = Nat $ dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ first $ fmap1 f
 
 instance Functor (ComposeConst1 f) where
-  fmap f = dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ Nat $ composed $ fmap2 (runNat f)
+  fmap f = dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ Nat $ composed $ fmap2 $ runNat f
 
 instance RelComposed Const1 where
   type RelCompose = ComposeConst1
