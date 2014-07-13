@@ -2212,9 +2212,10 @@ instance Functor (Ran1 f g) where
 
 class (c ~ Hom) => HasLan (c :: k -> k -> *) | k -> c where
   type Lan :: (i -> j) -> (i -> k) -> j -> k
-  lanDict :: Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
-  default lanDict :: Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose => Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
-  lanDict = Dict
+
+  lanCocurried :: Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
+  default lanCocurried :: Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose => Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
+  lanCocurried = Dict
 
   -- yoneda again
   epsilonLan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor f, Identity id) => Iso (Lan id f) (Lan id g) f g
