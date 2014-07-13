@@ -62,18 +62,19 @@ class (f :: j -> i) ~| (u :: i -> k) | f k -> u, u j -> f where
   -- When Rel = Identity, a relative adjunction is just a normal adjunction, and you can use:
   --
   -- @
-  -- radj = adj . pre _Id
+  -- radj = adj.pre _Id
   -- @
   radj :: Iso (f a ~> b) (f a' ~> b') (Rel a ~> u b) (Rel a' ~> u b')
 
-instance Id1 ~| Id1 where
-  radj = adj . pre _Id
+instance Base.Identity ~| Base.Identity where radj = adj.pre _Id
+instance Id1 ~| Id1 where radj = adj.pre _Id
+instance IdC ~| IdC where radj = adj.pre _Id
+instance Const1 ~| Lim1 where radj = adj.pre _Id
+instance Const2 ~| Lim2 where radj = adj.pre _Id
+instance ConstC ~| LimC where radj = adj.pre _Id
+instance (Colim1 :: (i -> *) -> *) ~| (Const1 :: * -> i -> *) where radj = adj.pre _Id
+-- instance (Colim2 :: (i -> j -> *) -> j -> *) ~| (Const2 :: (j -> *) -> i -> j -> *) where radj = adj.pre _Id
 
-instance IdC ~| IdC where
-  radj = adj . pre _Id
-
-instance Const1 ~| Lim1 where
-  radj = adj . pre _Id
 
 -- | Relative monads
 class Functor m => RelativeMonad (m :: j -> c) where
