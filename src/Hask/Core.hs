@@ -2209,6 +2209,9 @@ class (c ~ Hom) => HasLan (c :: k -> k -> *) | k -> c where
   default lanDict :: Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose => Dict (Cocurried (Lan :: (i -> j) -> (i -> k) -> j -> k) Compose)
   lanDict = Dict
 
+  -- yoneda again
+  epsilonLan :: forall (f :: i -> k) (g :: i -> k) id. (Category (Cod f), Category (Dom f), Functor f, Identity id) => Iso (Lan id f) (Lan id g) f g
+
 newtype Lan1 f g a = Lan { runLan :: forall z. Functor z => (g ~> Compose z f) ~> z a }
 
 instance Cocurried Lan1 Compose1 where
@@ -2218,6 +2221,9 @@ instance Cocurried Lan1 Compose1 where
 
 instance HasLan (->) where
   type Lan = Lan1
+  epsilonLan = dimap (Nat $ \l -> runLan l (beget rhoCompose))
+                     (Nat $ \f -> Lan $ \k -> runNat (get rhoCompose . k) f)
+
 
 instance Category (Hom :: j -> j -> *) => Functor (Lan1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \l -> Lan $ \k -> runLan l (k . f)
