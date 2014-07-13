@@ -2242,6 +2242,9 @@ instance Contravariant Lan1 where
 instance Category (Hom :: j -> j -> *) => Functor (Lan1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \l -> Lan $ \k -> runLan l (k . f)
 
+instance Functor (Lan1 f g) where
+  fmap f l = Lan $ fmap f . runLan l
+
 newtype Lan2 f g a b = Lan2 { runLan2 :: forall z. Functor z => (g ~> Compose z f) ~> z a b }
 
 instance Cocurried Lan2 Compose2 where
@@ -2258,5 +2261,9 @@ instance HasLan (Nat :: (i -> *) -> (i -> *) -> *)  where
 instance Contravariant Lan2 where
   contramap f = nat3 $ \l -> Lan2 $ \k -> runLan2 l (Nat (compose . fmap (runNat f) . decompose) . k)
 
+
 instance Category (Hom :: j -> j -> *) => Functor (Lan2 f :: (i -> k -> *) -> (j -> k -> *)) where
   fmap f = nat2 $ \l -> Lan2 $ \k -> runLan2 l (k . f)
+
+instance Functor (Lan2 f g) where
+  fmap f = Nat $ \l -> Lan2 $ first f . runLan2 l
