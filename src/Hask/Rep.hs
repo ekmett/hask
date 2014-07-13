@@ -16,7 +16,6 @@
 --------------------------------------------------------------------
 module Hask.Rep where
 
-import Data.Constraint
 import Hask.Core
 import Hask.Prof
 
@@ -95,3 +94,62 @@ ups = dimap hither yon where
   hither (Prof (Up gxc) (Up fdx)) = Up (gxc . fmap fdx . getCompose)
   yon (Up dgfc) = Prof (Up (dgfc . Compose)) (Up id)
 -}
+
+-- | Cat^op -> Prof, Corepresentable, conjoint
+data Up f a b = Up { runUp :: f a ~> b }
+_Up = dimap runUp Up
+
+instance Category (Hom :: j -> j -> *) => Contravariant (Up :: (i -> j) -> i -> j -> *) where
+  contramap f = nat2 $ _Up (. runNat f)
+
+instance (Functor f, Category (Cod f)) => Contravariant (Up f) where
+  contramap f = Nat $ _Up (. fmap f)
+
+instance Category (Cod f) => Functor (Up f a) where
+  fmap f = _Up (f .)
+
+instance Precartesian (Cod f) => Semimonoidal (Up f a) where
+  ap2 (f, g) = Up $ runUp f &&& runUp g
+
+instance (Precartesian (Cod f), Semigroup b) => Semigroup (Up f a b) where
+  mult = multM
+
+instance (Cartesian (Cod f), Monoid b) => Monoid (Up f a b) where
+  one = oneM
+
+instance Cartesian (Cod f) => Monoidal (Up f a) where
+  ap0 () = Up terminal
+
+instance Semimonad (Up f a) where
+  join k = Up $ \a -> runUp (runUp k a) a
+
+-- instance Cartesian (Cod f) => Semimonad (Up f a) where
+--  join (Up f) = TODO
+
+-- | Cat -> Prof, Representable, companion
+data Down f a b = Down { runDown :: a ~> f b }
+_Down = dimap runDown Down
+
+instance Category (Hom :: i -> i -> *) => Functor (Down :: (j -> i) -> i -> j -> *) where
+  fmap f = nat2 $ _Down (runNat f .)
+
+instance Category (Cod f) => Contravariant (Down f) where
+  contramap f = Nat $ _Down (. f)
+
+instance (Functor f, Category (Cod f)) => Functor (Down f a) where
+  fmap f = _Down (fmap f .)
+
+instance Semimonoidal f => Semimonoidal (Down f a) where
+  ap2 (f, g) = Down $ ap2 . (runDown f &&& runDown g)
+
+instance Monoidal f => Monoidal (Down f a) where
+  ap0 () = Down $ ap0 . terminal
+
+instance Semimonad f => Semimonad (Down f a) where
+  join f = Down $ \r -> join $ fmap (\g -> runDown g r) $ runDown f r
+
+instance (Semimonoidal f, Semigroup b) => Semigroup (Down f a b) where
+  mult = multM
+
+instance (Monoidal f, Monoid b) => Monoid (Down f a b) where
+  one = oneM
