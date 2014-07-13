@@ -1,6 +1,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -101,15 +102,11 @@ instance RelMonad ConstC where
   runit = id
   rbind = id
 
-{-
 class rel ~ Rel => RelComposed (rel :: j -> c) where
   type RelCompose :: (j -> c) -> (j -> c) -> (j -> c)
 
-  rcompose :: Iso (RelCompose f g) (RelCompose f' g') (Compose (Lan rel f) g) (Compose (Lan rel f) g')
-
-newtype Lan1 f g a = Lan { runLan :: forall z. Functor z => (g ~> Compose z f) ~> z a }
+  rcompose :: Cocurryable RelCompose f' => Iso (RelCompose f g) (RelCompose f' g') (Compose (Lan rel f) g) (Compose (Lan rel f') g')
 
 instance RelComposed Base.Identity where
   type RelCompose = Compose1
-  rcompose = dimap (first _todo) undefined
--}
+  rcompose = firstly (un epsilonLan)
