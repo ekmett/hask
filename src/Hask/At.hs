@@ -1,45 +1,103 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 --------------------------------------------------------------------
 -- |
--- Copyright :  (c) Edward Kmett 2008-2014
+-- Copyright :  (c) Edward Kmett 2014
 -- License   :  BSD3
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
 --
+-- The definitions here are loosely based on Conor McBride's <https://personal.cis.strath.ac.uk/conor.mcbride/Kleisli.pdf "Kleisli Arrows of Outrageous Fortune">.
 --------------------------------------------------------------------
 module Hask.At where
 
 import Hask.Core
 
--- We can define a functor from the category of natural transformations to Hask
-newtype At (x :: i) (f :: i -> *) = At { getAt :: f x }
-_At = dimap getAt At
+ifmap :: (Functor f, Functor at) => (a ~> b) -> f (at a i) ~> f (at b i)
+ifmap = fmap . first
 
-instance Functor (At x) where
-  fmap (Nat f) = _At f
+class (Category hom, hom ~ Hom) => HasAt (hom :: y -> y -> *) where
+  type At :: y -> x -> x -> y
+  at :: forall (a :: y) i. a ~> At a i i
+  ibind :: forall (m :: (x -> y) -> x -> y) (a :: y) (bk :: x -> y) (i :: x) (j :: x). Monad m => (a ~> m bk j) -> m (At a j) i ~> m bk i
+  ireturn :: (Monoidal m, Strength m) => hom a (m (At a i) i)
 
-instance Semimonoidal (At x) where
-  ap2 (At fx, At fy) = At (Lift (fx, fy))
+  atComonoidal :: Dict (Comonoidal (At :: y -> x -> x -> y))
+  default atComonoidal :: Comonoidal (At :: y -> x -> x -> y) => Dict (Comonoidal (At :: y -> x -> x -> y))
+  atComonoidal = Dict
 
-instance Monoidal (At x) where
-  ap0 = At . Const
+  -- The dual of Conor McBride's "At" adapted to this formalism
+  type Coat :: y -> x -> x -> y
+  coat :: forall (a :: y) (i :: x). hom (Coat a i i) a
 
-instance Semigroup m => Semigroup (At x m) where
-  mult = multM
+  coatMonoidal :: Dict (Monoidal (Coat :: y -> x -> x -> y))
+  default coatMonoidal :: Monoidal (Coat :: y -> x -> x -> y) => Dict (Monoidal (Coat :: y -> x -> x -> y))
+  coatMonoidal = Dict
 
-instance Monoid m => Monoid (At x m) where
-  one = oneM
+  iextend :: forall (w :: (x -> y) -> x -> y) (ak :: x -> y) (i :: x) (j :: x) (b :: y). Comonad w => (w ak j ~> b) -> w ak i ~> w (Coat b j) i
 
-instance Cosemimonoidal (At x) where
-  op2 (At (Lift eab))= bimap At At eab
+  iextract :: Comonad w => hom (w (Coat a i) i) a
+  iextract = coat . runNat extract
 
-instance Comonoidal (At x) where
-  op0 (At (Const x)) = x
+  -- There is an adjunction between the obligations of At and the problem solved by Coat
+  atAdj :: forall (a :: y) (b :: y) (a' :: y) (b' :: y) (i :: x) (j :: x) (i' :: x') (j' :: x').
+    Iso (At a i j ~> b) (At a' i' j' ~> b')
+        (a ~> Coat b i j)   (a' ~> Coat b' i' j')
 
-instance Cosemigroup m => Cosemigroup (At x m) where
+-- Conor McBride's "At" adapted to this formalism
+data At0 a i j where
+  At :: a -> At0 a i i
+
+newtype Coat0 a i j = Coat { runCoat :: (i ~ j) => a }
+
+instance HasAt (->) where
+  type At = At0
+  at = At
+  ibind f = runNat (bind (Nat (\(At a) -> f a)))
+  ireturn a = runNat return (at a) -- we can't point-free this one currently in GHC, so we need it in the class
+  atComonoidal = Dict
+
+  type Coat = Coat0
+  coat = runCoat
+  coatMonoidal = Dict
+  iextend f = runNat (extend (Nat (\a -> Coat (f a))))
+
+  atAdj = dimap (\aijb a -> Coat $ aijb $ At a) (\abij (At a) -> runCoat (abij a))
+
+instance Functor At0 where
+  fmap f = nat2 $ \(At a) -> At (f a)
+
+instance Cosemimonoidal At0 where
+  op2 = nat2 $ \(At eab) -> Lift2 $ Lift $ bimap At At eab
+
+instance Comonoidal At0 where
+  op0 = nat2 $ \(At v) -> Const2 $ Const v
+
+instance Cosemigroup m => Cosemigroup (At0 m) where
   comult = comultOp
 
-instance Comonoid m => Comonoid (At x m) where
+instance Comonoid m => Comonoid (At0 m) where
   zero = zeroOp
+
+instance Functor Coat0 where
+  fmap f = nat2 $ \xs -> Coat $ f (runCoat xs)
+
+instance Semimonoidal Coat0 where
+  ap2 = nat2 $ \ab -> Coat $ case ab of
+    Lift2 (Lift (Coat a, Coat b)) -> (a, b)
+
+instance Monoidal Coat0 where
+  ap0 = nat2 $ \a -> Coat (getConst (getConst2 a))
+
+instance Semigroup m => Semigroup (Coat0 m) where
+  mult = multM
+
+instance Monoid m => Monoid (Coat0 m) where
+  one = oneM
