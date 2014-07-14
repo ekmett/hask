@@ -21,9 +21,9 @@ import Hask.Prof
 
 -- * Representability
 
-class Representable (p :: x -> y -> *) where
+class Representable (p :: x -> y -> z) where
   type Rep p :: y -> x
-  _Rep :: Iso (p a b) (p a' b') (a ~> Rep p b) (a' ~> Rep p b')
+  _Rep :: Iso (p a b) (p a' b') (Hom a (Rep p b)) (Hom a' (Rep p b'))
 
 instance Representable (->) where
   type Rep (->) = Id
@@ -58,9 +58,9 @@ downs = dimap hither yon where
   yon (Down dfgc) = Prof (Down id) (Down (getCompose . dfgc))
 -}
 
-class Corepresentable (p :: x -> y -> *) where
+class Corepresentable (p :: x -> y -> z) where
   type Corep p :: x -> y
-  _Corep :: Iso (p a b) (p a' b') (Corep p a ~> b) (Corep p a' ~> b')
+  _Corep :: Iso (p a b) (p a' b') (Hom (Corep p a) b) (Hom (Corep p a') b')
 
 instance Corepresentable (->) where
   type Corep (->) = Id
@@ -88,6 +88,11 @@ instance ( Corepresentable p
   type Corep (Prof p q) = Corep p · Corep q
   _Corep = dimap (\(Prof p q) -> get _Corep p . fmap (get _Corep q) . decompose)
                  (\k -> Prof (beget _Corep (k . compose)) (beget _Corep id))
+
+instance Corepresentable (|-) where
+  type Corep (|-) = IdC
+  _Corep = lmapping _Id
+
 
 {-
 ups = dimap hither yon where
