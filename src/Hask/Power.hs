@@ -39,9 +39,9 @@ flip = get flipped
 unflip :: Powered hom => Hom u (hom a b) ~> hom a (Power u b)
 unflip = beget flipped
 
--- flippedInternal :: forall (a :: i) (u :: i) (b :: i). (CCC (Arr a), Bifunctor ((*) :: i -> i -> i)) => Iso' ((b^u)^a) ((b^a)^u) ?
-flippedInternal = dimap (curry $ curry $ apply . first apply . associate (fmap1 swap))
-                        (curry $ curry $ apply . first apply . associate (fmap1 swap))
+-- flippedInternal :: forall (a :: i) (u :: i) (b :: i). CCC (Hom :: i -> i -> *) => Iso' ((b^u)^a) ((b^a)^u)
+--flippedInternal = dimap (curry $ curry $ apply . first apply . associate (fmap1 swap))
+--                        (curry $ curry $ apply . first apply . associate (fmap1 swap))
 
 instance Powered (->) where
   type Power = (->)
