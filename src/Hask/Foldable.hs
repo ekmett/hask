@@ -36,6 +36,9 @@ import qualified Data.Monoid as Base
 import qualified Data.Traversable as Base
 import Hask.Core
 
+-- (Rel a ~> m) -> f a ~> m -- relative foldable
+-- (Rel a ~> m b) -> f a ~> m (f b)
+
 -- * A kind-indexed family of categories
 
 -- * Folding and Traversing
