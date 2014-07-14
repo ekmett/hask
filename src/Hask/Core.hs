@@ -185,7 +185,7 @@ module Hask.Core
   , Const1(..), Const2(..), ConstC
   , Colim1(..), Colim2(..)
   -- ** Identities
-  , Id1(..), IdC
+  , Id0(..), Id1(..), IdC
   -- ** Lifts
   , Lift1(..), Lift2(..), LiftC
   -- ** Copowers
@@ -1486,16 +1486,16 @@ instance Cosemigroup m => Cosemigroup (e, m) where
 instance Comonoid m => Comonoid (e, m) where
   zero = zeroOp
 
-instance Cosemimonoidal Base.Identity where
-  op2 = bimap Base.Identity Base.Identity . Base.runIdentity
+instance Cosemimonoidal Id0 where
+  op2 = bimap Id Id . runId
 
-instance Comonoidal Base.Identity where
-  op0 = Base.runIdentity
+instance Comonoidal Id0 where
+  op0 = runId
 
-instance Cosemigroup m => Cosemigroup (Base.Identity m) where
+instance Cosemigroup m => Cosemigroup (Id0 m) where
   comult = comultOp
 
-instance Comonoid m => Comonoid (Base.Identity m) where
+instance Comonoid m => Comonoid (Id0 m) where
   zero = zeroOp
 
 -- lift all of these through Lift? its a limit
@@ -1531,14 +1531,16 @@ class (f -| f, Id ~ f) => Identity (f :: i -> i) | i -> f where
   type Id :: i -> i
   _Id :: Iso (f a) (f a') a a'
 
-instance Identity Base.Identity where
-  type Id = Base.Identity
-  _Id = dimap Base.runIdentity Base.Identity
+newtype Id0 a = Id { runId :: a }
 
-instance Functor Base.Identity where
-  fmap = Base.fmap
+instance Identity Id0 where
+  type Id = Id0
+  _Id = dimap runId Id
 
-instance Base.Identity -| Base.Identity where
+instance Functor Id0 where
+  fmap = _Id
+
+instance Id0 -| Id0 where
   adj = un (mapping _Id . lmapping _Id)
 
 -- * Id1 = Identity for Nat (i -> *)
