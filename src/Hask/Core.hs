@@ -1124,6 +1124,20 @@ instance Tensor p => Tensor (LiftC p) where
   rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
               (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
+instance Semitensor p => Semitensor (LiftC2 p) where
+  associate   = dimap
+    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate . first (get _Lift))
+    (Nat $ _Lift $ first (beget _Lift) . beget associate . fmap1 (get _Lift))
+
+type instance I (LiftC2 p) = ConstC2 (I p)
+instance Tensor p => Tensor (LiftC2 p) where
+  type Tensorable (LiftC2 p) = Post (Tensorable p)
+  lambda = dimap
+    (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
+    (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
+  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
+
 -- * Internal hom of a closed category
 
 class (Profunctor (Internal k), Category k, k ~ Hom) => Closed (k :: i -> i -> *)  where
