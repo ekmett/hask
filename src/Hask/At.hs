@@ -144,3 +144,6 @@ instance Functor CoatC where
 
 instance Semimonoidal CoatC where
   ap2 = Nat $ Nat (ins . ap2 . bimap cls cls . get _Lift) . get _Lift
+
+instance Monoidal CoatC where
+  ap0 = Nat $ Nat (ins . ap0 . cls . get _Const) . get _Const
