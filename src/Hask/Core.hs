@@ -1082,7 +1082,7 @@ instance Semitensor (&) where
 type family I (p :: x -> x -> x) :: x
 
 -- tensor for a monoidal category
-class Semitensor p => Tensor (p :: x -> x -> x) where
+class Semitensor p => Tensor p where
   lambda :: (Tensorable p a, Tensorable p a') => Iso (p (I p) a) (p (I p) a') a a'
   rho    :: (Tensorable p a, Tensorable p a') => Iso (p a (I p)) (p a' (I p)) a a'
 
@@ -2051,7 +2051,7 @@ associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
 
 whiskerComposeL k = Nat $ composed $ runNat k
 whiskerComposeR k = Nat $ composed $ fmap (runNat k)
-lambdaCompose = dimap (Nat (compose . beget _Id)) (Nat (get _Id . decompose))
+lambdaCompose = dimap (Nat (get _Id . decompose)) (Nat (compose . beget _Id))
 rhoCompose = dimap (Nat (fmap (get _Id) . decompose)) (Nat (compose . fmap (beget _Id)))
 
 -- if we can use it this coend based definition works for more things, notably it plays well with Ran/Lan
@@ -2067,6 +2067,11 @@ instance Semitensor Compose1 where
   second f = Nat $ composed $ fmap (runNat f)
   associate = dimap (Nat (compose . fmap compose . decompose . decompose))
                     (Nat (compose . compose . fmap decompose . decompose))
+
+type instance I Compose1 = Id
+instance Tensor Compose1 where
+  lambda = dimap (Nat (get _Id . decompose)) (Nat (compose . beget _Id))
+  rho = dimap (Nat (fmap (get _Id) . decompose)) (Nat (compose . fmap (beget _Id)))
 
 newtype Compose2 f g a b = Compose2 { getCompose2 :: f (g a) b }
 
@@ -2374,7 +2379,7 @@ instance Curried Compose1 Ran1 where
 instance HasRan (->) where
   type Ran = Ran1
   iotaRan = dimap (apply . beget rhoCompose) (curry (get rhoCompose))
-  jotRan = curry (beget lambdaCompose)
+  jotRan = curry (get lambdaCompose)
 
 instance Contravariant Ran1 where
   contramap f = nat2 $ \(Ran k z) -> Ran (k . Nat (compose . fmap (runNat f) . decompose)) z
