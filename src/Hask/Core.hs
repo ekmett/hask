@@ -1033,12 +1033,21 @@ un l = runUn $ l (Un id)
 class (Contravariant p, Functor p) => Phantom p
 instance (Contravariant p, Functor p) => Phantom p
 
-class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Semitensor p where
+class (Functor p, Profunctor (Cod2 p), Category (Cod2 p)) => Semitensor p where
   type Tensorable (p :: x -> x -> x) :: x -> Constraint
   type Tensorable p = Const (() :: Constraint)
 
+  second :: (Tensorable p c) => (a ~> b) -> p c a ~> p c b
+  -- leaving this off as the type errors when you omit 'second' are pretty terrible if you needed another implementation!
+  -- default second :: Post Functor p => (a ~> b) -> p c a ~> p c b
+  -- second = fmap1
+
   associate :: (Tensorable p a, Tensorable p b, Tensorable p c, Tensorable p a', Tensorable p b', Tensorable p c')
             => Iso (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
+
+second1 :: forall p a b c x. (Semitensor p, Post (Tensorable p) c) => (a ~> b) -> p (c x) a ~> p (c x) b
+second1 = case limDict :: Dict (Compose (Tensorable p) c x) of
+  Dict -> second
 
 associate1 :: forall a b c a' b' c' p x. (Semitensor p, Post (Tensorable p) a, Post (Tensorable p) b, Post (Tensorable p) c,
                 Post (Tensorable p) a', Post (Tensorable p) b', Post (Tensorable p) c')
@@ -1052,10 +1061,12 @@ associate1 = case limDict :: Dict (Compose (Tensorable p) a x) of
             Dict -> associate
 
 instance Semitensor (,) where
+  second = fmap1
   associate   = dimap (\((a,b),c) -> (a,(b,c)))
                       (\(a,(b,c)) -> ((a,b),c))
 
 instance Semitensor Either where
+  second = fmap1
   associate = dimap hither yon where
     hither (Left (Left a)) = Left a
     hither (Left (Right b)) = Right (Left b)
@@ -1065,6 +1076,7 @@ instance Semitensor Either where
     yon (Right (Right c)) = Right c
 
 instance Semitensor (&) where
+  second = fmap1
   associate   = dimap (Sub Dict) (Sub Dict)
 
 type family I (p :: x -> x -> x) :: x
@@ -1101,58 +1113,62 @@ instance Tensor (&) where
 
 instance Semitensor p => Semitensor (Lift1 p) where
   type Tensorable (Lift1 p) = Post (Tensorable p)
+  second f = Nat $ _Lift $ second1 $ runNat f
   associate   = dimap
-    (Nat $ _Lift $ fmap1 Lift . get associate1 . first (get _Lift))
-    (Nat $ _Lift $ first Lift . beget associate1 . fmap1 (get _Lift))
+    (Nat $ _Lift $ second1 Lift . get associate1 . first (get _Lift))
+    (Nat $ _Lift $ first Lift . beget associate1 . second1 (get _Lift))
 
 type instance I (Lift1 p) = Const1 (I p)
 instance Tensor p => Tensor (Lift1 p) where
   lambda = dimap (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
                  (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
+  rho = dimap (Nat $ lmap (second1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . second1 (beget _Const)) (beget rho1))
 
 instance Semitensor p => Semitensor (Lift2 (p :: (i -> *) -> (i -> *) -> i -> *)) where
   type Tensorable (Lift2 p) = Post (Tensorable p)
+  second f = Nat $ _Lift $ second1 $ runNat f
   associate   = dimap
-    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate1 . first (get _Lift))
-    (Nat $ _Lift $ first (beget _Lift) . beget associate1 . fmap1 (get _Lift))
+    (Nat $ _Lift $ second1 (beget _Lift) . get associate1 . first (get _Lift))
+    (Nat $ _Lift $ first (beget _Lift) . beget associate1 . second1 (get _Lift))
 
 type instance I (Lift2 p) = Const2 (I p)
 instance Tensor p => Tensor (Lift2 p) where
   lambda = dimap
     (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
     (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
+  rho = dimap (Nat $ lmap (second1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . second1 (beget _Const)) (beget rho1))
 
 instance Semitensor p => Semitensor (LiftC p) where
   type Tensorable (LiftC p) = Post (Tensorable p)
+  second f = Nat $ _Lift $ second1 $ runNat f
   associate   = dimap
-    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate1 . first (get _Lift))
-    (Nat $ _Lift $ first (beget _Lift) . beget associate1 . fmap1 (get _Lift))
+    (Nat $ _Lift $ second1 (beget _Lift) . get associate1 . first (get _Lift))
+    (Nat $ _Lift $ first (beget _Lift) . beget associate1 . second1 (get _Lift))
 
 type instance I (LiftC p) = ConstC (I p)
 instance Tensor p => Tensor (LiftC p) where
   lambda = dimap
     (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
     (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
+  rho = dimap (Nat $ lmap (second1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . second1 (beget _Const)) (beget rho1))
 
 instance Semitensor p => Semitensor (LiftC2 p) where
   type Tensorable (LiftC2 p) = Post (Tensorable p)
+  second f = Nat $ _Lift $ second1 $ runNat f
   associate   = dimap
-    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate1 . first (get _Lift))
-    (Nat $ _Lift $ first (beget _Lift) . beget associate1 . fmap1 (get _Lift))
+    (Nat $ _Lift $ second1 (beget _Lift) . get associate1 . first (get _Lift))
+    (Nat $ _Lift $ first (beget _Lift) . beget associate1 . second1 (get _Lift))
 
 type instance I (LiftC2 p) = ConstC2 (I p)
 instance Tensor p => Tensor (LiftC2 p) where
   lambda = dimap
     (Nat $ lmap (first (get _Const) . get _Lift) (get lambda1))
     (Nat $ fmap1 (beget _Lift . first (beget _Const)) (beget lambda1))
-  rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
-              (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
+  rho = dimap (Nat $ lmap (second1 (get _Const) . get _Lift) (get rho1))
+              (Nat $ fmap1 (beget _Lift . second1 (beget _Const)) (beget rho1))
 
 -- * Internal hom of a closed category
 
@@ -2046,13 +2062,25 @@ instance Composed (->) where
   compose = Compose
   decompose = getCompose
 
---instance Semitensor Compose1 where
-  -- needs a functor on b to decompose
-  -- associate = dimap (Nat $ \(Compose1 (Compose1 ax x2by) y2cz) -> Compose1 ax (\x -> Compose1 (x2by x) y2cz))
-  --                  (Nat $ \(Compose1 ax x2bcz) -> Compose1 (Compose1 ax (decompose . x2bcz)) id)
+instance Semitensor Compose1 where
+  type Tensorable Compose1 = Functor
+  second f = Nat $ composed $ fmap (runNat f)
+  associate = dimap (Nat (compose . fmap compose . decompose . decompose))
+                    (Nat (compose . compose . fmap decompose . decompose))
 
 newtype Compose2 f g a b = Compose2 { getCompose2 :: f (g a) b }
 
+instance Semitensor Compose2 where
+  type Tensorable Compose2 = Functor
+  second f = Nat $ composed $ fmap (runNat f)
+  associate = dimap (Nat (compose . fmap compose . decompose . decompose))
+                    (Nat (compose . compose . fmap decompose . decompose))
+
+instance Semitensor ComposeC where
+  type Tensorable ComposeC = Functor
+  second f = Nat $ composed $ fmap (runNat f)
+  associate = dimap (Nat (compose . fmap compose . decompose . decompose))
+                    (Nat (compose . compose . fmap decompose . decompose))
 
 instance Composed (Nat :: (k -> *) -> (k -> *) -> *) where
   type Compose = Compose2
