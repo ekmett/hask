@@ -1037,14 +1037,19 @@ class (Bifunctor p, Profunctor (Cod2 p), Category (Cod2 p)) => Semitensor p wher
   type Tensorable (p :: x -> x -> x) :: x -> Constraint
   type Tensorable p = Const (() :: Constraint)
   
-  associate :: (Tensorable p a, Tensorable p b, Tensorable p c) => Iso' (p (p a b) c) (p a (p b c))
+  associate :: (Tensorable p a, Tensorable p b, Tensorable p c, Tensorable p a', Tensorable p b', Tensorable p c') 
+            => Iso (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
 
-associate1 :: forall a b c p x. (Semitensor p, Post (Tensorable p) a, Post (Tensorable p) b, Post (Tensorable p) c)
-           => Iso' (p (p (a x) (b x)) (c x)) (p (a x) (p (b x) (c x)))
+associate1 :: forall a b c a' b' c' p x. (Semitensor p, Post (Tensorable p) a, Post (Tensorable p) b, Post (Tensorable p) c, 
+                Post (Tensorable p) a', Post (Tensorable p) b', Post (Tensorable p) c')
+           => Iso (p (p (a x) (b x)) (c x)) (p (p (a' x) (b' x)) (c' x)) (p (a x) (p (b x) (c x))) (p (a' x) (p (b' x) (c' x)))
 associate1 = case limDict :: Dict (Compose (Tensorable p) a x) of 
   Dict -> case limDict :: Dict (Compose (Tensorable p) b x) of 
     Dict -> case limDict :: Dict (Compose (Tensorable p) c x) of 
-      Dict -> associate
+      Dict -> case limDict :: Dict (Compose (Tensorable p) a' x) of 
+        Dict -> case limDict :: Dict (Compose (Tensorable p) b' x) of 
+          Dict -> case limDict :: Dict (Compose (Tensorable p) c' x) of 
+            Dict -> associate
   
 instance Semitensor (,) where
   associate   = dimap (\((a,b),c) -> (a,(b,c)))
@@ -1066,14 +1071,18 @@ type family I (p :: x -> x -> x) :: x
 
 -- tensor for a monoidal category
 class Semitensor p => Tensor (p :: x -> x -> x) where
-  lambda :: Tensorable p a => Iso' (p (I p) a) a
-  rho    :: Tensorable p a => Iso' (p a (I p)) a
+  lambda :: (Tensorable p a, Tensorable p a') => Iso (p (I p) a) (p (I p) a') a a'
+  rho    :: (Tensorable p a, Tensorable p a') => Iso (p a (I p)) (p a' (I p)) a a'
 
-lambda1 :: forall a p x. (Tensor p, Post (Tensorable p) a) => Iso' (p (I p) (a x)) (a x)
-lambda1 = case limDict :: Dict (Compose (Tensorable p) a x) of Dict -> lambda
+lambda1 :: forall a a' p x. (Tensor p, Post (Tensorable p) a, Post (Tensorable p) a') => Iso (p (I p) (a x)) (p (I p) (a' x)) (a x) (a' x)
+lambda1 = case limDict :: Dict (Compose (Tensorable p) a x) of 
+  Dict -> case limDict :: Dict (Compose (Tensorable p) a' x) of 
+    Dict -> lambda
 
-rho1 :: forall a p x. (Tensor p, Post (Tensorable p) a) => Iso' (p (a x) (I p)) (a x)
-rho1 = case limDict :: Dict (Compose (Tensorable p) a x) of Dict -> rho
+rho1 :: forall a a' p x. (Tensor p, Post (Tensorable p) a, Post (Tensorable p) a') => Iso (p (a x) (I p)) (p (a' x) (I p)) (a x) (a' x)
+rho1 = case limDict :: Dict (Compose (Tensorable p) a x) of 
+  Dict -> case limDict :: Dict (Compose (Tensorable p) a' x) of 
+    Dict -> rho
 
 type instance I (,) = ()
 instance Tensor (,) where
