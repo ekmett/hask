@@ -23,6 +23,8 @@
 module Hask.Power where
 
 import Hask.Core
+import Hask.Rel
+import Hask.Rep
 import qualified Prelude
 
 infixr 0 ⋔
@@ -106,3 +108,8 @@ instance (Monoidal f, Monoid m) => Monoid (Power1 v f m) where
 
 instance Functor f => Functor (Power1 v f) where
   fmap f = Power . fmap1 (fmap f) . runPower
+
+instance Corepresentable Power1 where
+  type Corep Power1 = Rel
+  _Corep = dimap (Nat $ \(Power ab) -> Lift (ab . get _Const))
+                 (Nat $ \(Lift ab) -> Power (ab . beget _Const))
