@@ -3,9 +3,13 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 --------------------------------------------------------------------
 -- |
 -- Copyright :  (c) Edward Kmett 2014
@@ -18,6 +22,7 @@
 --------------------------------------------------------------------
 module Hask.At where
 
+import Data.Constraint
 import Hask.Core
 
 ifmap :: (Functor f, Functor at) => (a ~> b) -> f (at a i) ~> f (at b i)
@@ -101,3 +106,33 @@ instance Semigroup m => Semigroup (Coat0 m) where
 
 instance Monoid m => Monoid (Coat0 m) where
   one = oneM
+
+class (a & (i~j)) => AtC a i j
+instance (a & (i~j)) => AtC a i j
+
+instance Class (a & (i ~ j)) (AtC a i j) where cls = Sub Dict
+instance (a & (i~j)) :=> AtC a i j where ins = Sub Dict
+
+class ((i ~ j) |- a) => CoatC a i j where
+instance ((i ~ j) |- a) => CoatC a i j
+
+instance Class ((i~j)|-a) (CoatC a i j) where cls = Sub Dict
+instance ((i~j)|-a) :=> CoatC a i j where ins = Sub Dict
+
+instance HasAt (:-) where
+  type At = AtC
+  at = Sub Dict
+  ibind f = runNat $ bind $ Nat $ Sub $ Dict \\ f
+  -- ireturn = runNat return . at -- TODO: this requires a CCC for (i -> Constraint)
+  atComonoidal = undefined -- TODO: Dict
+
+  type Coat = CoatC
+  coat = apply . fmap1 ii . beget rho . cls where
+    ii :: () :- (i ~ i)
+    ii = Sub Dict
+  coatMonoidal = undefined -- TODO: Dict
+
+  iextend = undefined -- TODO
+
+  -- this was a lot harder to write than it looks!
+  atAdj = dimap (\a-> ins.curry(a.ins)) (\c -> uncurry (cls.c).cls)
