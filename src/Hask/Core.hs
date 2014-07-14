@@ -1211,6 +1211,10 @@ instance Terminal (ConstC ()) where
   type One = ConstC ()
   terminal = Nat (beget _Const . terminal)
 
+instance Terminal t => Terminal (ConstC2 t) where
+  type One = ConstC2 One
+  terminal = Nat (beget _Const . terminal)
+
 class Zero ~ t => Initial (t :: i) | i -> t where
   type Zero :: i
   initial :: t ~> a
