@@ -8,7 +8,6 @@
 module Hask.Rel where
 
 import Hask.Core
-import Data.Functor.Identity as Base
 
 -- | Rel should be a faithful functor that is also injective on objects.
 --
@@ -23,8 +22,8 @@ type family Rel :: i -> j
 type instance Rel = Const1        -- @* -> j -> *@
 type instance Rel = Const2        -- @(i -> *) -> j -> i -> *@
 type instance Rel = ConstC        -- @Constraint -> i -> Constraint@
-type instance Rel = Base.Identity -- @* -> *@
-type instance Rel = Id1           -- @(i - *) -> i -> *@
+type instance Rel = Id0           -- @* -> *@
+type instance Rel = Id1           -- @(i -> *) -> i -> *@
 type instance Rel = IdC           -- @i -> i@
 -- type instance Rel = Id2
 
@@ -37,7 +36,7 @@ type instance Rel = IdC           -- @i -> i@
 type family Reflected :: j -> i
 type instance Reflected = Colim1
 type instance Reflected = Colim2
-type instance Reflected = Base.Identity
+type instance Reflected = Id0
 type instance Reflected = Id1
 type instance Reflected = IdC
 -- type instance Reflected = Id2
@@ -51,7 +50,7 @@ type family Coreflected :: j -> i
 type instance Coreflected = Lim1
 type instance Coreflected = Lim2
 type instance Coreflected = LimC
-type instance Coreflected = Base.Identity
+type instance Coreflected = Id0
 type instance Coreflected = Id1
 type instance Coreflected = IdC
 -- type instance Coreflected = Id2
@@ -67,7 +66,7 @@ class (f :: j -> i) ~| (u :: i -> k) | f k -> u, u j -> f where
   -- @
   radj :: Iso (f a ~> b) (f a' ~> b') (Rel a ~> u b) (Rel a' ~> u b')
 
-instance Base.Identity ~| Base.Identity where radj = adj.pre _Id
+instance Id0 ~| Id0 where radj = adj.pre _Id
 instance Id1 ~| Id1 where radj = adj.pre _Id
 instance IdC ~| IdC where radj = adj.pre _Id
 instance Const1 ~| Lim1 where radj = adj.pre _Id
@@ -108,7 +107,7 @@ class rel ~ Rel => RelComposed (rel :: j -> c) where
 
   rcompose :: Functor f' => Iso (RelCompose f g) (RelCompose f' g') (Compose (Lan rel f) g) (Compose (Lan rel f') g')
 
-instance RelComposed Base.Identity where
+instance RelComposed Id0 where
   type RelCompose = Compose1
   rcompose = firstly (un epsilonLan)
 
