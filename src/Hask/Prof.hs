@@ -29,11 +29,11 @@ data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
   Prof :: p b c -> q a b -> Prof p q a c
 
 instance Category ((~>) :: i -> i -> *) => Semitensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
+  type Tensorable Prof = Profunctor
   associate = associateProf
 
 type instance I Prof = (~>)
 instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
-  type Tensorable Prof = Profunctor
   lambda = lambdaProf
   rho = rhoProf
 
