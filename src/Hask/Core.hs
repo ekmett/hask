@@ -1156,6 +1156,7 @@ type instance I (|-) = (() :: Constraint)
 instance Closed (->)
 instance Closed (:-)
 instance Closed (Nat :: (i -> *) -> (i -> *) -> *)
+instance Closed (Nat :: (i -> Constraint) -> (i -> Constraint) -> *)
 
 -- instance Closed (Nat :: (i -> j -> *) -> (i -> j -> *) -> *)
 
@@ -1426,18 +1427,26 @@ class
   , Curryable (*) (I (Internal k))
   ) => CCC (k :: x -> x -> *) | x -> k
 
+instance
+  ( Cartesian k
+  , Closed k
+  , Curried (*) (Internal k)
+  , I (Internal k) ~ I (*)
+  , Curryable (*) (I (Internal k))
+  ) => CCC (k :: x -> x -> *)
+
 -- TODO: instance (...) => CCC k
 
 instance Curried (,) (->) where
   curry = Prelude.curry
   uncurry = Prelude.uncurry
 
-instance CCC (->)
+-- instance CCC (->)
 
 instance (,) e -| (->) e where
   adj = ccc
 
-instance CCC (Nat :: (i -> *) -> (i -> *) -> *)
+-- instance CCC (Nat :: (i -> *) -> (i -> *) -> *)
 
 -- semimonoidal functors preserve the structure of our pretensor and take semimonoid objects to semimonoid objects
 class (Precartesian ((~>) :: x -> x -> *), Precartesian ((~>) :: y -> y -> *), Functor f) => Semimonoidal (f :: x -> y) where
@@ -1931,7 +1940,7 @@ instance Curried (&) (|-) where
     unapplyConstraint :: p :- q |- (p & q)
     unapplyConstraint = Sub $ get _Implies (Sub Dict)
 
-instance CCC (:-)
+-- instance CCC (:-)
 
 -- * The terminal category with one object
 
