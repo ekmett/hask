@@ -30,6 +30,7 @@ data Prof :: (j -> k -> *) -> (i -> j -> *) -> i -> k -> * where
 
 instance Category ((~>) :: i -> i -> *) => Semitensor (Prof :: (i -> i -> *) -> (i -> i -> *) -> i -> i -> *) where
   type Tensorable Prof = Profunctor
+  second = fmap1
   associate = associateProf
 
 type instance I Prof = (~>)
