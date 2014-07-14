@@ -84,7 +84,7 @@ module Hask.Core
   , Complete(..)
 
   -- * Natural Isomorphisms
-  , Iso
+  , Iso, Iso'
   -- * Adjunctions
   , (-|)(..)
   , unitAdj, counitAdj, zipR, absurdL, cozipL
@@ -354,6 +354,7 @@ dimap :: (Profunctor p, Category (Cod2 p)) => (a ~> b) -> (c ~> d) -> p b c ~> p
 dimap f g = lmap f . fmap1 g
 
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
+type Iso' s a = Iso s s a a
 
 -- * Adjunctions
 
