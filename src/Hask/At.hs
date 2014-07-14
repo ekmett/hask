@@ -18,7 +18,8 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- The definitions here are loosely based on Conor McBride's <https://personal.cis.strath.ac.uk/conor.mcbride/Kleisli.pdf "Kleisli Arrows of Outrageous Fortune">.
+-- The definitions here are loosely based on Conor McBride's
+-- <https://personal.cis.strath.ac.uk/conor.mcbride/Kleisli.pdf "Kleisli Arrows of Outrageous Fortune">.
 --------------------------------------------------------------------
 module Hask.At where
 
