@@ -132,7 +132,7 @@ instance HasAt (:-) where
     ii = Sub Dict
   coatMonoidal = undefined -- TODO: Dict
 
-  iextend = undefined -- TODO
+  -- iextend = undefined -- TODO
 
   -- this was a lot harder to write than it looks!
   atAdj = dimap (\a-> ins.curry(a.ins)) (\c -> uncurry (cls.c).cls)
