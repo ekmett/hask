@@ -147,3 +147,9 @@ instance Semimonoidal CoatC where
 
 instance Monoidal CoatC where
   ap0 = Nat $ Nat (ins . ap0 . cls . get _Const) . get _Const
+
+instance Semigroup m => Semigroup (CoatC m) where
+  mult = multM
+
+instance Monoid m => Monoid (CoatC m) where
+  one = oneM
