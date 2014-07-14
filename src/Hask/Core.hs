@@ -1182,6 +1182,9 @@ instance Symmetric p => Symmetric (Lift2 p) where
 instance Symmetric p => Symmetric (LiftC p) where
   swap = Nat $ _Lift swap
 
+instance Symmetric p => Symmetric (LiftC2 p) where
+  swap = Nat $ _Lift swap
+
 class One ~ t => Terminal (t :: i) | i -> t where
   type One :: i
   terminal :: a ~> t
@@ -1272,6 +1275,12 @@ instance Precartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 
 type instance Copower = LiftC (&)
 instance Precartesian (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
+  fst = Nat $ fst . get _Lift
+  snd = Nat $ snd . get _Lift
+  Nat f &&& Nat g = Nat $ beget _Lift . (f &&& g)
+
+type instance Copower = LiftC2 (*)
+instance Precartesian (Nat :: (i -> j -> Constraint) -> (i -> j -> Constraint) -> *) where
   fst = Nat $ fst . get _Lift
   snd = Nat $ snd . get _Lift
   Nat f &&& Nat g = Nat $ beget _Lift . (f &&& g)
@@ -1388,6 +1397,10 @@ instance Curried p q => Curried (LiftC p) (LiftC q) where
   curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
   uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
+instance Curried p q => Curried (LiftC2 p) (LiftC2 q) where
+  type Curryable (LiftC2 p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
 -- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
 
