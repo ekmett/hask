@@ -107,14 +107,14 @@ instance Semigroup m => Semigroup (Coat0 m) where
 instance Monoid m => Monoid (Coat0 m) where
   one = oneM
 
-class (a & (i~j)) => AtC a i j
+class    (a & (i~j)) => AtC a i j
 instance (a & (i~j)) => AtC a i j
 
 instance Class (a & (i ~ j)) (AtC a i j) where cls = Sub Dict
 instance (a & (i~j)) :=> AtC a i j where ins = Sub Dict
 
-class ((i ~ j) |- a) => CoatC a i j where
-instance ((i ~ j) |- a) => CoatC a i j
+class    ((i~j) |- a) => CoatC a i j
+instance ((i~j) |- a) => CoatC a i j
 
 instance Class ((i~j)|-a) (CoatC a i j) where cls = Sub Dict
 instance ((i~j)|-a) :=> CoatC a i j where ins = Sub Dict
@@ -136,3 +136,12 @@ instance HasAt (:-) where
 
   -- this was a lot harder to write than it looks!
   atAdj = dimap (\a-> ins.curry(a.ins)) (\c -> uncurry (cls.c).cls)
+
+instance Functor AtC where
+  fmap f = nat2 $ ins . first f . cls
+
+instance Functor CoatC where
+  fmap f = nat2 $ ins . fmap1 f . cls
+
+-- requires (C2)
+--instance Semimonoidal CoatC
