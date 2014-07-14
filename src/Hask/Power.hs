@@ -68,6 +68,7 @@ instance Powered (Lift2 (Lift1 (->))) where
   --flipped = dimap (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (runNat (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . runNat (get _Lift)) . get _Lift) . get _Lift)
   --                (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (runNat (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . runNat (get _Lift)) . get _Lift) . get _Lift)
 
+-- Power1 :: * -> (i -> *) -> (i -> *)
 newtype Power1 v f a = Power { runPower :: v -> f a }
 
 instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where

@@ -1102,8 +1102,8 @@ instance Tensor (&) where
 instance Semitensor p => Semitensor (Lift1 p) where
   type Tensorable (Lift1 p) = Post (Tensorable p)
   associate   = dimap
-    (Nat $ _Lift $ fmap1 (beget _Lift) . get associate1 . first (get _Lift))
-    (Nat $ _Lift $ first (beget _Lift) . beget associate1 . fmap1 (get _Lift))
+    (Nat $ _Lift $ fmap1 Lift . get associate1 . first lower)
+    (Nat $ _Lift $ first Lift . beget associate1 . fmap1 lower)
 
 type instance I (Lift1 p) = Const1 (I p)
 instance Tensor p => Tensor (Lift1 p) where
@@ -1112,7 +1112,7 @@ instance Tensor p => Tensor (Lift1 p) where
   rho = dimap (Nat $ lmap (fmap1 (get _Const) . get _Lift) (get rho1))
               (Nat $ fmap1 (beget _Lift . fmap1 (beget _Const)) (beget rho1))
 
-instance Semitensor p => Semitensor (Lift2 p) where
+instance Semitensor p => Semitensor (Lift2 (p :: (i -> *) -> (i -> *) -> i -> *)) where
   type Tensorable (Lift2 p) = Post (Tensorable p)
   associate   = dimap
     (Nat $ _Lift $ fmap1 (beget _Lift) . get associate1 . first (get _Lift))
