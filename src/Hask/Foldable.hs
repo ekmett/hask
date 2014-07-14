@@ -40,7 +40,7 @@ import Hask.Power
 -- * Foldable
 
 class Functor f => Foldable (f :: i -> j) where
-  foldMap :: Monoid m => (a ⋔ m) ~> m^f a
+  foldMap :: Monoid (m :: j) => (a ⋔ m) ~> (f a ⋔ m)
 
 newtype WrapMonoid m = WrapMonoid { runWrapMonoid :: m }
 
