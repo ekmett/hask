@@ -208,7 +208,6 @@ import Control.Category (Category(..))
 import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
 import qualified Data.Functor as Base
-import qualified Data.Functor.Identity as Base
 import Data.Proxy
 import Data.Tagged
 import qualified Data.Traversable as Base
@@ -653,6 +652,7 @@ instance Functor Dict where
 
 -- Lifting lets us define things an index up from simpler parts, recycle products, etc.
 
+-- modify Lifted to use the category l
 class Lift ~ s => Lifted (s :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l) | i j k l -> s where
   type Lift :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l
   _Lift :: Iso (s q f g a) (s r h e b) (q (f a) (g a)) (r (h b) (e b))
@@ -728,24 +728,6 @@ instance Post Contravariant p => Contravariant (Lift2 p f) where
   contramap = contramap1
 
 -- Lifting adjunctions
-
-curry1 :: forall a b c p q x. (Curried p q, Post (Curryable p) a) => (p (a x) (b x) ~> c x) -> a x ~> q (b x) (c x)
-curry1 = case limDict :: Dict (Compose (Curryable p) a x) of Dict -> curry
-
-instance Curried p q => Curried (Lift1 p) (Lift1 q) where
-  type Curryable (Lift1 p) = Post (Curryable p)
-  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
-  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
-
-instance Curried p q => Curried (Lift2 p) (Lift2 q) where
-  type Curryable (Lift2 p) = Post (Curryable p)
-  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
-  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
-
-instance Curried p q => Curried (LiftC p) (LiftC q) where
-  type Curryable (LiftC p) = Post (Curryable p)
-  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
-  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
 -- instance (f -| g, f' -| g') => Lift1 Either f f' -| Lift1 (,) g g' where ?
 -- instance (Post Functor p, Post Functor q, Compose p =| Compose q) => Lift1 p e -| Lift1 q e ?
@@ -1004,7 +986,7 @@ type family I (p :: x -> x -> x) :: x
 class Semitensor p => Tensor (p :: x -> x -> x) where
   type Tensorable (p :: x -> x -> x) :: x -> Constraint
   type Tensorable p = Const (() :: Constraint)
-  
+
   lambda :: Tensorable p a => Iso (p (I p) a) (p (I p) a) a a
   rho    :: Tensorable p a => Iso (p a (I p)) (p a (I p)) a a
 
@@ -1072,9 +1054,9 @@ instance Tensor p => Tensor (LiftC p) where
 
 -- * Internal hom of a closed category
 
-class (Profunctor (Internal k), Category k) => Closed (k :: i -> i -> *)  where
+class (Profunctor (Internal k), Category k, k ~ Hom) => Closed (k :: i -> i -> *)  where
   iota :: Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
-  default iota :: (CCC k, Curryable (*) b, Tensorable (*) b, Tensorable (*) (Internal k (I (*)) a)) 
+  default iota :: (CCC k, Curryable (*) b, Tensorable (*) b, Tensorable (*) (Internal k (I (*)) a))
                => Iso (Internal k (I (Internal k)) a) (Internal k (I (Internal k)) b) a b
   iota = dimap (apply . beget rho) (curry (get rho))
 
@@ -1302,6 +1284,25 @@ curried = dimap curry uncurry
 ccc :: (Category (Cod2 p), Symmetric p, Curried p e, Curryable p a) => Iso (p i a ~> b) (p i' a' ~> b') (a ~> e i b) (a' ~> e i' b')
 ccc = dimap (. swap) (. swap) . curried
 
+curry1 :: forall a b c p q x. (Curried p q, Post (Curryable p) a) => (p (a x) (b x) ~> c x) -> a x ~> q (b x) (c x)
+curry1 = case limDict :: Dict (Compose (Curryable p) a x) of Dict -> curry
+
+instance Curried p q => Curried (Lift1 p) (Lift1 q) where
+  type Curryable (Lift1 p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
+
+instance Curried p q => Curried (Lift2 p) (Lift2 q) where
+  type Curryable (Lift2 p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
+
+instance Curried p q => Curried (LiftC p) (LiftC q) where
+  type Curryable (LiftC p) = Post (Curryable p)
+  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
+
+
 -- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
 
 -- Cocurried :: (k -> k1 -> k2) -> (k2 -> k -> k1) -> Constraint
@@ -1325,6 +1326,8 @@ class
   , I (Internal k) ~ I (*)
   , Curryable (*) (I (Internal k))
   ) => CCC (k :: x -> x -> *) | x -> k
+
+-- TODO: instance (...) => CCC k
 
 instance Curried (,) (->) where
   curry = Prelude.curry
