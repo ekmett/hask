@@ -6,8 +6,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# OPTIONS_GHC -Wall #-}
 --------------------------------------------------------------------
 -- |
@@ -37,9 +39,32 @@ flip = get flipped
 unflip :: Powered hom => Hom u (hom a b) ~> hom a (Power u b)
 unflip = beget flipped
 
+-- flippedInternal :: forall (a :: i) (u :: i) (b :: i). (CCC (Arr a), Bifunctor ((*) :: i -> i -> i)) => Iso' ((b^u)^a) ((b^a)^u) ?
+flippedInternal = dimap (curry $ curry $ apply . first apply . associate (fmap1 swap))
+                        (curry $ curry $ apply . first apply . associate (fmap1 swap))
+
 instance Powered (->) where
   type Power = (->)
   flipped = dimap Prelude.flip Prelude.flip
+
+instance Powered (|-) where
+  type Power = (|-)
+  flipped = dimap (curry $ curry $ apply . first apply . associate (fmap1 swap))
+                  (curry $ curry $ apply . first apply . associate (fmap1 swap))
+
+instance Powered (Lift1 (->)) where
+  type Power = Lift (->)
+  flipped = dimap (curry $ curry $ apply . first apply . associate (fmap1 swap))
+                  (curry $ curry $ apply . first apply . associate (fmap1 swap))
+  --flipped = dimap (Nat $ beget _Lift . fmap1 (beget _Lift) . flip . fmap1 (get _Lift) . get _Lift)
+  --                (Nat $ beget _Lift . fmap1 (beget _Lift) . flip . fmap1 (get _Lift) . get _Lift)
+
+instance Powered (Lift2 (Lift1 (->))) where
+  type Power = Lift (Lift (->))
+  flipped = dimap (curry $ curry $ apply . first apply . associate (fmap1 swap))
+                  (curry $ curry $ apply . first apply . associate (fmap1 swap))
+  --flipped = dimap (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (runNat (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . runNat (get _Lift)) . get _Lift) . get _Lift)
+  --                (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (runNat (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . runNat (get _Lift)) . get _Lift) . get _Lift)
 
 newtype Power1 v f a = Power { runPower :: v -> f a }
 
