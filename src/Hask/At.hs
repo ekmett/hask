@@ -129,11 +129,10 @@ instance HasAt (:-) where
   coat = apply . fmap1 ii . beget rho . cls where
     ii :: () :- (i ~ i)
     ii = Sub Dict
-  coatMonoidal = undefined -- TODO: Dict
+  coatMonoidal = Dict
 
   iextract = coat . runNat extract
 
-  -- this was a lot harder to write than it looks!
   atAdj = dimap (\a-> ins.curry(a.ins)) (\c -> uncurry (cls.c).cls)
 
 instance Functor AtC where
