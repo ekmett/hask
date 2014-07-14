@@ -48,8 +48,8 @@ class (Category hom, hom ~ Hom) => HasAt (hom :: y -> y -> *) where
 
   -- There is an adjunction between the obligations of At and the problem solved by Coat
   atAdj :: forall (a :: y) (b :: y) (a' :: y) (b' :: y) (i :: x) (j :: x) (i' :: x') (j' :: x').
-    Iso (At a i j ~> b) (At a' i' j' ~> b')
-        (a ~> Coat b i j)   (a' ~> Coat b' i' j')
+    Iso (At a i j ~> b)   (At a' i' j' ~> b')
+        (a ~> Coat b i j) (a' ~> Coat b' i' j')
 
 -- Conor McBride's "At" adapted to this formalism
 data At0 a i j where
