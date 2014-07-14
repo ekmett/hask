@@ -95,7 +95,7 @@ module Hask.Core
   -- * Automatic Lifting
   , Lifted(..)
   -- * Constraints
-  , (:-)(Sub), Dict(Dict), (\\), type (&), (|-)(implies), _Sub, _Implies
+  , (:-)(Sub), Dict(Dict), (\\), type (&), (|-)(implies), _Sub, _Implies, Class(..), (:=>)(..)
   -- * Lens Esoterica
 
   -- ** The Yoneda embedding
@@ -206,7 +206,7 @@ import qualified Control.Applicative as Base
 import qualified Control.Arrow as Arrow
 import Control.Category (Category(..))
 import qualified Data.Constraint as Constraint
-import Data.Constraint ((:-)(Sub), (\\), Dict(Dict))
+import Data.Constraint ((:-)(Sub), (\\), Dict(Dict), Class(..), (:=>)(..))
 import qualified Data.Functor as Base
 import Data.Proxy
 import Data.Tagged
@@ -526,6 +526,49 @@ instance Cosemigroup b => Cosemigroup (ConstC b a) where
   comult = bimap (beget _Const) (beget _Const) . comult . get _Const
 
 instance Comonoid b => Comonoid (ConstC b a) where
+  zero = zero . get _Const
+
+
+class f c => ConstC2 f a c
+instance f c => ConstC2 f a c
+instance Class (f c) (ConstC2 f a c) where cls = Sub Dict
+instance f c :=> ConstC2 f a c where ins = Sub Dict
+
+instance Constant ConstC2 where
+  type Const = ConstC2
+  _Const = dimap (Nat (Sub Dict)) (Nat (Sub Dict))
+
+instance Functor ConstC2 where
+  fmap f = Nat (_Const f)
+
+instance Functor (ConstC2 f) where
+  fmap _ = Nat $ ins . cls
+
+instance Functor f => Functor (ConstC2 f a) where
+  fmap f = ins . fmap f . cls
+
+instance (Semigroup b, Precartesian ((~>) :: i -> i -> *)) => Semimonoidal (ConstC2 b :: i -> j -> Constraint) where
+  ap2 = beget _Const . mult . bimap (get _Const) (get _Const)
+
+instance (Monoid b, Cartesian ((~>) :: i -> i -> *)) => Monoidal (ConstC2 b :: i -> j -> Constraint) where
+  ap0 = beget _Const . one
+
+instance Semigroup b => Semigroup (ConstC2 b a) where
+  mult = beget _Const . mult . bimap (get _Const) (get _Const)
+
+instance Monoid b => Monoid (ConstC2 b a) where
+  one = beget _Const . one
+
+instance (Cosemigroup b, Precocartesian ((~>) :: i -> i -> *)) => Cosemimonoidal (ConstC2 b :: i -> j -> Constraint) where
+  op2 = bimap (beget _Const) (beget _Const) . comult . get _Const
+
+instance (Comonoid b, Cocartesian ((~>) :: i -> i -> *)) => Comonoidal (ConstC2 b :: i -> j -> Constraint) where
+  op0 = zero . get _Const
+
+instance Cosemigroup b => Cosemigroup (ConstC2 b a) where
+  comult = bimap (beget _Const) (beget _Const) . comult . get _Const
+
+instance Comonoid b => Comonoid (ConstC2 b a) where
   zero = zero . get _Const
 
 newtype Lim1 (f :: i -> *) = Lim { getLim :: forall x. f x }
