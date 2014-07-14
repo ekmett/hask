@@ -25,6 +25,9 @@ type instance Rel = ConstC        -- @Constraint -> i -> Constraint@
 type instance Rel = Id0           -- @* -> *@
 type instance Rel = Id1           -- @(i -> *) -> i -> *@
 type instance Rel = IdC           -- @i -> i@
+type instance Rel = Dict
+type instance Rel = No
+
 -- type instance Rel = Id2
 
 -- | The <http://en.wikipedia.org/wiki/Reflective_subcategory "reflector"> of a
