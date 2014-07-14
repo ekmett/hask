@@ -2081,11 +2081,21 @@ instance Semitensor Compose2 where
   associate = dimap (Nat (compose . fmap compose . decompose . decompose))
                     (Nat (compose . compose . fmap decompose . decompose))
 
+type instance I Compose2 = Id
+instance Tensor Compose2 where
+  lambda = dimap (Nat (get _Id . decompose)) (Nat (compose . beget _Id))
+  rho = dimap (Nat (fmap (get _Id) . decompose)) (Nat (compose . fmap (beget _Id)))
+
 instance Semitensor ComposeC where
   type Tensorable ComposeC = Functor
   second f = Nat $ composed $ fmap (runNat f)
   associate = dimap (Nat (compose . fmap compose . decompose . decompose))
                     (Nat (compose . compose . fmap decompose . decompose))
+
+type instance I ComposeC = Id
+instance Tensor ComposeC where
+  lambda = dimap (Nat (get _Id . decompose)) (Nat (compose . beget _Id))
+  rho = dimap (Nat (fmap (get _Id) . decompose)) (Nat (compose . fmap (beget _Id)))
 
 instance Composed (Nat :: (k -> *) -> (k -> *) -> *) where
   type Compose = Compose2
