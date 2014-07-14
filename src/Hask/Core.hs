@@ -187,7 +187,7 @@ module Hask.Core
   -- ** Identities
   , Id0(..), Id1(..), IdC
   -- ** Lifts
-  , Lift1(..), Lift2(..), LiftC
+  , Lift1(..), Lift2(..), LiftC, LiftC2
   -- ** Copowers
   , Copower1(..), Copower2(..), Copower2_1(..)
   -- ** Kan extensions
@@ -704,6 +704,28 @@ instance Post Contravariant p => Contravariant (LiftC p e) where
 instance Lifted (:-) where
   type Lift = LiftC
   _Lift = dimap (Sub Dict) (Sub Dict)
+
+class r (f a) (g a) b => LiftC2 r f g a b
+instance r (f a) (g a) b => LiftC2 r f g a b
+
+instance Functor LiftC2 where
+  fmap f = nat3 $ _Lift $ runNat2 f  -- nat3 $ _Lift $ undefined -- TODO _heh
+
+instance Functor p => Functor (LiftC2 p) where
+  fmap f = nat2 $ _Lift $ first $ runNat f
+
+instance Contravariant p => Contravariant (LiftC2 p) where
+  contramap f = nat2 $ _Lift $ lmap $ runNat f
+
+instance Post Functor p => Functor (LiftC2 p f) where
+  fmap (Nat f) = Nat (_Lift $ fmap1 f)
+
+instance Post Contravariant p => Contravariant (LiftC2 p f) where
+  contramap = contramap1
+
+instance Lifted (Nat :: (i -> Constraint) -> (i -> Constraint) -> *) where
+  type Lift = LiftC2
+  _Lift = dimap (Nat (Sub Dict)) (Nat (Sub Dict))
 
 -- ** Lift2
 
