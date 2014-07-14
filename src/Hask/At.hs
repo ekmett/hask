@@ -33,9 +33,9 @@ class (Category hom, hom ~ Hom) => HasAt (hom :: y -> y -> *) where
   ibind :: forall (m :: (x -> y) -> x -> y) (a :: y) (bk :: x -> y) (i :: x) (j :: x). Monad m => (a ~> m bk j) -> m (At a j) i ~> m bk i
   ireturn :: (Monoidal m, Strength m) => hom a (m (At a i) i)
 
-  atComonoidal :: Dict (Comonoidal (At :: y -> x -> x -> y))
-  default atComonoidal :: Comonoidal (At :: y -> x -> x -> y) => Dict (Comonoidal (At :: y -> x -> x -> y))
-  atComonoidal = Dict
+  atFunctor :: Dict (Functor (At :: y -> x -> x -> y))
+  default atFunctor :: Functor (At :: y -> x -> x -> y) => Dict (Functor (At :: y -> x -> x -> y))
+  atFunctor = Dict
 
   -- The dual of Conor McBride's "At" adapted to this formalism
   type Coat :: y -> x -> x -> y
@@ -66,7 +66,7 @@ instance HasAt (->) where
   at = At
   ibind f = runNat (bind (Nat (\(At a) -> f a)))
   ireturn a = runNat return (at a) -- we can't point-free this one currently in GHC, so we need it in the class
-  atComonoidal = Dict
+  atFunctor = Dict
 
   type Coat = Coat0
   coat = runCoat
@@ -123,7 +123,7 @@ instance HasAt (:-) where
   at = Sub Dict
   ibind f = runNat $ bind $ Nat $ Sub $ Dict \\ f
   ireturn = runNat return . at
-  atComonoidal = undefined -- TODO: Dict
+  atFunctor = Dict
 
   type Coat = CoatC
   coat = apply . fmap1 ii . beget rho . cls where
