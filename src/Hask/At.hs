@@ -123,7 +123,7 @@ instance HasAt (:-) where
   type At = AtC
   at = Sub Dict
   ibind f = runNat $ bind $ Nat $ Sub $ Dict \\ f
-  -- ireturn = runNat return . at -- TODO: this requires a CCC for (i -> Constraint)
+  ireturn = runNat return . at
   atComonoidal = undefined -- TODO: Dict
 
   type Coat = CoatC
@@ -132,7 +132,7 @@ instance HasAt (:-) where
     ii = Sub Dict
   coatMonoidal = undefined -- TODO: Dict
 
-  -- iextend = undefined -- TODO
+  iextract = coat . runNat extract
 
   -- this was a lot harder to write than it looks!
   atAdj = dimap (\a-> ins.curry(a.ins)) (\c -> uncurry (cls.c).cls)
