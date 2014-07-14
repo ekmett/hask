@@ -1033,7 +1033,7 @@ un l = runUn $ l (Un id)
 class (Contravariant p, Functor p) => Phantom p
 instance (Contravariant p, Functor p) => Phantom p
 
-class (Functor p, Profunctor (Cod2 p), Category (Cod2 p)) => Semitensor p where
+class (Functor p, Profunctor (Cod2 p), Category (Cod2 p)) => Semitensor (p :: x -> x -> x) where
   type Tensorable (p :: x -> x -> x) :: x -> Constraint
   type Tensorable p = Const (() :: Constraint)
 
