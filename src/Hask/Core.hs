@@ -320,6 +320,8 @@ type (·) = Compose
 -- | We can compose constraints
 class f (g a) => ComposeC f g a
 instance f (g a) => ComposeC f g a
+instance Class (f (g a)) (ComposeC f g a) where cls = Sub Dict
+instance f (g a) :=> ComposeC f g a where ins = Sub Dict
 
 instance Composed (:-) where
   type Compose = ComposeC
@@ -328,6 +330,10 @@ instance Composed (:-) where
 
 class LimC (f · p) => Post f p
 instance LimC (f · p) => Post f p
+
+-- this would be tedious to hand enumerate and hard to keep current
+-- instance Class (LimC (Compose f p)) (Post f p) where cls = Sub Dict
+-- instance LimC (Compose f p) :=> Post f p where ins = Sub Dict
 
 fmap1 :: forall p a b c. Post Functor p => (a ~> b) -> p c a ~> p c b
 fmap1 f = case limDict :: Dict (Compose Functor p c) of Dict -> fmap f
