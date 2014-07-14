@@ -132,6 +132,7 @@ instance HasAt (:-) where
   coatMonoidal = Dict
 
   iextract = coat . runNat extract
+  iextend f = runNat $ extend $ Nat $ ins . curry (f . Sub Dict)
 
   atAdj = dimap (\a-> ins.curry(a.ins)) (\c -> uncurry (cls.c).cls)
 
