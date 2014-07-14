@@ -35,6 +35,7 @@ import qualified Data.Functor as Base
 import qualified Data.Monoid as Base
 import qualified Data.Traversable as Base
 import Hask.Core
+import Hask.Power
 
 -- (Rel a ~> m) -> f a ~> m -- relative foldable
 -- (Rel a ~> m b) -> f a ~> m (f b)
@@ -59,14 +60,15 @@ instance Monoidal f => Base.Applicative (WrapMonoidal f) where
   pure a = WrapMonoidal (return a)
   WrapMonoidal f <*> WrapMonoidal g = WrapMonoidal $ ap f g
 
-class Functor f => Foldable f where
-  foldMap :: Monoid m => (a ~> m) ~> f a ~> m
+class Functor f => Foldable (f :: i -> j) where
+  -- foldMap :: forall (a :: i) (m :: j). (Powered (Hom :: j -> j -> i), Monoid m) => (a ⋔ m) ~> m^f a
+  foldMap :: Monoid m => (a ⋔ m) ~> m^f a
 
 foldMapHask :: (Base.Foldable f, Monoid m) => (a -> m) -> f a -> m
 foldMapHask f = runWrapMonoid . Base.foldMap (WrapMonoid . f)
 
 class Functor f => Traversable f where
-  traverse :: Monoidal m => (a ~> m b) ~> f a ~> m (f b)
+  traverse :: Monoidal m => (a ~> m b) -> f a ~> m (f b)
 
 fmapDefault f    = get _Id . traverse (beget _Id . f)
 foldMapDefault f = get _Const . traverse (beget _Const . f)
@@ -87,17 +89,20 @@ instance Traversable (Either a) where traverse = traverseHask
 instance Foldable ((,) e) where foldMap = foldMapHask
 instance Traversable ((,) e) where traverse = traverseHask
 
-instance Foldable ((&) e) where foldMap f = f . snd
-instance Foldable (Lift1 (,) e) where foldMap f = f . snd
-instance Foldable (Lift2 (Lift1 (,)) e) where foldMap f = f . snd
+instance Foldable Either where
+  foldMap = Nat $ \f -> Lift $ (runPower f ||| \ _ -> runNat one (Const ()))
+
+-- instance Foldable ((&) e) where foldMap f = f . snd
+-- instance Foldable (Lift1 (,) e) where foldMap f = f . snd
+-- instance Foldable (Lift2 (Lift1 (,)) e) where foldMap f = f . snd
 
 -- coproducts
-instance Foldable (Lift1 Either e) where
-  foldMap f = Nat $ \case
-    Lift (Left _)  -> runNat one (Const ())
-    Lift (Right b) -> runNat f b
+--instance Foldable (Lift1 Either e) where
+--  foldMap f = Nat $ \case
+--    Lift (Left _)  -> runNat one (Const ())
+--    Lift (Right b) -> runNat f b
 
-instance Foldable (Lift2 (Lift1 Either) e) where
-  foldMap f = Nat $ Nat $ \case
-    Lift2 (Lift (Left _))  -> runNat2 one (Const2 (Const ()))
-    Lift2 (Lift (Right b)) -> runNat2 f b
+--instance Foldable (Lift2 (Lift1 Either) e) where
+--  foldMap f = Nat $ Nat $ \case
+--    Lift2 (Lift (Left _))  -> runNat2 one (Const2 (Const ()))
+--    Lift2 (Lift (Right b)) -> runNat2 f b
