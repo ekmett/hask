@@ -22,7 +22,6 @@
 --------------------------------------------------------------------
 module Hask.At where
 
-import Data.Constraint
 import Hask.Core
 
 ifmap :: (Functor f, Functor at) => (a ~> b) -> f (at a i) ~> f (at b i)
@@ -143,5 +142,5 @@ instance Functor AtC where
 instance Functor CoatC where
   fmap f = nat2 $ ins . fmap1 f . cls
 
--- requires (C2)
---instance Semimonoidal CoatC
+instance Semimonoidal CoatC where
+  ap2 = Nat $ Nat (ins . ap2 . bimap cls cls . get _Lift) . get _Lift
