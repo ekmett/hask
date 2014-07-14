@@ -653,15 +653,16 @@ instance Functor Dict where
 -- Lifting lets us define things an index up from simpler parts, recycle products, etc.
 
 -- modify Lifted to use the category l
-class Lift ~ s => Lifted (s :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l) | i j k l -> s where
-  type Lift :: (j -> k -> l) -> (i -> j) -> (i -> k) -> i -> l
-  _Lift :: Iso (s q f g a) (s r h e b) (q (f a) (g a)) (r (h b) (e b))
+class hom ~ Hom => Lifted (hom :: l -> l -> *) where
+  type Lift :: (j -> k -> l) -> (i -> j) -> (i -> k) -> (i -> l)
+  _Lift :: forall (q :: j -> k -> l) (r :: j -> k -> l) (f :: i -> j) (h :: i -> j) (g :: i -> k) (e :: i -> k) (a :: i) (b :: i).
+     Iso (Lift q f g a) (Lift r h e b) (q (f a) (g a)) (r (h b) (e b))
 
 -- ** Lift1
 
 newtype Lift1 p f g a = Lift { lower :: p (f a) (g a) }
 
-instance Lifted Lift1 where
+instance Lifted (->) where
   type Lift = Lift1
   _Lift = dimap lower Lift
 
@@ -700,7 +701,7 @@ instance Post Functor p => Functor (LiftC p e) where
 instance Post Contravariant p => Contravariant (LiftC p e) where
   contramap (Nat f) = Nat (_Lift $ contramap1 f)
 
-instance Lifted LiftC where
+instance Lifted (:-) where
   type Lift = LiftC
   _Lift = dimap (Sub Dict) (Sub Dict)
 
@@ -708,7 +709,7 @@ instance Lifted LiftC where
 
 newtype Lift2 p f g a b = Lift2 { lower2 :: p (f a) (g a) b }
 
-instance Lifted Lift2 where
+instance Lifted (Nat :: (i -> *) -> (i -> *) -> *) where
   type Lift = Lift2
   _Lift = dimap (Nat lower2) (Nat Lift2)
 
