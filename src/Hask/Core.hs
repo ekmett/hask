@@ -1358,12 +1358,13 @@ instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 
 class (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
 instance (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
+instance Class (((a |- r) & (b |- r)) |- r) (CoproductCHelper a b r) where cls = Sub Dict
+instance (((a |- r) & (b |- r)) |- r) :=> CoproductCHelper a b r where ins = Sub Dict
 
-_CoproductCHelper :: Iso' (((a |- r) & (b |- r)) |- r) (CoproductCHelper a b r)
-_CoproductCHelper = dimap (Sub Dict) (Sub Dict)
-
-class Lim (CoproductCHelper a b) => CoproductC a b
-instance Lim (CoproductCHelper a b) => CoproductC a b
+class LimC (CoproductCHelper a b) => CoproductC a b
+instance LimC (CoproductCHelper a b) => CoproductC a b
+instance Class (LimC (CoproductCHelper a b)) (CoproductC a b) where cls = Sub Dict
+instance LimC (CoproductCHelper a b) :=> CoproductC a b where ins = Sub Dict
 
 instance Functor CoproductC where
   fmap f = Nat $ (inl . f) ||| inr
@@ -1380,13 +1381,13 @@ instance Precocartesian (:-) where
   inl = inlC
     where
       inlC :: forall a b. a :- CoproductC a b
-      inlC = Sub $ Dict \\ ((get _CoproductCHelper . l) :: a :- CoproductCHelper a b Any)
+      inlC = Sub $ Dict \\ ((ins . l) :: a :- CoproductCHelper a b Any)
       l :: forall a b r. a :- (((a |- r) & (b |- r)) |- r)
       l = Sub $ get _Implies $ Sub $ Dict \\ (implies :: a :- r)
   inr = inrC
     where
       inrC :: forall a b. b :- CoproductC a b
-      inrC = Sub $ Dict \\ ((get _CoproductCHelper . r) :: b :- CoproductCHelper a b Any)
+      inrC = Sub $ Dict \\ ((ins . r) :: b :- CoproductCHelper a b Any)
       r :: forall a b r. b :- (((a |- r) & (b |- r)) |- r)
       r = Sub $ get _Implies $ Sub $ Dict \\ (implies :: b :- r)
   (|||) = eitherC
