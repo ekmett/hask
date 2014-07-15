@@ -1355,6 +1355,47 @@ instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
   inr = Nat (beget _Lift . inr)
   Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
 
+
+class (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
+instance (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
+
+_CoproductCHelper :: Iso' (((a |- r) & (b |- r)) |- r) (CoproductCHelper a b r)
+_CoproductCHelper = dimap (Sub Dict) (Sub Dict)
+
+class Lim (CoproductCHelper a b) => CoproductC a b
+instance Lim (CoproductCHelper a b) => CoproductC a b
+
+instance Functor CoproductC where
+  fmap f = Nat $ (inl . f) ||| inr
+instance Functor (CoproductC a) where
+  fmap f = inl ||| (inr . f)
+instance Symmetric CoproductC where
+  swap = inr ||| inl
+instance Semitensor CoproductC where
+  second = fmap
+  associate = dimap ((inl ||| (inr . inl)) ||| (inr . inr)) ((inl . inl) ||| ((inl . inr) ||| inr))
+
+instance Precocartesian (:-) where
+  type (+) = CoproductC
+  inl = inlC
+    where
+      inlC :: forall a b. a :- CoproductC a b
+      inlC = Sub $ Dict \\ ((get _CoproductCHelper . l) :: a :- CoproductCHelper a b Any)
+      l :: forall a b r. a :- (((a |- r) & (b |- r)) |- r)
+      l = Sub $ get _Implies $ Sub $ Dict \\ (implies :: a :- r)
+  inr = inrC
+    where
+      inrC :: forall a b. b :- CoproductC a b
+      inrC = Sub $ Dict \\ ((get _CoproductCHelper . r) :: b :- CoproductCHelper a b Any)
+      r :: forall a b r. b :- (((a |- r) & (b |- r)) |- r)
+      r = Sub $ get _Implies $ Sub $ Dict \\ (implies :: b :- r)
+  (|||) = eitherC
+    where
+      eitherC :: forall a b c. (a :- c) -> (b :- c) -> (CoproductC a b :- c)
+      eitherC = undefined -- TODO
+      -- case limDict :: Dict (CoproductCHelper a b c) of Dict -> undefined
+
+
 -- * Factoring
 
 factor :: (Post Functor (f :: j -> i -> i), Precocartesian (Cod2 f)) => f e b + f e c ~> f e (b + c)
