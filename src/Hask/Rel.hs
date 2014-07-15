@@ -137,12 +137,17 @@ instance Semitensor ComposeConst1 where
   second f = runNat (beget rcomposed) . Nat (composed (fmap2 (runNat f))) . runNat (get rcomposed)
   associate = dimap (runNat (beget rcomposed) . Nat (composed go) . runNat (get rcomposed)) undefined where
     go :: Lan2 Const1 (ComposeConst1 a b) (c x) ~> Lan2 Const1 a (ComposeConst1 b c x)
-    go = undefined
+    go = Nat $ \(Lan2 l) -> Lan2 $ \a2zc -> undefined -- TODO
 
 type instance I ComposeConst1 = Const1
 instance Tensor ComposeConst1 where
   lambda = undefined
-  rho = undefined
+  rho = dimap (nat2 $ hither . runNat decompose . decomposeConst1)
+              (nat2 $ \a -> ComposeConst1 $ runNat compose $ Lan2 $ \k -> runNat decompose $ runNat2 k a)
+     where
+    hither :: Lan2 Const1 a1 (Const1 a2) b -> a1 a2 b
+    hither l = runLan2 l $ nat2 $ undefined -- TODO
+
 
 instance RelComposed Const1 where
   type RelCompose = ComposeConst1
