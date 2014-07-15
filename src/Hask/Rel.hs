@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -105,18 +106,20 @@ instance RelMonad ConstC where
   rbind = id
 
 -- this should form a tensor with unit Rel
-class rel ~ Rel => RelComposed (rel :: j -> c) where
+class (rel ~ Rel, Tensor (RelCompose :: (j -> c) -> (j -> c) -> j -> c)) => RelComposed (rel :: j -> c) where
   type RelCompose :: (j -> c) -> (j -> c) -> (j -> c)
 
-  rcompose :: Functor f' => Iso (RelCompose f g) (RelCompose f' g') (Compose (Lan rel f) g) (Compose (Lan rel f') g')
+  rcomposed :: Functor f' =>
+     Iso (RelCompose f) (RelCompose f')
+         (Compose (Lan rel f)) (Compose (Lan rel f'))
 
 instance RelComposed Id0 where
   type RelCompose = Compose1
-  rcompose = firstly (un epsilonLan)
+  rcomposed = mapping (un epsilonLan)
 
 instance RelComposed Id1 where
   type RelCompose = Compose2
-  rcompose = firstly (un epsilonLan)
+  rcomposed = mapping (un epsilonLan)
 
 newtype ComposeConst1 (f :: * -> i -> *) (g :: * -> i -> *) (a :: *) (b :: i) = ComposeConst1 { decomposeConst1 :: Compose2 (Lan2 Const1 f) g a b }
 
@@ -126,6 +129,21 @@ instance Functor ComposeConst1 where
 instance Functor (ComposeConst1 f) where
   fmap f = dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ Nat $ composed $ fmap2 $ runNat f
 
+instance Functor g => Functor (ComposeConst1 f g) where
+  fmap f = dimap (Nat decomposeConst1) (Nat ComposeConst1) $ composed $ fmap2 $ fmap f
+
+instance Semitensor ComposeConst1 where
+  type Tensorable ComposeConst1 = Functor
+  second f = runNat (beget rcomposed) . Nat (composed (fmap2 (runNat f))) . runNat (get rcomposed)
+  associate = dimap (runNat (beget rcomposed) . Nat (composed go) . runNat (get rcomposed)) undefined where
+    go :: Lan2 Const1 (ComposeConst1 a b) (c x) ~> Lan2 Const1 a (ComposeConst1 b c x)
+    go = undefined
+
+type instance I ComposeConst1 = Const1
+instance Tensor ComposeConst1 where
+  lambda = undefined
+  rho = undefined
+
 instance RelComposed Const1 where
   type RelCompose = ComposeConst1
-  rcompose = dimap (nat2 decomposeConst1) (nat2 ComposeConst1)
+  rcomposed = dimap (nat3 decomposeConst1) (nat3 ComposeConst1)

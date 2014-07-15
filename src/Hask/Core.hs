@@ -104,7 +104,7 @@ module Hask.Core
 
   -- ** Inverting natural isomorphisms
   , Un(..), _Un, un
-  , Via(..), via, mapping, lmapping, swapping, firstly, post, pre
+  , Via(..), via, mapping, lmapping, swapping, mapping1, firstly, post, pre
 
   -- ** Hom as a Profunctor
   , Self(..), _Self
@@ -239,6 +239,7 @@ type (~>) = (Hom :: i -> i -> *)
 
 -- * convenience types that make it so we can avoid explicitly talking about the kinds as much as possible
 type Dom  (f :: i -> j)      = (Hom :: i -> i -> *)
+type Dom1 (f :: i -> j -> k) = (Hom :: j -> j -> *)
 type Cod  (f :: i -> j)      = (Hom :: j -> j -> *)
 type Cod2 (f :: i -> j -> k) = (Hom :: k -> k -> *)
 type Arr  (a :: i)           = (Hom :: i -> i -> *)
@@ -898,6 +899,10 @@ via l m = case l (Via id id) of
 mapping :: (Functor f, Functor f', Category (Dom f)) => (Via a b a b -> Via a b s t) -> Iso (f s) (f' t) (f a) (f' b)
 mapping l = case l (Via id id) of
   Via csa dbt -> dimap (fmap csa) (fmap dbt)
+
+mapping1 :: (Post Functor f, Post Functor f', Category (Dom1 f)) => (Via a b a b -> Via a b s t) -> Iso (f i s) (f' j t) (f i a) (f' j b)
+mapping1 l = case l (Via id id) of
+  Via csa dbt -> dimap (fmap1 csa) (fmap1 dbt)
 
 firstly :: (Functor f, Functor f', Category (Dom f)) => (Via a b a b -> Via a b s t) -> Iso (f s x) (f' t y) (f a x) (f' b y)
 firstly l = case l (Via id id) of
