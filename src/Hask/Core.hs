@@ -1366,6 +1366,7 @@ instance LimC (CoproductCHelper a b) => CoproductC a b
 instance Class (LimC (CoproductCHelper a b)) (CoproductC a b) where cls = Sub Dict
 instance LimC (CoproductCHelper a b) :=> CoproductC a b where ins = Sub Dict
 
+type instance I (CoproductC) = Zero
 instance Functor CoproductC where
   fmap f = Nat $ (inl . f) ||| inr
 instance Functor (CoproductC a) where
@@ -1375,6 +1376,9 @@ instance Symmetric CoproductC where
 instance Semitensor CoproductC where
   second = fmap
   associate = dimap ((inl ||| (inr . inl)) ||| (inr . inr)) ((inl . inl) ||| ((inl . inr) ||| inr))
+instance Tensor CoproductC where
+  lambda = dimap (initial ||| id) inr
+  rho = dimap (id ||| initial) inl
 
 instance Precocartesian (:-) where
   type (+) = CoproductC
@@ -1426,14 +1430,12 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
      Lift2 (Lift (a, Lift2 (Lift (Left b)))) -> Lift2 (Lift (Left (Lift2 (Lift (a, b)))))
      Lift2 (Lift (a, Lift2 (Lift (Right b)))) -> Lift2 (Lift (Right (Lift2 (Lift (a, b)))))
 
+-- instance Distributive (:-) where
+--   distribute = dimap factor _ -- TODO
+
 -- gives us a notion of a closed category when applied to the exponential
 --
 -- this is just another convenient indexed adjunction with the args flipped around
--- type family Curryable (p :: k -> i -> j) (a :: k) :: Constraint
--- type instance Curryable (a :: *) = (() :: Constraint)
--- type instance Curryable (a :: Constraint) = (() :: Constraint)
--- type instance Curryable (a :: i -> *) = Functor a
-
 -- p has some notion of association we'd need poly kinds to talk about properly
 class Curried (p :: k -> i -> j) (e :: i -> j -> k) | p -> e, e -> p where
   type Curryable (p :: k -> i -> j) :: k -> Constraint
