@@ -2,6 +2,7 @@ module Hask
   ( module Hask.At
   , module Hask.Constrained
   , module Hask.Core
+  , module Hask.Discrete
   , module Hask.End
   , module Hask.Groupoid
   , module Hask.Foldable
@@ -16,6 +17,7 @@ module Hask
 import Hask.At
 import Hask.Constrained
 import Hask.Core
+import Hask.Discrete
 import Hask.End
 import Hask.Groupoid
 import Hask.Foldable

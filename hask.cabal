@@ -34,6 +34,7 @@ library
     Hask.At
     Hask.Constrained
     Hask.Core
+    Hask.Discrete
     Hask.End
     Hask.Foldable
     Hask.Groupoid
