@@ -1356,15 +1356,17 @@ instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
   Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
 
 
-class (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
-instance (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
-instance Class (((a |- r) & (b |- r)) |- r) (CoproductCHelper a b r) where cls = Sub Dict
-instance (((a |- r) & (b |- r)) |- r) :=> CoproductCHelper a b r where ins = Sub Dict
+class (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
+  eitherCHelper :: (a :- c) -> (b :- c) -> Dict c
+instance (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
+  eitherCHelper = undefined -- TODO
+instance Class (((a |- c) & (b |- c)) |- c) (CoproductCHelper a b c) where cls = Sub Dict
+instance (((a |- c) & (b |- c)) |- c) :=> CoproductCHelper a b c where ins = Sub Dict
 
-class LimC (CoproductCHelper a b) => CoproductC a b
-instance LimC (CoproductCHelper a b) => CoproductC a b
-instance Class (LimC (CoproductCHelper a b)) (CoproductC a b) where cls = Sub Dict
-instance LimC (CoproductCHelper a b) :=> CoproductC a b where ins = Sub Dict
+class CoproductCHelper a b Any => CoproductC a b
+instance CoproductCHelper a b Any => CoproductC a b
+instance Class (CoproductCHelper a b Any) (CoproductC a b) where cls = Sub Dict
+instance CoproductCHelper a b Any :=> CoproductC a b where ins = Sub Dict
 
 type instance I (CoproductC) = Zero
 instance Functor CoproductC where
@@ -1394,12 +1396,10 @@ instance Precocartesian (:-) where
       inrC = Sub $ Dict \\ ((ins . r) :: b :- CoproductCHelper a b Any)
       r :: forall a b r. b :- (((a |- r) & (b |- r)) |- r)
       r = Sub $ get _Implies $ Sub $ Dict \\ (implies :: b :- r)
-  (|||) = eitherC
+  f ||| g = Sub $ eitherC f g
     where
-      eitherC :: forall a b c. (a :- c) -> (b :- c) -> (CoproductC a b :- c)
-      eitherC = undefined -- TODO
-      -- case limDict :: Dict (CoproductCHelper a b c) of Dict -> undefined
-
+      eitherC :: forall a b c p. (CoproductC a b, p ~ CoproductCHelper a b) => (a :- c) -> (b :- c) -> Dict c
+      eitherC = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p c of Sub Dict -> eitherCHelper
 
 -- * Factoring
 
