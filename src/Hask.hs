@@ -4,8 +4,9 @@ module Hask
   , module Hask.Core
   , module Hask.Discrete
   , module Hask.End
-  , module Hask.Groupoid
+  , module Hask.Eq
   , module Hask.Foldable
+  , module Hask.Groupoid
   , module Hask.Lens
   , module Hask.Prism
   , module Hask.Prof
@@ -19,8 +20,9 @@ import Hask.Constrained
 import Hask.Core
 import Hask.Discrete
 import Hask.End
-import Hask.Groupoid
+import Hask.Eq
 import Hask.Foldable
+import Hask.Groupoid
 import Hask.Lens
 import Hask.Prism
 import Hask.Prof

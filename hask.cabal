@@ -36,6 +36,7 @@ library
     Hask.Core
     Hask.Discrete
     Hask.End
+    Hask.Eq
     Hask.Foldable
     Hask.Groupoid
     Hask.Lens
