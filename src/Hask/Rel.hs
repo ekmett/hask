@@ -142,11 +142,8 @@ instance Semitensor ComposeConst1 where
 type instance I ComposeConst1 = Const1
 instance Tensor ComposeConst1 where
   lambda = undefined
-  rho = dimap (nat2 $ hither . runNat decompose . decomposeConst1)
+  rho = dimap (nat2 $ undefined . runNat decompose . decomposeConst1) -- TODO
               (nat2 $ \a -> ComposeConst1 $ runNat compose $ Lan2 $ \k -> runNat decompose $ runNat2 k a)
-     where
-    hither :: Lan2 Const1 a1 (Const1 a2) b -> a1 a2 b
-    hither l = runLan2 l $ nat2 $ undefined -- TODO
 
 
 instance RelComposed Const1 where
