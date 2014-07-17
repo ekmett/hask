@@ -1432,8 +1432,10 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
      Lift2 (Lift (a, Lift2 (Lift (Left b)))) -> Lift2 (Lift (Left (Lift2 (Lift (a, b)))))
      Lift2 (Lift (a, Lift2 (Lift (Right b)))) -> Lift2 (Lift (Right (Lift2 (Lift (a, b)))))
 
--- instance Distributive (:-) where
---   distribute = dimap factor _ -- TODO
+instance Distributive (:-) where
+  distribute = dimap factor distributeC where
+    distributeC :: forall a b c. (a & CoproductC b c) :- CoproductC (a & b) (a & c)
+    distributeC = beget _Sub $ \Dict -> fmap (bimap (Sub Dict) (Sub Dict)) (Dict :: Dict (CoproductC b c))
 
 -- gives us a notion of a closed category when applied to the exponential
 --
