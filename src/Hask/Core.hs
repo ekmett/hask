@@ -1359,7 +1359,9 @@ instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
 class (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
   eitherCHelper :: (a :- c) -> (b :- c) -> Dict c
 instance (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
-  eitherCHelper = undefined -- TODO
+  eitherCHelper ac bc = case (beget _Implies ac) of
+    Dict -> case (beget _Implies bc) of
+      Dict -> get (_Implies . _Sub) (Dict :: Dict (((a |- c) & (b |- c)) |- c)) Dict
 instance Class (((a |- c) & (b |- c)) |- c) (CoproductCHelper a b c) where cls = Sub Dict
 instance (((a |- c) & (b |- c)) |- c) :=> CoproductCHelper a b c where ins = Sub Dict
 
@@ -1389,13 +1391,13 @@ instance Precocartesian (:-) where
       inlC :: forall a b. a :- CoproductC a b
       inlC = Sub $ Dict \\ ((ins . l) :: a :- CoproductCHelper a b Any)
       l :: forall a b r. a :- (((a |- r) & (b |- r)) |- r)
-      l = Sub $ get _Implies $ Sub $ Dict \\ (implies :: a :- r)
+      l = Sub $ beget _Implies $ Sub $ Dict \\ (implies :: a :- r)
   inr = inrC
     where
       inrC :: forall a b. b :- CoproductC a b
       inrC = Sub $ Dict \\ ((ins . r) :: b :- CoproductCHelper a b Any)
       r :: forall a b r. b :- (((a |- r) & (b |- r)) |- r)
-      r = Sub $ get _Implies $ Sub $ Dict \\ (implies :: b :- r)
+      r = Sub $ beget _Implies $ Sub $ Dict \\ (implies :: b :- r)
   f ||| g = Sub $ eitherC f g
     where
       eitherC :: forall a b c p. (CoproductC a b, p ~ CoproductCHelper a b) => (a :- c) -> (b :- c) -> Dict c
@@ -2000,16 +2002,16 @@ _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
 
 newtype Magic p q r = Magic ((p |- q) => r)
 
-_Implies :: Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
-_Implies = dimap (reify Dict) (\Dict -> implies) where
+_Implies :: Iso (Dict (p |- q)) (Dict (p' |- q')) (p :- q) (p' :- q')
+_Implies = dimap (\Dict -> implies) (reify Dict) where
   reify :: forall p q r. ((p |- q) => r) -> (p :- q) -> r
   reify k = unsafeCoerce (Magic k :: Magic p q r)
 
 instance Contravariant (|-) where
-  contramap f = Nat $ beget _Sub $ un _Implies (. f)
+  contramap f = Nat $ beget _Sub $ _Implies (. f)
 
 instance Functor ((|-) p) where
-  fmap f = beget _Sub $ un _Implies (f .)
+  fmap f = beget _Sub $ _Implies (f .)
 
 --instance (&) =| (|-) where
 --  adj1 = ccc
@@ -2023,7 +2025,7 @@ instance Curried (&) (|-) where
     applyConstraint = Sub $ Dict \\ (implies :: p :- q)
   unapply = unapplyConstraint where
     unapplyConstraint :: p :- q |- (p & q)
-    unapplyConstraint = Sub $ get _Implies (Sub Dict)
+    unapplyConstraint = Sub $ beget _Implies (Sub Dict)
 
 -- instance CCC (:-)
 
