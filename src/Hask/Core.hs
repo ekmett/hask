@@ -1359,16 +1359,21 @@ instance Precocartesian (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
   Nat f ||| Nat g = Nat $ (f ||| g) . get _Lift
 
 
-class (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
-instance (((a |- r) & (b |- r)) |- r) => CoproductCHelper a b r
-instance Class (((a |- r) & (b |- r)) |- r) (CoproductCHelper a b r) where cls = Sub Dict
-instance (((a |- r) & (b |- r)) |- r) :=> CoproductCHelper a b r where ins = Sub Dict
+class (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
+  eitherCHelper :: (a :- c) -> (b :- c) -> Dict c
+instance (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
+  eitherCHelper ac bc = case (beget _Implies ac) of
+    Dict -> case (beget _Implies bc) of
+      Dict -> get (_Implies . _Sub) (Dict :: Dict (((a |- c) & (b |- c)) |- c)) Dict
+instance Class (((a |- c) & (b |- c)) |- c) (CoproductCHelper a b c) where cls = Sub Dict
+instance (((a |- c) & (b |- c)) |- c) :=> CoproductCHelper a b c where ins = Sub Dict
 
-class LimC (CoproductCHelper a b) => CoproductC a b
-instance LimC (CoproductCHelper a b) => CoproductC a b
-instance Class (LimC (CoproductCHelper a b)) (CoproductC a b) where cls = Sub Dict
-instance LimC (CoproductCHelper a b) :=> CoproductC a b where ins = Sub Dict
+class CoproductCHelper a b Any => CoproductC a b
+instance CoproductCHelper a b Any => CoproductC a b
+instance Class (CoproductCHelper a b Any) (CoproductC a b) where cls = Sub Dict
+instance CoproductCHelper a b Any :=> CoproductC a b where ins = Sub Dict
 
+type instance I (CoproductC) = Zero
 instance Functor CoproductC where
   fmap f = Nat $ (inl . f) ||| inr
 instance Functor (CoproductC a) where
@@ -1378,6 +1383,9 @@ instance Symmetric CoproductC where
 instance Semitensor CoproductC where
   second = fmap
   associate = dimap ((inl ||| (inr . inl)) ||| (inr . inr)) ((inl . inl) ||| ((inl . inr) ||| inr))
+instance Tensor CoproductC where
+  lambda = dimap (initial ||| id) inr
+  rho = dimap (id ||| initial) inl
 
 instance Precocartesian (:-) where
   type (+) = CoproductC
@@ -1386,19 +1394,17 @@ instance Precocartesian (:-) where
       inlC :: forall a b. a :- CoproductC a b
       inlC = Sub $ Dict \\ ((ins . l) :: a :- CoproductCHelper a b Any)
       l :: forall a b r. a :- (((a |- r) & (b |- r)) |- r)
-      l = Sub $ get _Implies $ Sub $ Dict \\ (implies :: a :- r)
+      l = Sub $ beget _Implies $ Sub $ Dict \\ (implies :: a :- r)
   inr = inrC
     where
       inrC :: forall a b. b :- CoproductC a b
       inrC = Sub $ Dict \\ ((ins . r) :: b :- CoproductCHelper a b Any)
       r :: forall a b r. b :- (((a |- r) & (b |- r)) |- r)
-      r = Sub $ get _Implies $ Sub $ Dict \\ (implies :: b :- r)
-  (|||) = eitherC
+      r = Sub $ beget _Implies $ Sub $ Dict \\ (implies :: b :- r)
+  f ||| g = Sub $ eitherC f g
     where
-      eitherC :: forall a b c. (a :- c) -> (b :- c) -> (CoproductC a b :- c)
-      eitherC = undefined -- TODO
-      -- case limDict :: Dict (CoproductCHelper a b c) of Dict -> undefined
-
+      eitherC :: forall a b c p. (CoproductC a b, p ~ CoproductCHelper a b) => (a :- c) -> (b :- c) -> Dict c
+      eitherC = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p c of Sub Dict -> eitherCHelper
 
 -- * Factoring
 
@@ -1429,14 +1435,14 @@ instance Distributive (Nat :: (i -> j -> *) -> (i -> j -> *) -> *) where
      Lift2 (Lift (a, Lift2 (Lift (Left b)))) -> Lift2 (Lift (Left (Lift2 (Lift (a, b)))))
      Lift2 (Lift (a, Lift2 (Lift (Right b)))) -> Lift2 (Lift (Right (Lift2 (Lift (a, b)))))
 
+instance Distributive (:-) where
+  distribute = dimap factor distributeC where
+    distributeC :: forall a b c. (a & CoproductC b c) :- CoproductC (a & b) (a & c)
+    distributeC = beget _Sub $ \Dict -> fmap (bimap (Sub Dict) (Sub Dict)) (Dict :: Dict (CoproductC b c))
+
 -- gives us a notion of a closed category when applied to the exponential
 --
 -- this is just another convenient indexed adjunction with the args flipped around
--- type family Curryable (p :: k -> i -> j) (a :: k) :: Constraint
--- type instance Curryable (a :: *) = (() :: Constraint)
--- type instance Curryable (a :: Constraint) = (() :: Constraint)
--- type instance Curryable (a :: i -> *) = Functor a
-
 -- p has some notion of association we'd need poly kinds to talk about properly
 class Curried (p :: k -> i -> j) (e :: i -> j -> k) | p -> e, e -> p where
   type Curryable (p :: k -> i -> j) :: k -> Constraint
@@ -2001,16 +2007,16 @@ _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
 
 newtype Magic p q r = Magic ((p |- q) => r)
 
-_Implies :: Iso (p :- q) (p' :- q') (Dict (p |- q)) (Dict (p' |- q'))
-_Implies = dimap (reify Dict) (\Dict -> implies) where
+_Implies :: Iso (Dict (p |- q)) (Dict (p' |- q')) (p :- q) (p' :- q')
+_Implies = dimap (\Dict -> implies) (reify Dict) where
   reify :: forall p q r. ((p |- q) => r) -> (p :- q) -> r
   reify k = unsafeCoerce (Magic k :: Magic p q r)
 
 instance Contravariant (|-) where
-  contramap f = Nat $ beget _Sub $ un _Implies (. f)
+  contramap f = Nat $ beget _Sub $ _Implies (. f)
 
 instance Functor ((|-) p) where
-  fmap f = beget _Sub $ un _Implies (f .)
+  fmap f = beget _Sub $ _Implies (f .)
 
 --instance (&) =| (|-) where
 --  adj1 = ccc
@@ -2024,7 +2030,7 @@ instance Curried (&) (|-) where
     applyConstraint = Sub $ Dict \\ (implies :: p :- q)
   unapply = unapplyConstraint where
     unapplyConstraint :: p :- q |- (p & q)
-    unapplyConstraint = Sub $ get _Implies (Sub Dict)
+    unapplyConstraint = Sub $ beget _Implies (Sub Dict)
 
 -- instance CCC (:-)
 
