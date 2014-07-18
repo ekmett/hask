@@ -12,6 +12,7 @@ module Hask
   , module Hask.Prof
   , module Hask.Rel
   , module Hask.Rep
+  , module Hask.Span
   , module Hask.Store
   ) where
 
@@ -28,4 +29,5 @@ import Hask.Prism
 import Hask.Prof
 import Hask.Rel
 import Hask.Rep
+import Hask.Span
 import Hask.Store

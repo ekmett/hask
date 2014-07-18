@@ -53,6 +53,7 @@
 module Hask.Core
   ( Hom, type (~>), type (^)
   , Dom, Cod, Cod2, Arr, Enriched, Internal, External, Natural
+  , Scheme
 
   -- * Natural transformations
   , Nat(Nat, runNat), nat2, nat3, nat4, runNat2, runNat3, runNat4
@@ -251,6 +252,8 @@ type Natural  (k :: j -> j -> *) = (Hom :: (i -> j) -> (i -> j) -> *)
 
 infixr 8 ^
 type a ^ b = Internal Hom b a
+
+data family Scheme :: i -> i -> *
 
 -- * Natural transformations (by using parametricity these are very strong)
 

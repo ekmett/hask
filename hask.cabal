@@ -45,11 +45,13 @@ library
     Hask.Prof
     Hask.Rel
     Hask.Rep
+    Hask.Span
     Hask.Store
 
   build-depends:
     base >= 4       && < 5,
     constraints,
+    reflection,
     transformers,
     tagged,
     void >= 0.5.4.2 && < 1
