@@ -14,7 +14,6 @@
 --------------------------------------------------------------------
 module Hask.Groupoid where
 
-import Control.Category
 import Hask.Core
 
 -- * Groupoids

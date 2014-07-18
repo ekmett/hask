@@ -16,7 +16,6 @@
 --------------------------------------------------------------------
 module Hask.Lens where
 
-import Control.Category
 import Data.Constraint
 import Hask.Core
 

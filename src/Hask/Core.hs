@@ -204,14 +204,11 @@ module Hask.Core
 
 
 import qualified Control.Applicative as Base
-import qualified Control.Arrow as Arrow
-import Control.Category (Category(..))
 import qualified Data.Constraint as Constraint
 import Data.Constraint ((:-)(Sub), (\\), Dict(Dict), Class(..), (:=>)(..))
 import qualified Data.Functor as Base
 import Data.Proxy
 import Data.Tagged
-import qualified Data.Traversable as Base
 import Data.Void
 import qualified Prelude
 import Prelude (Either(..), ($), either, Bool, undefined, Maybe(..))
@@ -271,6 +268,27 @@ nat4 f = Nat (Nat (Nat (Nat f)))
 runNat2 = runNat . runNat
 runNat3 = runNat . runNat . runNat
 runNat4 = runNat . runNat . runNat . runNat
+
+class (h ~ Hom) => Category (h :: i -> i -> *) where
+  -- type Obj :: i -> Constraint
+  id     :: h a a
+  source :: h a b -> h a a
+  source _ = id
+  target :: h a b -> h b b
+  target _ = id
+  (.) :: h b c -> h a b -> h a c
+
+instance Category (->) where
+  id x = x
+  source _ = id
+  target _ = id
+  (.) f g x = f (g x)
+
+instance Category (:-) where
+  id = Sub Dict
+  source _ = Sub Dict
+  target _ = Sub Dict
+  f . g = Sub $ Dict \\ f \\ g
 
 instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j) -> *) where
   id = Nat id
@@ -815,10 +833,10 @@ instance Post Contravariant p => Contravariant (Lift2 p f) where
 -- *** Hask
 
 instance Functor (,) where
-  fmap f = Nat (Arrow.first f)
+  fmap f = Nat $ \(a,b) -> (f a, b)
 
 instance Functor ((,) a) where
-  fmap = Arrow.second
+  fmap f (a,b) = (a, f b)
 
 -- *** Constraint
 
@@ -841,7 +859,9 @@ instance Functor ((&) p) where
 -- *** Hask
 
 instance Functor Either where
-  fmap f = Nat (Arrow.left f)
+  fmap f = Nat $ \case
+    Left a -> Left (f a)
+    Right b -> Right b
 
 -- ** Homs
 
@@ -857,7 +877,10 @@ instance Contravariant (:-) where
 -- * Misc
 
 instance Functor (Either e) where
-  fmap = Arrow.right
+  fmap f = \case
+    Left a -> Left a
+    Right a -> Right (f a)
+
 
 -- ** Lens esoterica
 
@@ -1298,7 +1321,7 @@ type instance Copower = (,)
 instance Precartesian (->) where
   fst   = Prelude.fst
   snd   = Prelude.snd
-  (&&&) = (Arrow.&&&)
+  f &&& g = \a -> (f a, g a)
 
 type instance Copower = (&)
 instance Precartesian (:-) where
@@ -1917,9 +1940,6 @@ instance Functor f => Strength (f :: * -> *) where
 -- repurposing this term for a real 'co'-strength
 class Functor f => Costrength (f :: x -> x) where
   costrength :: f (a + b) ~> a + f b
-
-instance (Functor f, Base.Traversable f) => Costrength f where
-  costrength = Base.sequence
 
 ap :: (Semimonoidal f, CCC (Dom f), CCC (Cod f), Curryable (*) (f (b ^ a))) => f (b ^ a) ~> f b ^ f a
 ap = curry (fmap apply . ap2)
