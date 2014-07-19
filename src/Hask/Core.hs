@@ -63,7 +63,7 @@ module Hask.Core
   , Contravariant(contramap), lmap
 
   -- * Functor composition
-  , Composed(..), type (·), composed, associateCompose
+  , Composed(..), type (∘), composed, associateCompose
   , whiskerComposeL
   , whiskerComposeR
   , lambdaCompose
@@ -318,8 +318,8 @@ class (hom ~ Hom) => Composed (hom :: k -> k -> *) | k -> hom where
   compose   :: f (g a) `hom` Compose f g a
   decompose :: Compose f g a `hom` f (g a)
 
-infixr 9 ·
-type (·) = Compose
+infixr 9 ∘
+type (∘) = Compose
 
 -- | We can compose constraints
 class f (g a) => ComposeC f g a
@@ -332,8 +332,8 @@ instance Composed (:-) where
   compose   = Sub Dict
   decompose = Sub Dict
 
-class LimC (f · p) => Post f p
-instance LimC (f · p) => Post f p
+class LimC (f ∘ p) => Post f p
+instance LimC (f ∘ p) => Post f p
 
 -- this would be tedious to hand enumerate and hard to keep current
 -- instance Class (LimC (Compose f p)) (Post f p) where cls = Sub Dict
@@ -664,7 +664,7 @@ instance Complete ((:-) :: Constraint -> Constraint -> *) where
 
 {-
 -- all functors to * are continuous
-continuous :: (Functor f, Complete (Dom f)) => f (l g) -> Lim (f · g)
+continuous :: (Functor f, Complete (Dom f)) => f (l g) -> Lim (f ∘ g)
 continuous f = Lim $ compose (fmap elim f)
 
 -- all functors to k -> * are continuous
@@ -1495,7 +1495,7 @@ instance Curried p q => Curried (LiftC2 p) (LiftC2 q) where
   curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
   uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
 
--- e.g. (Lan f g ~> h) is isomorphic to (g ~> h · f)
+-- e.g. (Lan f g ~> h) is isomorphic to (g ~> h ∘ f)
 
 -- Cocurried :: (k -> k1 -> k2) -> (k2 -> k -> k1) -> Constraint
 
