@@ -77,6 +77,16 @@ type family Snd (p :: (i,j)) :: j where
 class (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
 instance (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
 
+instance Objective ProdObj
+instance Functor ProdObj where
+  fmap f = todo
+
+instance Contravariant ProdObj where
+  contramap f = todo
+
+todo :: a
+todo = undefined
+
 nat :: (Objective f, Objective g) => (forall a. Obj a => Proxy a -> f a ~> g a) -> Nat f g
 nat k = Nat (k Proxy)
 
@@ -313,6 +323,7 @@ instance Functor (ConstC a) where fmap _ = Sub Dict
 instance Contravariant (ConstC a) where contramap _ = Sub Dict
 
 instance Category (Hom :: i -> i -> *) => (ConstC :: Constraint -> i -> Constraint) -| (LimC :: (i -> Constraint) -> Constraint) where
+  adj = dimap todo todo
 {-
   adj = dimap hither yon where
     hither :: Nat (ConstC a) (f :: i -> Constraint) -> a :- LimC f
@@ -342,13 +353,16 @@ instance Objective (Const1 a) where
   obj = Sub Dict
 
 instance Objective Lim1
-instance Functor Lim1
+instance Functor Lim1 where
+  fmap = todo
 instance Const1 -| Lim1 where
   adj = dimap (\f a -> Lim (runNat f (Const a))) $ \h -> Nat $ getLim . h . getConst
 
 instance Complete (->) where
   type Lim = Lim1
   type Const = Const1
+  elim = todo
+  complete = todo
 
 newtype Lim1 (p :: i -> *) = Lim { getLim :: forall a. Obj a => p a }
 
