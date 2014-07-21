@@ -195,14 +195,32 @@ instance Objective f => Objective (ComposeC f) where obj = Sub Dict
 instance (Objective f, Objective g) => Objective (ComposeC f g) where obj = Sub Dict
 
 newtype Compose1 f g a = Compose { getCompose :: f (g a) }
-instance Objective Compose1 where obj = Sub Dict
-instance Functor Compose1 where fmap f = todo
-instance Objective f => Objective (Compose1 f) where obj = Sub Dict
-instance Functor f => Functor (Compose1 f) where fmap = todo
-instance Contravariant f => Contravariant (Compose1 f) where contramap = todo
-instance (Objective f, Objective g) => Objective (Compose1 f g) where obj = Sub Dict
-instance (Functor f, Functor g) => Functor (Compose1 f g) where fmap = todo
-instance (Contravariant f, Functor g) => Contravariant (Compose1 f g) where contramap = todo
+
+instance Objective Compose1 where
+  obj = Sub Dict
+
+instance Functor (Compose1 :: (j -> *) -> (i -> j) -> (i -> *)) where
+  fmap (Nat f) = nat $ \(Proxy :: Proxy f) -> nat $ \(Proxy :: Proxy a) -> _Compose $
+    case obj :: Obj a :- Obj (f a) of
+      Sub Dict -> f
+
+instance Objective f => Objective (Compose1 f) where
+  obj = Sub Dict
+
+instance (Category (Cod f), Functor f) => Functor (Compose1 f) where
+  fmap (Nat f) = Nat $ _Compose $ fmap f
+
+instance Contravariant f => Contravariant (Compose1 f) where
+  contramap (Nat f) = Nat $ _Compose $ contramap f
+
+instance (Objective f, Objective g) => Objective (Compose1 f g) where
+  obj = Sub Dict
+
+instance (Functor f, Functor g) => Functor (Compose1 f g) where
+  fmap f = _Compose $ fmap (fmap f)
+
+instance (Contravariant f, Functor g) => Contravariant (Compose1 f g) where
+  contramap f = _Compose $ contramap (fmap f)
 
 class LimC (ComposeC p f) => Post p f
 instance LimC (ComposeC p f) => Post p f
