@@ -98,12 +98,18 @@ type instance Obj = (Vacuous   :: Constraint -> Constraint)
 type instance Obj = Objective
 type instance Obj = (~) '() -- :: () -> Constraint
 
+class (p,q) => p & q 
+instance (p,q) => p & q
+instance Objective (&)
+instance Objective ((&) p)
+instance Functor (&) where fmap f = Nat (Sub $ Dict \\ f)
+instance Functor ((&) p) where fmap f = Sub $ Dict \\ f
 
-
-class (Obj |- p) => LimC p
-instance (Obj |- p) => LimC p
-instance Obj ~ h => Class (h |- p) (LimC p) where cls = Sub Dict
-instance Obj ~ h => (h |- p) :=> LimC p where ins = Sub Dict
+-- contravariant?
+class ((Obj |- p) & Objective p) => LimC p
+instance ((Obj |- p) & Objective p) => LimC p
+instance Obj ~ h => Class ((h|-p)&Objective p) (LimC p) where cls = Sub Dict
+instance Obj ~ h => ((h|-p)&Objective p) :=> LimC p where ins = Sub Dict
 
 instance Objective LimC where obj = Sub Dict
 
@@ -222,9 +228,12 @@ instance (Irrelevant (Hom :: i -> i -> *) ~ True, Category (Hom :: i -> i -> *))
 
 instance (Irrelevant (Hom :: i -> i -> *) ~ True, Category (Hom :: i -> i -> *)) => Functor ((|-) p :: i -> Constraint) where
   fmap f = beget _Sub $ _Implies (f .)
+
   
 instance Objective (Obj :: i -> Constraint) => Functor (LimC :: (i -> Constraint) -> Constraint) where
-  fmap f = ins . fmap1 f . cls
+  fmap f = ins . both (fmap1 f) (fmap f) . cls where
+   both :: (a :- b) -> (c :- d) -> (a & c) :- (b & d)
+   both g h = Sub $ Dict \\ g \\ h
 
 instance Functor (ComposeC :: (j -> Constraint) -> (i -> j) -> (i -> Constraint)) where
   fmap (Nat f) = nat $ \(Proxy :: Proxy f) -> nat $ \(Proxy :: Proxy a) -> _Compose $ 
@@ -275,9 +284,11 @@ instance Contravariant (ConstC a) where contramap _ = Sub Dict
 
 instance Category (Hom :: i -> i -> *) => (ConstC :: Constraint -> i -> Constraint) -| (LimC :: (i -> Constraint) -> Constraint) where
 {-
-  adj = dimap hither undefined where
-    hither :: Nat (ConstC a) f -> a :- LimC f
+  adj = dimap hither yon where
+    hither :: Nat (ConstC a) (f :: i -> Constraint) -> a :- LimC f
     hither (Nat f) = Sub $ fmap ins $ beget _Implies $ Nat $ Sub $ fmap f Dict
+    yon :: (a :- LimC f) -> Nat (ConstC a) (f :: i -> Constraint)
+    yon = undefined
 -}
 
 instance Complete (:-) where
@@ -285,7 +296,7 @@ instance Complete (:-) where
   type Const = ConstC
   elim = elim' where
     elim' :: forall g (a :: i). Obj a => LimC g ~> g a
-    elim' = sub $ \(Proxy :: Proxy (LimC g)) -> case cls :: LimC g :- (Obj |- g) of
+    elim' = sub $ \(Proxy :: Proxy (LimC g)) -> case cls :: LimC g :- ((Obj |- g) & Objective g) of
       Sub Dict -> case implies :: Obj ~> g of
         Nat w -> fmap w Dict
   complete = Dict
@@ -325,8 +336,8 @@ id1 = id \\ (obj :: Obj x :- Obj (f x))
 class (Functor p, Post Functor p) => Bifunctor p
 instance (Functor p, Post Functor p) => Bifunctor p
 
-class (Functor f, Functor u) => (f :: j -> i) -| (u :: i -> j) | f -> u, u -> f where
-  adj :: (Obj a, Obj b, Obj c, Obj d) => Iso (f a ~> b) (f c ~> d) (a ~> u b) (c ~> u d)
+class (Functor f, Functor u, Category (Hom :: i -> i -> *), Category (Hom :: j -> j -> *)) => (f :: j -> i) -| (u :: i -> j) | f -> u, u -> f where
+  adj :: (Obj (a :: j), Obj (b :: i), Obj (c :: j), Obj (d :: i)) => Iso (f a ~> b) (f c ~> d) (a ~> u b) (c ~> u d)
   -- adj :: Iso' (Up f) (Down u)
 
 class Curried p q | p -> q, q -> p where
