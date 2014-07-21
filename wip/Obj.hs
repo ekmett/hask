@@ -33,10 +33,11 @@ class Objective (f :: i -> j) where
   default obj :: Obj (f a) => Obj a :- Obj (f a)
   obj = Sub Dict
 
+instance Objective Objective
 instance Objective Vacuous
+instance Objective Dict
 instance Objective (~)
 instance Objective ((~) a)
-instance Objective Dict
 
 data Unit a b where
   Unit :: Unit '() '()
@@ -68,11 +69,9 @@ instance Category (Hom :: j -> j -> *) =>
 instance (Irrelevant (Hom :: i -> i -> *) ~ True, Category (Hom :: i -> i -> *), h ~ Obj) => h |- ComposeC Functor ((|-) :: i -> i -> Constraint) where implies = Nat (Sub Dict)
 -- END INCOHERENT  
 
-
 -- you can provide many incoherent instances for p |- q
 
 instance Objective Nat
-instance Objective Objective
 instance Objective (Nat f)
 instance Objective (|-)
 instance Objective ((|-) p)
@@ -258,16 +257,13 @@ instance a => ConstC a b
 instance Class a (ConstC a b) where cls = Sub Dict
 instance a :=> ConstC a b where ins = Sub Dict
 
-
 class hom ~ Hom => Complete (hom :: j -> j -> *) where
   type Lim :: (i -> j) -> j
   type Const :: j -> i -> j
   elim :: Obj a => hom (Lim g) (g a)
 
   _Const :: (Obj a, Obj b, Obj c, Obj d) => Iso (Const a b) (Const c d) (a :: j) (c :: j)
-  complete :: Dict (Const -| (Lim :: (i -> j) -> j))
-  -- default complete :: (Const -| (Lim :: (i -> j) -> j)) => Dict (Const -| (Lim :: (i-> j) -> j))
-  -- complete = Dict
+  complete :: Category (Hom :: i -> i -> *) => Dict (Const -| (Lim :: (i -> j) -> j))
 
 instance Objective ConstC where obj = Sub Dict
 instance Functor ConstC where
@@ -284,13 +280,15 @@ instance Category (Hom :: i -> i -> *) => (ConstC :: Constraint -> i -> Constrai
     hither (Nat f) = Sub $ fmap ins $ beget _Implies $ Nat $ Sub $ fmap f Dict
 -}
 
-
-
-
 instance Complete (:-) where
   type Lim = LimC
   type Const = ConstC
-  -- complete = Dict
+  elim = elim' where
+    elim' :: forall g (a :: i). Obj a => LimC g ~> g a
+    elim' = sub $ \(Proxy :: Proxy (LimC g)) -> case cls :: LimC g :- (Obj |- g) of
+      Sub Dict -> case implies :: Obj ~> g of
+        Nat w -> fmap w Dict
+  complete = Dict
 
 newtype Const1 a b = Const { getConst :: a }
 
