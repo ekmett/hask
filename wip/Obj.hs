@@ -45,7 +45,7 @@ type family (p :: Bool) && (q :: Bool) :: Bool where
 type instance Obj = ProdObj
 
 class    (Category hom, Irrelevant hom ~ True) => Thin (hom :: i -> i -> *)
-instance (Category hom, Irrelevant hom ~ True) => Thin hom 
+instance (Category hom, Irrelevant hom ~ True) => Thin hom
 
 class Vacuous a
 instance Vacuous a
@@ -89,11 +89,14 @@ class (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
 instance (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
 
 instance Objective ProdObj
-instance Functor ProdObj where
-  fmap f = todo
-
-instance Contravariant ProdObj where
-  contramap f = todo
+instance (Category (Hom :: i -> i -> *), Category (Hom :: j -> j -> *)) => Functor (ProdObj :: (i, j) -> Constraint) where
+  fmap (Prod ab cd) = case target ab of
+    Dict -> case target cd of
+      Dict -> Sub Dict
+instance (Category (Hom :: i -> i -> *), Category (Hom :: j -> j -> *)) => Contravariant (ProdObj :: (i, j) -> Constraint) where
+  contramap (Prod ab cd) = case source ab of
+    Dict -> case source cd of
+      Dict -> Sub Dict
 
 todo :: a
 todo = undefined
@@ -118,7 +121,7 @@ instance Category (Arr r) => Vacuous |- ComposeC Functor (Beget r) where implies
 instance Category (Hom :: j -> j -> *) =>
   (Objective |- ComposeC Functor (Nat :: (i -> j) -> (i -> j) -> *)) where implies = Nat (Sub Dict)
 instance (Thin (Hom :: i -> i -> *), h ~ Obj) => h |- ComposeC Functor ((|-) :: i -> i -> Constraint) where implies = Nat (Sub Dict)
--- END INCOHERENT  
+-- END INCOHERENT
 
 -- you can provide many incoherent instances for p |- q
 
@@ -126,7 +129,7 @@ instance Objective Nat
 instance Objective (Nat f)
 instance Objective (|-)
 instance Objective ((|-) p)
-  
+
 class Objective f => Functor (f :: i -> j) where
   fmap :: (a ~> b) -> f a ~> f b
 
@@ -146,7 +149,7 @@ instance Category (Hom :: j -> j -> *) => Contravariant (Objective :: (i -> j) -
 
 instance Contravariant Vacuous where contramap _ = Sub Dict
 
-class (p,q) => p & q 
+class (p,q) => p & q
 instance (p,q) => p & q
 instance Objective (&)
 instance Objective ((&) p)
@@ -198,7 +201,7 @@ class (Profunctor hom, hom ~ Hom, Phantom (Obj :: i -> Constraint)) => Category 
 
 instance Objective (->)
 instance Contravariant (->) where contramap f = Nat (. f)
-instance Objective ((->) a) 
+instance Objective ((->) a)
 instance Functor ((->) a) where fmap = (.)
 instance Category (->) where
   id x = x
@@ -220,7 +223,7 @@ instance Category Unit where
 
 instance Objective (:-)
 instance Contravariant (:-) where contramap f = Nat (. f)
-instance Objective ((:-) a) 
+instance Objective ((:-) a)
 instance Functor ((:-) a) where fmap = (.)
 instance Category (:-) where
   id = Sub Dict
@@ -228,12 +231,13 @@ instance Category (:-) where
   source _ = Dict
   target _ = Dict
 
+lmap :: (Obj c, Contravariant f) => (a ~> b) -> f b c ~> f a c
 lmap f = runNat (contramap f)
 
 dimap :: (Profunctor (p :: i -> j -> k), Category (Hom :: i -> i -> *), Category (Hom :: j -> j -> *), Category (Hom :: k -> k -> *)) => (a ~> b) -> (c ~> d) -> p b c ~> p a d
-dimap f g = case target g of 
+dimap f g = case target g of
   Dict -> case target f of
-    Dict -> runNat (contramap f) . fmap1 g 
+    Dict -> runNat (contramap f) . fmap1 g
 
 _Sub :: Iso (a :- b) (c :- d) (Dict a -> Dict b) (Dict c -> Dict d)
 _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
@@ -280,16 +284,16 @@ instance Thin (Hom :: i -> i -> *) => Contravariant ((|-) :: i -> i -> Constrain
 
 instance Thin (Hom :: i -> i -> *) => Functor ((|-) p :: i -> Constraint) where
   fmap f = beget _Sub $ _Implies (f .)
-  
+
 instance Objective (Obj :: i -> Constraint) => Functor (LimC :: (i -> Constraint) -> Constraint) where
   fmap f = ins . both (fmap1 f) (fmap f) . cls where
    both :: (a :- b) -> (c :- d) -> (a & c) :- (b & d)
    both g h = Sub $ Dict \\ g \\ h
 
 instance Functor (ComposeC :: (j -> Constraint) -> (i -> j) -> (i -> Constraint)) where
-  fmap (Nat f) = nat $ \(Proxy :: Proxy f) -> nat $ \(Proxy :: Proxy a) -> _Compose $ 
+  fmap (Nat f) = nat $ \(Proxy :: Proxy f) -> nat $ \(Proxy :: Proxy a) -> _Compose $
     case obj :: Obj a :- Obj (f a) of
-      Sub Dict -> f 
+      Sub Dict -> f
 
 instance (Category (Cod f), Functor f) => Functor (ComposeC f) where
   fmap (Nat f) = Nat $ _Compose $ fmap f
@@ -299,7 +303,7 @@ instance Contravariant f => Contravariant (ComposeC f) where
 
 class Category hom => Composed (hom :: k -> k -> *) where
   type Compose :: (j -> k) -> (i -> j) -> i -> k
-  compose :: f (g a) `hom` Compose f g a 
+  compose :: f (g a) `hom` Compose f g a
   decompose :: Compose f g a `hom` f (g a)
 
 instance Composed (:-) where
@@ -335,13 +339,13 @@ instance Contravariant (ConstC a) where contramap _ = Sub Dict
 
 instance Category (Hom :: i -> i -> *) => (ConstC :: Constraint -> i -> Constraint) -| (LimC :: (i -> Constraint) -> Constraint) where
   adj = dimap todo todo
-{-
+  {-
   adj = dimap hither yon where
-    hither :: Nat (ConstC a) (f :: i -> Constraint) -> a :- LimC f
-    hither (Nat f) = Sub $ fmap ins $ beget _Implies $ Nat $ Sub $ fmap f Dict
-    yon :: (a :- LimC f) -> Nat (ConstC a) (f :: i -> Constraint)
-    yon = undefined
--}
+    hither :: Obj f => Nat (ConstC a) (f :: i -> Constraint) -> a :- LimC f
+    hither (Nat f) = Sub $ fmap ins $ _ -- beget _Implies $ Nat $ Sub $ fmap f Dict
+    yon :: forall f a. Obj f => (a :- LimC f) -> Nat (ConstC a) (f :: i -> Constraint)
+    yon f = Nat $ Sub $ case f of Sub Dict -> _ -- case obj :: Obj a :- Obj (f a) of Sub Dict -> Dict
+  -}
 
 instance Complete (:-) where
   type Lim = LimC
@@ -365,24 +369,24 @@ instance Objective (Const1 a) where
 
 instance Objective Lim1
 instance Functor Lim1 where
-  fmap = todo
+  fmap (Nat f) (Lim a) = Lim (f a)
 instance Const1 -| Lim1 where
   adj = dimap (\f a -> Lim (runNat f (Const a))) $ \h -> Nat $ getLim . h . getConst
 
 instance Complete (->) where
   type Lim = Lim1
   type Const = Const1
-  elim = todo
-  complete = todo
+  elim = getLim
+  complete = Dict
 
 newtype Lim1 (p :: i -> *) = Lim { getLim :: forall a. Obj a => p a }
 
-instance Contravariant Nat  where contramap = undefined -- TODO
-instance Category (Hom :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where fmap = undefined -- TODO
+instance Category (Hom :: j -> j -> *) => Contravariant (Nat :: (i -> j) -> (i -> j) -> *) where contramap f = Nat (. f)
+instance Category (Hom :: j -> j -> *) => Functor (Nat f :: (i -> j) -> *) where fmap = (.)
 instance Category (Hom :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j) -> *) where
   id = Nat id1
-  source (Nat f) = Dict
-  target (Nat f) = Dict
+  source Nat{} = Dict
+  target Nat{} = Dict
   Nat f . Nat g = Nat (f . g)
 
 id1 :: forall hom f x. (Category (hom :: j -> j -> *), Objective f, Obj x) => hom (f x) (f x)
