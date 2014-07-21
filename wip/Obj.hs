@@ -5,6 +5,7 @@ import Prelude (($), undefined, Bool(..))
 import Data.Constraint ((:-)(..), Dict(..), Constraint, Class(..), (:=>)(..), (\\))
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Proxy (Proxy(..))
+import Data.Void
 
 infixr 0 `Hom`, ~>, |-
 type family Hom :: i -> i -> j
@@ -13,6 +14,7 @@ type instance Hom = (:-)  -- @Constraint -> Constraint -> *@
 type instance Hom = (|-)  -- @i -> i -> Constraint@ -- can we lift this condition by requiring the base case be Constraint?
 type instance Hom = Nat   -- @(i -> j) -> (i -> j) -> *@
 type instance Hom = Unit  -- @() -> () -> *@
+type instance Hom = Empty -- @Void -> Void ->*@
 type instance Hom = Prod -- @(i,j) -> (i,j) -> *@
 
 type (~>) = (Hom :: i -> i -> *)
@@ -61,6 +63,15 @@ instance Objective ((~) a)
 
 data Unit a b where
   Unit :: Unit '() '()
+
+data Empty (a :: Void) (b :: Void)
+
+type family If (a :: Bool) (b :: k) (c :: k) :: k where
+  If True  a b = a
+  If False a b = b
+
+-- class (() ~ Bool) => EmptyObj a
+-- instance (() ~ Bool) => EmptyObj a
 
 data Nat (f :: i -> j) (g :: i -> j) where
   Nat :: (Objective f, Objective g) => { runNat :: forall a. Obj a => f a ~> g a } -> Nat f g
