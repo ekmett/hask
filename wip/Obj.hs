@@ -77,15 +77,11 @@ type family Snd (p :: (i,j)) :: j where
 class (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
 instance (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
 
-
 nat :: (Objective f, Objective g) => (forall a. Obj a => Proxy a -> f a ~> g a) -> Nat f g
 nat k = Nat (k Proxy)
 
 sub :: (a => Proxy a -> Dict b) -> a :- b
 sub k = Sub (k Proxy)
-
--- runNat :: Obj a => Nat f g -> f a ~> g a
--- runNat (Nat f) = f
 
 -- allow the embedding of (natural transformations over) constraint implications into constraint.
 --
@@ -123,6 +119,9 @@ instance Functor Dict where
 
 class Objective f => Contravariant (f :: i -> j) where
   contramap :: (a ~> b) -> f b ~> f a
+
+instance Category (Hom :: j -> j -> *) => Contravariant (Objective :: (i -> j) -> Constraint) where
+  contramap f = Sub $ source f
 
 instance Contravariant Vacuous where contramap _ = Sub Dict
 
@@ -165,9 +164,12 @@ contramap1 = case runNat implies :: Obj x :- ComposeC Contravariant p x of
 class (Contravariant p, Post Functor p) => Profunctor p
 instance (Contravariant p, Post Functor p) => Profunctor p
 
+class (Functor p, Contravariant p) => Phantom p
+instance (Functor p, Contravariant p) => Phantom p
+
 type Iso s t a b = forall p. Profunctor p => p a b -> p s t
 
-class (Profunctor hom, hom ~ Hom, Functor (Obj :: i -> Constraint)) => Category (hom :: i -> i -> *) where
+class (Profunctor hom, hom ~ Hom, Phantom (Obj :: i -> Constraint)) => Category (hom :: i -> i -> *) where
   id  :: Obj a => hom a a
   (.) :: hom b c -> hom a b -> hom a c
   source :: hom a b -> Dict (Obj a)
@@ -188,6 +190,7 @@ instance Contravariant Unit where contramap f = Nat (. f)
 instance Objective (Unit a)
 instance Functor (Unit a) where fmap = (.)
 instance Functor ((~) '()) where fmap Unit = id
+instance Contravariant ((~) '()) where contramap Unit = id
 instance Category Unit where
   id = Unit
   Unit . Unit = Unit
