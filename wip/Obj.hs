@@ -68,10 +68,6 @@ data Unit a b where
 
 data Empty (a :: Void) (b :: Void)
 
-type family If (a :: Bool) (b :: k) (c :: k) :: k where
-  If True  a b = a
-  If False a b = b
-
 class EmptyObj (e :: Void) where
   no :: p e
 
