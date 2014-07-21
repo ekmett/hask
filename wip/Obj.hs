@@ -18,12 +18,15 @@ type Dom (f :: i -> j) = (Hom :: i -> i -> *)
 type Cod (f :: i -> j) = (Hom :: i -> i -> *)
 type Cod2 (p :: i -> j -> k) = (Hom :: k -> k -> *)
 
+-- indicate that there is only a single arrow between any two objects in a given category
 type family Irrelevant (k :: i -> i -> *) :: Bool
 type instance Irrelevant (->) = False
 type instance Irrelevant (:-) = True
 type instance Irrelevant (Nat :: (i' -> j') -> (i' -> j') -> *) = Irrelevant (Hom :: j' -> j' -> *)
 type instance Irrelevant Unit = True
--- use products
+
+class    (Category hom, Irrelevant hom ~ True) => Thin (hom :: i -> i -> *)
+instance (Category hom, Irrelevant hom ~ True) => Thin hom 
 
 class Vacuous a
 instance Vacuous a
@@ -56,6 +59,8 @@ sub k = Sub (k Proxy)
 -- runNat (Nat f) = f
 
 -- allow the embedding of (natural transformations over) constraint implications into constraint.
+--
+-- if I make Thin (Arr p) be a superclass of (|-) then we get #9200 issues.
 class Irrelevant (Arr p) ~ True => p |- q where
   implies :: p ~> q
 
@@ -66,7 +71,7 @@ instance (~) '()   |- ComposeC Functor Unit where implies = Nat (Sub Dict)
 instance Category (Arr r) => Vacuous |- ComposeC Functor (Beget r) where implies = Nat (Sub Dict)
 instance Category (Hom :: j -> j -> *) =>
   (Objective |- ComposeC Functor (Nat :: (i -> j) -> (i -> j) -> *)) where implies = Nat (Sub Dict)
-instance (Irrelevant (Hom :: i -> i -> *) ~ True, Category (Hom :: i -> i -> *), h ~ Obj) => h |- ComposeC Functor ((|-) :: i -> i -> Constraint) where implies = Nat (Sub Dict)
+instance (Thin (Hom :: i -> i -> *), h ~ Obj) => h |- ComposeC Functor ((|-) :: i -> i -> Constraint) where implies = Nat (Sub Dict)
 -- END INCOHERENT  
 
 -- you can provide many incoherent instances for p |- q
@@ -188,7 +193,7 @@ _Sub = dimap (\pq Dict -> case pq of Sub q -> q) (\f -> Sub $ f Dict)
 
 newtype Magic a b c = Magic ((a |- b) => c)
 
-_Implies :: (Irrelevant (Arr c) ~ True) => Iso (Dict (a |- b)) (Dict (c |- d)) (a ~> b) (c ~> d)
+_Implies :: Thin (Arr c) => Iso (Dict (a |- b)) (Dict (c |- d)) (a ~> b) (c ~> d)
 _Implies = dimap (\Dict -> implies) (reify Dict) where
   reify :: forall a b c. ((a |- b) => c) -> (a ~> b) -> c
   reify k = unsafeCoerce (Magic k :: Magic a b c)
@@ -223,10 +228,10 @@ _Beget = dimap runBeget Beget
 beget :: (Category (Arr b), Obj b) => (Beget b b b -> Beget b t t) -> b ~> t
 beget l = runBeget $ l (Beget id)
 
-instance (Irrelevant (Hom :: i -> i -> *) ~ True, Category (Hom :: i -> i -> *)) => Contravariant ((|-) :: i -> i -> Constraint) where
+instance Thin (Hom :: i -> i -> *) => Contravariant ((|-) :: i -> i -> Constraint) where
   contramap f = Nat $ beget _Sub $ _Implies (. f)
 
-instance (Irrelevant (Hom :: i -> i -> *) ~ True, Category (Hom :: i -> i -> *)) => Functor ((|-) p :: i -> Constraint) where
+instance Thin (Hom :: i -> i -> *) => Functor ((|-) p :: i -> Constraint) where
   fmap f = beget _Sub $ _Implies (f .)
 
   
