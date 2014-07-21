@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators, PolyKinds, TypeFamilies, RankNTypes, GADTs, NoImplicitPrelude, ConstraintKinds, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances, DataKinds, ScopedTypeVariables, DefaultSignatures, FunctionalDependencies #-}
+{-# LANGUAGE TypeOperators, PolyKinds, TypeFamilies, RankNTypes, GADTs, NoImplicitPrelude, ConstraintKinds, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances, DataKinds, ScopedTypeVariables, DefaultSignatures, FunctionalDependencies, EmptyCase #-}
 module Obj where
 
 import Prelude (($), undefined, Bool(..))
@@ -6,6 +6,7 @@ import Data.Constraint ((:-)(..), Dict(..), Constraint, Class(..), (:=>)(..), (\
 import Unsafe.Coerce (unsafeCoerce)
 import Data.Proxy (Proxy(..))
 import Data.Void
+import GHC.Prim (Any)
 
 infixr 0 `Hom`, ~>, |-
 type family Hom :: i -> i -> j
@@ -29,6 +30,7 @@ type instance Obj = (Vacuous   :: Constraint -> Constraint)
 type instance Obj = Objective
 type instance Obj = (~) '() -- :: () -> Constraint
 type instance Obj = ProdObj
+type instance Obj = EmptyObj
 
 -- indicate that there is only a single arrow between any two objects in a given category
 type family Irrelevant (k :: i -> i -> *) :: Bool
@@ -66,12 +68,30 @@ data Unit a b where
 
 data Empty (a :: Void) (b :: Void)
 
-type family If (a :: Bool) (b :: k) (c :: k) :: k where
-  If True  a b = a
-  If False a b = b
+class EmptyObj (e :: Void) where
+  no :: p e
 
--- class (() ~ Bool) => EmptyObj a
--- instance (() ~ Bool) => EmptyObj a
+instance Objective EmptyObj where obj = Sub Dict
+instance Functor EmptyObj where
+  fmap = todo
+
+instance Contravariant EmptyObj where
+  contramap = todo
+
+-- convenient type alias to force the kinds to line up
+type No = (Any :: Void -> k)
+
+instance Objective (Any :: Void -> k) where
+  obj = Sub $ fmap decompose $ decompose no
+
+instance Functor (Any :: Void -> k) where
+  fmap = todo
+
+instance Contravariant (Any :: Void -> k) where
+  contramap = todo
+
+instance Objective (Any (a :: Void)) where
+  obj = todo
 
 data Nat (f :: i -> j) (g :: i -> j) where
   Nat :: (Objective f, Objective g) => { runNat :: forall a. Obj a => f a ~> g a } -> Nat f g
@@ -121,6 +141,8 @@ instance Category (Arr r) => Vacuous |- ComposeC Functor (Beget r) where implies
 instance Category (Hom :: j -> j -> *) =>
   (Objective |- ComposeC Functor (Nat :: (i -> j) -> (i -> j) -> *)) where implies = Nat (Sub Dict)
 instance (Thin (Hom :: i -> i -> *), h ~ Obj) => h |- ComposeC Functor ((|-) :: i -> i -> Constraint) where implies = Nat (Sub Dict)
+instance Objective p => EmptyObj |- p where
+  implies = Nat (Sub $ decompose no)
 -- END INCOHERENT
 
 -- you can provide many incoherent instances for p |- q
@@ -168,10 +190,19 @@ class    f (g a) => ComposeC f g a
 instance f (g a) => ComposeC f g a
 instance Class (f (g a)) (ComposeC f g a) where cls = Sub Dict
 instance f (g a) :=> ComposeC f g a where ins = Sub Dict
-
 instance Objective ComposeC where obj = Sub Dict
 instance Objective f => Objective (ComposeC f) where obj = Sub Dict
 instance (Objective f, Objective g) => Objective (ComposeC f g) where obj = Sub Dict
+
+newtype Compose1 f g a = Compose { getCompose :: f (g a) }
+instance Objective Compose1 where obj = Sub Dict
+instance Functor Compose1 where fmap f = todo
+instance Objective f => Objective (Compose1 f) where obj = Sub Dict
+instance Functor f => Functor (Compose1 f) where fmap = todo
+instance Contravariant f => Contravariant (Compose1 f) where contramap = todo
+instance (Objective f, Objective g) => Objective (Compose1 f g) where obj = Sub Dict
+instance (Functor f, Functor g) => Functor (Compose1 f g) where fmap = todo
+instance (Contravariant f, Functor g) => Contravariant (Compose1 f g) where contramap = todo
 
 class LimC (ComposeC p f) => Post p f
 instance LimC (ComposeC p f) => Post p f
@@ -220,6 +251,18 @@ instance Category Unit where
   Unit . Unit = Unit
   source Unit = Dict
   target Unit = Dict
+
+instance Objective Empty
+instance Contravariant Empty where contramap f = case f of {}
+instance Functor Empty where fmap f = case f of {}
+instance Contravariant (Empty a) where contramap f = case f of {}
+instance Objective (Empty a) where obj = Sub Dict
+instance Functor (Empty a) where fmap f = case f of {}
+instance Category Empty where
+  id = no
+  source f = case f of {}
+  target f = case f of {}
+  f . _ = case f of {}
 
 instance Objective (:-)
 instance Contravariant (:-) where contramap f = Nat (. f)
@@ -305,6 +348,11 @@ class Category hom => Composed (hom :: k -> k -> *) where
   type Compose :: (j -> k) -> (i -> j) -> i -> k
   compose :: f (g a) `hom` Compose f g a
   decompose :: Compose f g a `hom` f (g a)
+
+instance Composed (->) where
+  type Compose = Compose1
+  compose = Compose
+  decompose = getCompose
 
 instance Composed (:-) where
   type Compose = ComposeC
