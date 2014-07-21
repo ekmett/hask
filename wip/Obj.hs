@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators, PolyKinds, TypeFamilies, RankNTypes, GADTs, NoImplicitPrelude, ConstraintKinds, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances, DataKinds, ScopedTypeVariables, DefaultSignatures, FunctionalDependencies #-}
+{-# LANGUAGE TypeOperators, PolyKinds, TypeFamilies, RankNTypes, GADTs, NoImplicitPrelude, ConstraintKinds, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances, DataKinds, ScopedTypeVariables, DefaultSignatures, FunctionalDependencies, EmptyCase #-}
 module Obj where
 
 import Prelude (($), undefined, Bool(..))
@@ -73,13 +73,20 @@ type family If (a :: Bool) (b :: k) (c :: k) :: k where
   If False a b = b
 
 class EmptyObj (e :: Void) where
-  no :: Dict (p e)
+  no :: p e
+
+instance Objective EmptyObj where obj = Sub Dict
+instance Functor EmptyObj where
+  fmap = todo
+
+instance Contravariant EmptyObj where
+  contramap = todo
 
 -- convenient type alias to force the kinds to line up
 type No = (Any :: Void -> k)
 
 instance Objective (Any :: Void -> k) where
-  obj = Sub (fmap decompose no)
+  obj = Sub $ fmap decompose $ decompose no
 
 instance Functor (Any :: Void -> k) where
   fmap = todo
@@ -135,6 +142,8 @@ instance Category (Arr r) => Vacuous |- ComposeC Functor (Beget r) where implies
 instance Category (Hom :: j -> j -> *) =>
   (Objective |- ComposeC Functor (Nat :: (i -> j) -> (i -> j) -> *)) where implies = Nat (Sub Dict)
 instance (Thin (Hom :: i -> i -> *), h ~ Obj) => h |- ComposeC Functor ((|-) :: i -> i -> Constraint) where implies = Nat (Sub Dict)
+instance Objective p => EmptyObj |- p where
+  implies = Nat (Sub $ decompose no)
 -- END INCOHERENT  
 
 -- you can provide many incoherent instances for p |- q
@@ -243,6 +252,18 @@ instance Category Unit where
   Unit . Unit = Unit
   source Unit = Dict
   target Unit = Dict
+
+instance Objective Empty
+instance Contravariant Empty where contramap f = case f of {}
+instance Functor Empty where fmap f = case f of {}
+instance Contravariant (Empty a) where contramap f = case f of {}
+instance Objective (Empty a) where obj = Sub Dict
+instance Functor (Empty a) where fmap f = case f of {}
+instance Category Empty where
+  id = no
+  source f = case f of {}
+  target f = case f of {}
+  f . _ = case f of {}
 
 instance Objective (:-)
 instance Contravariant (:-) where contramap f = Nat (. f)
