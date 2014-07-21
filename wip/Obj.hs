@@ -12,11 +12,21 @@ type instance Hom = (->)  -- @* -> * -> *@
 type instance Hom = (:-)  -- @Constraint -> Constraint -> *@
 type instance Hom = (|-)  -- @i -> i -> Constraint@ -- can we lift this condition by requiring the base case be Constraint?
 type instance Hom = Nat   -- @(i -> j) -> (i -> j) -> *@
+type instance Hom = Unit  -- @() -> () -> *@
+type instance Hom = Prod -- @(i,j) -> (i,j) -> *@
+
 type (~>) = (Hom :: i -> i -> *)
 type Arr (a :: i) = (Hom :: i -> i -> *)
 type Dom (f :: i -> j) = (Hom :: i -> i -> *)
 type Cod (f :: i -> j) = (Hom :: i -> i -> *)
 type Cod2 (p :: i -> j -> k) = (Hom :: k -> k -> *)
+
+type family Obj :: i -> Constraint
+type instance Obj = (Vacuous   :: *          -> Constraint)
+type instance Obj = (Vacuous   :: Constraint -> Constraint)
+type instance Obj = Objective
+type instance Obj = (~) '() -- :: () -> Constraint
+type instance Obj = ProdObj
 
 -- indicate that there is only a single arrow between any two objects in a given category
 type family Irrelevant (k :: i -> i -> *) :: Bool
@@ -24,6 +34,13 @@ type instance Irrelevant (->) = False
 type instance Irrelevant (:-) = True
 type instance Irrelevant (Nat :: (i' -> j') -> (i' -> j') -> *) = Irrelevant (Hom :: j' -> j' -> *)
 type instance Irrelevant Unit = True
+type instance Irrelevant (Prod :: (i,j) -> (i,j) -> *) = Irrelevant (Hom :: i -> i -> *) && Irrelevant (Hom :: j -> j -> *)
+
+type family (p :: Bool) && (q :: Bool) :: Bool where
+  False && q = False
+  True  && q = q
+
+type instance Obj = ProdObj
 
 class    (Category hom, Irrelevant hom ~ True) => Thin (hom :: i -> i -> *)
 instance (Category hom, Irrelevant hom ~ True) => Thin hom 
@@ -44,10 +61,22 @@ instance Objective ((~) a)
 
 data Unit a b where
   Unit :: Unit '() '()
-type instance Hom = Unit
 
 data Nat (f :: i -> j) (g :: i -> j) where
   Nat :: (Objective f, Objective g) => { runNat :: forall a. Obj a => f a ~> g a } -> Nat f g
+
+data Prod p q where
+  Prod :: (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
+
+type family Fst (p :: (i,j)) :: i where
+  Fst '(a,b) = a
+
+type family Snd (p :: (i,j)) :: j where
+  Snd '(a,b) = b
+
+class (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
+instance (p ~ '(Fst p, Snd p), Obj (Fst p), Obj (Snd p)) => ProdObj (p :: (i,j))
+
 
 nat :: (Objective f, Objective g) => (forall a. Obj a => Proxy a -> f a ~> g a) -> Nat f g
 nat k = Nat (k Proxy)
@@ -96,12 +125,6 @@ class Objective f => Contravariant (f :: i -> j) where
   contramap :: (a ~> b) -> f b ~> f a
 
 instance Contravariant Vacuous where contramap _ = Sub Dict
-
-type family Obj :: i -> Constraint
-type instance Obj = (Vacuous   :: *          -> Constraint)
-type instance Obj = (Vacuous   :: Constraint -> Constraint)
-type instance Obj = Objective
-type instance Obj = (~) '() -- :: () -> Constraint
 
 class (p,q) => p & q 
 instance (p,q) => p & q
@@ -233,7 +256,6 @@ instance Thin (Hom :: i -> i -> *) => Contravariant ((|-) :: i -> i -> Constrain
 
 instance Thin (Hom :: i -> i -> *) => Functor ((|-) p :: i -> Constraint) where
   fmap f = beget _Sub $ _Implies (f .)
-
   
 instance Objective (Obj :: i -> Constraint) => Functor (LimC :: (i -> Constraint) -> Constraint) where
   fmap f = ins . both (fmap1 f) (fmap f) . cls where
