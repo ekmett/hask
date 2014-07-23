@@ -1,8 +1,8 @@
-{-# LANGUAGE PolyKinds, DataKinds, TypeFamilies, RankNTypes, TypeOperators, FlexibleContexts, ScopedTypeVariables, MultiParamTypeClasses, FunctionalDependencies, TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE PolyKinds, DataKinds, TypeFamilies, RankNTypes, TypeOperators, FlexibleContexts, ScopedTypeVariables, MultiParamTypeClasses, FunctionalDependencies, TypeSynonymInstances, FlexibleInstances, GADTs, UndecidableInstances #-}
 
 import GHC.Prim (Any)
 import Unsafe.Coerce (unsafeCoerce)
-import Prelude (undefined)
+import Prelude (undefined, ($))
 
 type family (~>) :: i -> i -> *
 type instance (~>) = (->)
@@ -14,8 +14,8 @@ class Profunctor p where
   dimap :: (a ~> b) -> (c ~> d) -> p b c ~> p a d
 
 class (Profunctor p, p ~ (~>)) => Category p where
-  id :: p a a
-  (.) :: p b c -> p a b -> p a c
+  id   :: p a a
+  (.)  :: p b c -> p a b -> p a c
   evil :: p a b
   evil = unsafeCoerce (id :: p a a)
 
@@ -26,6 +26,20 @@ type Compose = (Any 'Compose :: (j -> k) -> (i -> j) -> i -> k)
 
 composed :: Category ((~>) :: k -> k -> *) => Iso (Compose f g a :: k) (Compose f' g' a' :: k) (f (g a)) (f' (g' a))
 composed = dimap evil evil
+
+data Prod (p :: (i,j)) (q :: (i,j)) where
+  Prod :: (a ~> b) -> (c ~> d) -> Prod '(a,c) '(b,d)
+
+type instance (~>) = Prod -- :: (i,j) -> (i,j) -> *)
+
+class Functor f where
+  fmap :: (a ~> b) -> f a ~> f b
+
+instance Category ((~>) :: j -> j -> *) => Functor ('(,) :: i -> j -> (i, j)) where
+  fmap f = Nat $ Prod f id
+
+instance Category ((~>) :: i -> i -> *) => Functor ('(,) a :: j -> (i, j)) where
+  fmap = Prod id
 
 data LIM = Lim
 type Lim = (Any 'Lim :: (i -> j) -> j)
