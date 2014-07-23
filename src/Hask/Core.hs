@@ -322,14 +322,17 @@ class LimC (p :: i -> Constraint) where
 -- Abuses @Any@ because it inhabits every kind, not a good choice of Skolem, but the best we have
 
 -- If you make any instances for @Any@, this will burn your house down and scatter the ashes. Don't do that.
-instance p Any => LimC (p :: i -> Constraint) where
-  limDict = case unsafeCoerce (id :: p Any :- p Any) :: p Any :- p a of
+instance (p (Any 0) & p (Any 1)) => LimC (p :: i -> Constraint) where
+  limDict = case unsafeCoerce (id :: p (Any 0) :- p (Any 0)) :: p (Any 0) :- p a of
     Sub d -> d
 
 instance Functor LimC where
-  fmap f = dimap (Sub limDict) (Sub Dict) (runAny f) where
-    runAny :: (p ~> q) -> p Any ~> q Any
-    runAny = runNat
+  fmap = todo
+{-
+  fmap f = dimap (Sub limDict &&& Sub limDict) (Sub Dict) (runAny f) where
+    runAny :: (p ~> q) -> (p (Any 0) & p (Any 1)) ~> (q (Any 0) & q (Any 1))
+    runAny = runNat &&& runNat
+-}
 
 class (hom ~ Hom) => Composed (hom :: k -> k -> *) | k -> hom where
   type Compose :: (j -> k) -> (i -> j) -> i -> k
@@ -646,9 +649,15 @@ instance Monoid m => Monoid (LimC m) where
   one = oneM
 
 instance ConstC -| LimC where
+  adj = todo
+{-
   adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limDict) b) where
     hither :: (ConstC a Any :- f Any) -> a :- LimC f
     hither = dimap (Sub Dict) (Sub Dict)
+-}
+
+todo :: a
+todo = undefined
 
 -- | A complete category has all small limits.
 
