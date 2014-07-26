@@ -10,6 +10,21 @@ type instance (~>) = (->)
 newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
 type instance (~>) = Nat
 
+class Functor (f :: i -> j) where
+  fmap :: (a ~> b) -> f a ~> f b
+
+-- Either a :: * -> *
+instance Functor (Either a) where
+  fmap f = \case
+    Left a -> Left a
+    Right a -> Right (f a)
+
+-- Either :: * -> (* -> *)
+instance Functor Either where
+  fmap f = Nat $ \case
+    Left a -> Left (f a)
+    Right a -> Right a
+
 class Profunctor p where
   dimap :: (a ~> b) -> (c ~> d) -> p b c ~> p a d
 
@@ -40,6 +55,14 @@ instance Category ((~>) :: j -> j -> *) => Functor ('(,) :: i -> j -> (i, j)) wh
 
 instance Category ((~>) :: i -> i -> *) => Functor ('(,) a :: j -> (i, j)) where
   fmap = Prod id
+
+-- '(,) 1 2 :: (Nat, Nat)
+
+{-
+instance Functor ('Left :: a -> Either a b)
+instance Functor ('Right :: b -> Either a b)
+instance Functor ('Just :: a -> Maybe a)
+-}
 
 data LIM = Lim
 type Lim = (Any 'Lim :: (i -> j) -> j)
