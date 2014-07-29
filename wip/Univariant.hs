@@ -29,9 +29,16 @@ type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
 type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
 
-class (Functor' p, Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k) where
-  bi :: Ob (Dom p) a => Dict (Functor' (p a))
+fmap1 :: forall p a b c. (Bifunctor p, Ob (Dom p) c) => Dom2 p a b -> Cod2 p (p c a) (p c b)
+fmap1 f = case bi :: Ob (Dom p) c :- (Functor' (p c), Cod (p c) ~ NatCod (Cod p), Dom (p c) ~ NatDom (Cod p)) of
+  Sub Dict -> fmap f where
+
+class (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k) where
+  bi :: Ob (Dom p) a :- (Functor' (p a), Cod (p a) ~ NatCod (Cod p), Dom (p a) ~ NatDom (Cod p))
   bimap :: Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
+  bimap f g = case observe f of
+    Dict -> case observe g of
+      Dict -> runNat (fmap f) . fmap1 g
 
 --------------------------------------------------------------------------------
 -- * Contravariance
@@ -119,7 +126,7 @@ instance Functor' ((:-) b) where
   fmap = (.)
 
 instance Bifunctor' (:-) where
-  bi = Dict
+  bi = Sub Dict
   bimap (Op f) g h = g . h . f
 
 instance Category' (:-) where
@@ -149,7 +156,7 @@ instance Functor' ((->)a) where
   fmap = (.)
 
 instance Bifunctor' (->) where
-  bi = Dict
+  bi = Sub Dict
   bimap (Op f) g h = g . h . f
 
 instance Category' (->) where
@@ -172,7 +179,7 @@ instance Category p => Functor' (Op p) where
   fmap (Op f) = Nat (. f)
 
 instance Category p => Bifunctor' (Op p) where
-  bi = Dict
+  bi = Sub Dict
   bimap (Op (Op f)) g (Op h) = Op $ bimap g f h
 
 instance Category p => Functor' (Op p a) where
@@ -196,7 +203,11 @@ op = Dict
 --------------------------------------------------------------------------------
 
 data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
-  Nat :: (Functor f, Dom f ~ p, Cod f ~ q, Functor g, Dom g ~ p, Cod g ~ q) => { runNat :: forall a. Ob p a => q (f a) (g a) } -> Nat p q f g
+  Nat :: ( FunctorOf p q f
+         , FunctorOf p q g
+         ) => {
+           runNat :: forall a. Ob p a => q (f a) (g a)
+         } -> Nat p q f g
 
 type Copresheaves p = Nat p (->)
 type Presheaves p = Nat (Op p) (->)
@@ -217,7 +228,7 @@ instance (Category' p, Category q) => Functor' (Nat p q) where
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Bifunctor' (Nat p q) where
-  bi = Dict
+  bi = Sub Dict
   bimap (Op (Nat f)) (Nat g) (Nat h) = Nat (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Nat p q a) where
@@ -244,7 +255,11 @@ nat = Dict
 --------------------------------------------------------------------------------
 
 data Prof (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j -> *) (g :: i -> j -> *) where
-  Prof :: (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Profunctor g, Dom g ~ Op p, Dom2 g ~ q, Cod2 f ~ (->), Cod2 g ~ (->)) => { runProf :: forall a b. (Ob p a, Ob q b) => f a b -> g a b } -> Prof p q f g
+  Prof :: ( ProfunctorOf p q f
+          , ProfunctorOf p q g
+          ) => {
+            runProf :: forall a b. (Ob p a, Ob q b) => f a b -> g a b
+          } -> Prof p q f g
 
 class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
 instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
@@ -262,7 +277,7 @@ instance (Category' p, Category q) => Functor' (Prof p q) where
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Bifunctor' (Prof p q) where
-  bi = Dict
+  bi = Sub Dict
   bimap (Op (Prof f)) (Prof g) (Prof h) = Prof (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Prof p q a) where
@@ -313,7 +328,7 @@ class (Cosemigroup p m, Tensor p) => Comonoid p m where
 --------------------------------------------------------------------------------
 
 instance Bifunctor' (,) where
-  bi = Dict
+  bi = Sub Dict
   bimap f g (a,b) = (f a, g b)
   
 instance Functor' (,) where
