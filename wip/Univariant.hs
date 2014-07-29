@@ -8,20 +8,20 @@ import qualified Data.Type.Coercion as Coercion
 import GHC.Prim (Any)
 import Prelude (($),undefined)
 
-type family Dom  (f :: i -> j)      :: i -> i -> *
-type family Cod  (f :: i -> j)      :: j -> j -> *
-type family Dom2 (f :: i -> j -> k) :: j -> j -> *
-type family Cod2 (f :: i -> j -> k) :: k -> k -> *
 
 --------------------------------------------------------------------------------
 -- * Functors
 --------------------------------------------------------------------------------
 
-class Functor' f where
+class Functor' (f :: i -> j)  where
+  type family Dom f :: i -> i -> *
+  type family Cod f :: j -> j -> *
   ob :: Ob (Dom f) a => Dict (Ob (Cod f) (f a))
   fmap :: Dom f a b -> Cod f (f a) (f b)
 
-class Functor' p => Bifunctor' p where
+class Functor' p => Bifunctor' (p :: i -> j -> k) where
+  type family Dom2 p :: j -> j -> *
+  type family Cod2 p :: k -> k -> *
   ob2 :: (Ob (Dom p) a, Ob (Dom2 p) b) => Dict (Ob (Cod2 p) (p a b))
   bimap :: Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 
@@ -84,13 +84,13 @@ instance (Contra f, Bifunctor f) => Profunctor f
 class (Category' p, Profunctor' p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
 instance (Category' p, Profunctor' p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
 
-type instance Dom (Vacuous c) = c
-type instance Cod (Vacuous c) = (:-)
 
 class Vacuous (c :: i -> i -> *) (a :: i)
 instance Vacuous c a
 
 instance Functor' (Vacuous c) where
+  type Dom (Vacuous c) = c
+  type Cod (Vacuous c) = (:-)
   ob = Dict
   fmap _ = Sub Dict
 
@@ -98,22 +98,22 @@ instance Functor' (Vacuous c) where
 -- * Constraint
 --------------------------------------------------------------------------------
 
-type instance Dom (:-)    = Op (:-)
-type instance Cod (:-)    = Nat (:-) (->) -- copresheaves
-type instance Dom2 (:-)   = (:-)
-type instance Dom ((:-)a) = (:-)
-type instance Cod2 (:-)   = (->)
-type instance Cod ((:-)a) = (->)
 
 instance Functor' (:-) where
+  type Dom (:-)    = Op (:-)
+  type Cod (:-)    = Nat (:-) (->) -- copresheaves
   ob = Dict
   fmap (Op f) = Nat (. f)
 
 instance Functor' ((:-) b) where
+  type Dom ((:-)a) = (:-)
+  type Cod ((:-)a) = (->)
   ob = Dict
   fmap = (.)
 
 instance Bifunctor' (:-) where
+  type Dom2 (:-)   = (:-)
+  type Cod2 (:-)   = (->)
   ob2 = Dict
   bimap (Op f) g h = g . h . f
 
@@ -130,22 +130,22 @@ constraint = Dict
 -- * Hask
 --------------------------------------------------------------------------------
 
-type instance Dom (->)    = Op (->)
-type instance Cod (->)    = Nat (->) (->)
-type instance Dom2 (->)   = (->)
-type instance Dom ((->)a) = (->)
-type instance Cod2 (->)   = (->)
-type instance Cod ((->)a) = (->)
 
 instance Functor' (->) where 
+  type Dom (->)    = Op (->)
+  type Cod (->)    = Nat (->) (->)
   ob = Dict
   fmap (Op f) = Nat (. f)
 
-instance Functor' ((->) b) where
+instance Functor' ((->)a) where
+  type Dom ((->)a) = (->)
+  type Cod ((->)a) = (->)
   ob = Dict
   fmap = (.)
 
 instance Bifunctor' (->) where
+  type Dom2 (->)   = (->)
+  type Cod2 (->)   = (->)
   ob2 = Dict
   bimap (Op f) g h = g . h . f
 
@@ -162,22 +162,22 @@ hask = Dict
 -- * Op
 --------------------------------------------------------------------------------
 
-type instance Dom (Op p)   = Op (Op p)
-type instance Cod (Op p)   = Nat (Op p) (->)
-type instance Dom (Op p a) = Op p
-type instance Dom2 (Op p)  = Op p
-type instance Cod2 (Op p)  = (->)
-type instance Cod (Op p a) = (->)
 
 instance Category p => Functor' (Op p) where
+  type Dom (Op p)   = Op (Op p)
+  type Cod (Op p)   = Nat (Op p) (->)
   ob = Dict
   fmap (Op f) = Nat (. f)
 
 instance Category p => Bifunctor' (Op p) where
+  type Dom2 (Op p)  = Op p
+  type Cod2 (Op p)  = (->)
   ob2 = Dict
   bimap (Op (Op f)) g (Op h) = Op $ bimap g f h
 
 instance Category p => Functor' (Op p a) where
+  type Dom (Op p a) = Op p
+  type Cod (Op p a) = (->)
   ob = Dict 
   fmap = (.)
 
@@ -198,35 +198,33 @@ op = Dict
 data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
   Nat :: (Functor f, Dom f ~ p, Cod f ~ q, Functor g, Dom g ~ p, Cod g ~ q) => { runNat :: forall a. Ob p a => q (f a) (g a) } -> Nat p q f g
 
-type instance Dom (Nat p q)   = Op (Nat p q)
-type instance Cod (Nat p q)   = Nat (Nat p q) (->)
-type instance Dom2 (Nat p q)  = Nat p q
-type instance Cod2 (Nat p q)  = (->)
-type instance Dom (Nat p q f) = Nat p q
-type instance Cod (Nat p q f) = (->)
-
 type Copresheaves p = Nat p (->)
 type Presheaves p = Nat (Op p) (->)
-
-type instance Dom (FunctorOf p q) = Nat p q
-type instance Cod (FunctorOf p q) = (:-)
 
 class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 
 instance Functor' (FunctorOf p q) where
+  type Dom (FunctorOf p q) = Nat p q
+  type Cod (FunctorOf p q) = (:-)
   ob = Dict
   fmap Nat{} = Sub Dict
 
 instance (Category' p, Category q) => Functor' (Nat p q) where
+  type Dom (Nat p q)   = Op (Nat p q)
+  type Cod (Nat p q)   = Nat (Nat p q) (->)
   ob = Dict
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Bifunctor' (Nat p q) where
+  type Dom2 (Nat p q)  = Nat p q
+  type Cod2 (Nat p q)  = (->)
   ob2 = Dict
   bimap (Op (Nat f)) (Nat g) (Nat h) = Nat (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Nat p q a) where
+  type Dom (Nat p q f) = Nat p q
+  type Cod (Nat p q f) = (->)
   ob = Dict
   fmap = (.)
 
@@ -250,32 +248,30 @@ nat = Dict
 data Prof (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j -> *) (g :: i -> j -> *) where
   Prof :: (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Profunctor g, Dom g ~ Op p, Dom2 g ~ q, Cod2 f ~ (->), Cod2 g ~ (->)) => { runProf :: forall a b. (Ob p a, Ob q b) => f a b -> g a b } -> Prof p q f g
 
-type instance Dom  (Prof p q)   = Op (Prof p q)
-type instance Cod  (Prof p q)   = Nat (Prof p q) (->)
-type instance Dom2 (Prof p q)   = Prof p q
-type instance Cod2 (Prof p q)   = (->)
-type instance Dom  (Prof p q f) = Prof p q
-type instance Cod  (Prof p q f) = (->)
-
-type instance Dom (ProfunctorOf p q) = Prof p q
-type instance Cod (ProfunctorOf p q) = (:-)
-
 class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
 instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
 
 instance Functor' (ProfunctorOf p q) where
+  type Dom (ProfunctorOf p q) = Prof p q
+  type Cod (ProfunctorOf p q) = (:-)
   ob = Dict
   fmap Prof{} = Sub Dict
 
 instance (Category' p, Category q) => Functor' (Prof p q) where
+  type Dom (Prof p q) = Op (Prof p q)
+  type Cod (Prof p q) = Nat (Prof p q) (->)
   ob = Dict
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Bifunctor' (Prof p q) where
+  type Dom2 (Prof p q) = Prof p q
+  type Cod2 (Prof p q) = (->)
   ob2 = Dict
   bimap (Op (Prof f)) (Prof g) (Prof h) = Prof (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Prof p q a) where
+  type Dom (Prof p q f) = Prof p q
+  type Cod (Prof p q f) = (->)
   ob = Dict
   fmap = (.)
 
@@ -307,22 +303,21 @@ class (Tensor p, Tensor q) => Monoid p q r
 -- * (,)
 --------------------------------------------------------------------------------
 
-type instance Dom (,) = (->)
-type instance Cod (,) = Nat (->) (->)
-type instance Dom2 (,) = (->)
-type instance Cod2 (,) = (->)
-type instance Dom ((,) a) = (->)
-type instance Cod ((,) a) = (->)
-
 instance Bifunctor' (,) where
+  type Dom2 (,) = (->)
+  type Cod2 (,) = (->)
   ob2 = Dict
   bimap f g (a,b) = (f a, g b)
   
 instance Functor' (,) where
+  type Dom (,) = (->)
+  type Cod (,) = Nat (->) (->)
   ob = Dict
   fmap f = Nat $ \(a,b) -> (f a, b)
 
 instance Functor' ((,) a) where
+  type Dom ((,) a) = (->)
+  type Cod ((,) a) = (->)
   ob = Dict
   fmap f (a,b) = (a, f b)
 
