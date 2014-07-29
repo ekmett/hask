@@ -137,6 +137,42 @@ hask :: Dict (Category (->))
 hask = Dict
 
 --------------------------------------------------------------------------------
+-- * Op
+--------------------------------------------------------------------------------
+
+{-
+type family Op (p :: i -> j -> *) :: j -> i -> * where
+  Op (Op1 p) = p
+  Op = Op1
+-}
+
+newtype Op (p :: i -> i -> *) (a :: i) (b :: i) = Op { getOp :: p b a }
+
+-- Op :: Prof^op -> Prof
+type instance Dom (Op p)   = Op (Dom p)
+type instance Cod (Op p)   = Nat (Op (Dom p)) (->)
+type instance Dom (Op p a) = Op (Dom p)
+type instance Dom2 (Op p)  = Op (Dom p)
+type instance Cod2 (Op p)  = (->)
+type instance Cod (Op p a) = (->)
+
+instance Category p => Discrete' (Op p) where ob = Sub Dict
+instance Category p => Contravariant' (Op p) where contramap pab = Nat (. pab)
+instance Category p => Profunctor' (Op p) where dimap (Op f) (Op g) (Op h) = Op (dimap g f h)
+instance Discrete' (Op p a) where ob = Sub Dict 
+instance Category p => Functor' (Op p a) where fmap = (.)
+instance Category p => Category' (Op p) where
+  type Ob (Op p) = Ob p
+  id = Op id
+  Op f . Op g = Op (g . f)
+  observe (Op f) = case observe f of
+    Dict -> Dict
+
+op :: Category p => Dict (Category (Op p))
+op = Dict
+
+
+--------------------------------------------------------------------------------
 -- * Nat
 --------------------------------------------------------------------------------
 
@@ -151,6 +187,7 @@ type instance Dom (Nat p q f) = Nat p q
 type instance Cod (Nat p q f) = (->)
 
 type Copresheaves p = Nat p (->)
+type Presheaves p = Nat (Op p) (->)
 
 type instance Dom (FunctorOf p q) = Nat p q
 type instance Cod (FunctorOf p q) = (:-)
@@ -182,45 +219,6 @@ nat :: (Category p, Category q) => Dict (Category (Nat p q))
 nat = Dict
 
 --------------------------------------------------------------------------------
--- * Op
---------------------------------------------------------------------------------
-
-{-
-type family Op (p :: i -> j -> *) :: j -> i -> * where
-  Op (Op1 p) = p
-  Op = Op1
--}
-
-newtype Op (p :: i -> i -> *) (a :: i) (b :: i) = Op { getOp :: p b a }
-
--- Op :: Prof^op -> Prof
-type instance Dom Op       = Pronat 
-type instance Cod Op       = Pronat
-type instance Dom (Op p)   = Op (Dom p)
-type instance Cod (Op p)   = Nat (Op (Dom p)) (->)
-type instance Dom (Op p a) = Op (Dom p)
-type instance Dom2 (Op p)  = Op (Dom p)
-type instance Cod2 (Op p)  = (->)
-type instance Cod (Op p a) = (->)
-
-instance Discrete' Op where ob = Sub Dict
-
-instance Category p => Discrete' (Op p) where ob = Sub Dict
-instance Category p => Contravariant' (Op p) where contramap pab = Nat (. pab)
-instance Category p => Profunctor' (Op p) where dimap (Op f) (Op g) (Op h) = Op (dimap g f h)
-instance Discrete' (Op p a) where ob = Sub Dict 
-instance Category p => Functor' (Op p a) where fmap = (.)
-instance Category p => Category' (Op p) where
-  type Ob (Op p) = Ob p
-  id = Op id
-  Op f . Op g = Op (g . f)
-  observe (Op f) = case observe f of
-    Dict -> Dict
-
-op :: Category p => Dict (Category (Op p))
-op = Dict
-
---------------------------------------------------------------------------------
 -- * Pronat
 --------------------------------------------------------------------------------
 
@@ -244,4 +242,5 @@ instance (Functor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
 data Prof (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
   Prof :: p x b -> q a x -> Prof p q a b
 
+instance Discrete
 
