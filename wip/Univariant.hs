@@ -19,7 +19,7 @@ class Functor' (f :: i -> j)  where
   ob :: Ob (Dom f) a => Dict (Ob (Cod f) (f a))
   fmap :: Dom f a b -> Cod f (f a) (f b)
 
-class Functor' p => Bifunctor' (p :: i -> j -> k) where
+class (Functor' p, Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k) where
   type family Dom2 p :: j -> j -> *
   type family Cod2 p :: k -> k -> *
   ob2 :: (Ob (Dom p) a, Ob (Dom2 p) b) => Dict (Ob (Cod2 p) (p a b))
