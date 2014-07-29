@@ -3,6 +3,7 @@ module Univariant where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
 import qualified Data.Constraint as Constraint
+import Data.Proxy (Proxy(..))
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Coercion
 import GHC.Prim (Any)
@@ -29,7 +30,7 @@ type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
 
 class (Functor' p, Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k) where
-  ob2 :: (Ob (Dom p) a, Ob (Dom2 p) b) => Dict (Ob (Cod2 p) (p a b))
+  bi :: Ob (Dom p) a => Dict (Functor' (p a))
   bimap :: Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 
 --------------------------------------------------------------------------------
@@ -118,7 +119,7 @@ instance Functor' ((:-) b) where
   fmap = (.)
 
 instance Bifunctor' (:-) where
-  ob2 = Dict
+  bi = Dict
   bimap (Op f) g h = g . h . f
 
 instance Category' (:-) where
@@ -148,7 +149,7 @@ instance Functor' ((->)a) where
   fmap = (.)
 
 instance Bifunctor' (->) where
-  ob2 = Dict
+  bi = Dict
   bimap (Op f) g h = g . h . f
 
 instance Category' (->) where
@@ -171,7 +172,7 @@ instance Category p => Functor' (Op p) where
   fmap (Op f) = Nat (. f)
 
 instance Category p => Bifunctor' (Op p) where
-  ob2 = Dict
+  bi = Dict
   bimap (Op (Op f)) g (Op h) = Op $ bimap g f h
 
 instance Category p => Functor' (Op p a) where
@@ -216,7 +217,7 @@ instance (Category' p, Category q) => Functor' (Nat p q) where
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Bifunctor' (Nat p q) where
-  ob2 = Dict
+  bi = Dict
   bimap (Op (Nat f)) (Nat g) (Nat h) = Nat (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Nat p q a) where
@@ -261,7 +262,7 @@ instance (Category' p, Category q) => Functor' (Prof p q) where
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Bifunctor' (Prof p q) where
-  ob2 = Dict
+  bi = Dict
   bimap (Op (Prof f)) (Prof g) (Prof h) = Prof (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Prof p q a) where
@@ -293,7 +294,7 @@ class Semitensor p => Tensor' p where
   rho    :: Iso (Dom p) (Dom p) (Dom p) (p a (I p)) (p a' (I p)) a a'
 
 class (Monoid' p (I p), Tensor' p) => Tensor p
-class (Monoid' p (I p), Tensor' p) => Tensor p
+instance (Monoid' p (I p), Tensor' p) => Tensor p
 
 class Semitensor p => Semigroup p m where
   mu :: Dom p (p m m) m
@@ -312,7 +313,7 @@ class (Cosemigroup p m, Tensor p) => Comonoid p m where
 --------------------------------------------------------------------------------
 
 instance Bifunctor' (,) where
-  ob2 = Dict
+  bi = Dict
   bimap f g (a,b) = (f a, g b)
   
 instance Functor' (,) where
