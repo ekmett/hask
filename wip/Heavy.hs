@@ -8,17 +8,14 @@ import qualified Data.Type.Coercion as Coercion
 import GHC.Prim (Any)
 import Prelude (($))
 
-type family Hom :: i -> i -> j
-type instance Hom = (->)
-type instance Hom = (:-)
-type instance Hom = Nat (~>) (~>)
-
-type (~>) = (Hom :: i -> i -> *) -- use sparingly
-
 type family Dom  (f :: i -> j)      :: i -> i -> *
 type family Cod  (f :: i -> j)      :: j -> j -> *
 type family Dom2 (f :: i -> j -> k) :: j -> j -> *
 type family Cod2 (f :: i -> j -> k) :: k -> k -> *
+
+--------------------------------------------------------------------------------
+-- * Categories
+--------------------------------------------------------------------------------
 
 class Discrete' f where
   ob :: Ob (Dom f) a :- Ob (Cod f) (f a)
@@ -47,7 +44,9 @@ class Category' (p :: i -> i -> *) where
   observe :: p a b -> Dict (Ob p a, Ob p b)
   (.) :: p b c -> p a b -> p a c
 
--- break cycles for #9200
+--------------------------------------------------------------------------------
+-- * Circular Definition, See Definition, Circular
+--------------------------------------------------------------------------------
 
 class (Discrete' f, Category' (Dom f), Category' (Cod f)) => Discrete f
 instance (Discrete' f, Category' (Dom f), Category' (Cod f)) => Discrete f
@@ -67,8 +66,8 @@ instance (Profunctor' p, Contravariant' p, Category (Cod p), Category' (Dom p), 
 class (Bifunctor' p, Functor' p, Category' (Cod p), Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor p -- explicit Functor
 instance (Bifunctor' p, Functor' p, Category' (Cod p), Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor p
 
-class (Category' p, Profunctor' p, Dom p ~ p, Cod p ~ Nat p Hom, Dom2 p ~ p, Cod2 p ~ (->), Phantom' (Ob p)) => Category p
-instance (Category' p, Profunctor' p, Dom p ~ p, Cod p ~ Nat p Hom, Dom2 p ~ p, Cod2 p ~ (->), Phantom' (Ob p)) => Category p
+class (Category' p, Profunctor' p, Dom p ~ p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Phantom' (Ob p)) => Category p
+instance (Category' p, Profunctor' p, Dom p ~ p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Phantom' (Ob p)) => Category p
 
 class Vacuous (c :: i -> i -> *) (a :: i)
 instance Vacuous (c :: i -> i -> *) (a :: i)
@@ -84,6 +83,10 @@ instance Functor' (Vacuous c) where
 
 instance Contravariant' (Vacuous c) where
   contramap _ = Sub Dict
+
+--------------------------------------------------------------------------------
+-- * Constraint
+--------------------------------------------------------------------------------
 
 type instance Dom (:-)    = (:-)
 type instance Cod (:-)    = Nat (:-) (->) -- copresheaves
@@ -107,6 +110,10 @@ instance Category' (:-) where
 constraint :: Dict (Category (:-))
 constraint = Dict
 
+--------------------------------------------------------------------------------
+-- * Hask
+--------------------------------------------------------------------------------
+
 type instance Dom (->)    = (->)
 type instance Cod (->)    = Nat (->) (->) -- copresheaves
 type instance Dom2 (->)   = (->)
@@ -128,6 +135,10 @@ instance Category' (->) where
 
 hask :: Dict (Category (->))
 hask = Dict
+
+--------------------------------------------------------------------------------
+-- * Nat
+--------------------------------------------------------------------------------
 
 data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
   Nat :: (Functor' f, Dom f ~ p, Cod f ~ q, Functor' g, Dom g ~ p, Cod g ~ q) => { runNat :: forall a. Ob p a => q (f a) (g a) } -> Nat p q f g
@@ -170,6 +181,10 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
 nat :: (Category p, Category q) => Dict (Category (Nat p q))
 nat = Dict
 
+--------------------------------------------------------------------------------
+-- * Op
+--------------------------------------------------------------------------------
+
 {-
 type family Op (p :: i -> j -> *) :: j -> i -> * where
   Op (Op1 p) = p
@@ -179,8 +194,8 @@ type family Op (p :: i -> j -> *) :: j -> i -> * where
 newtype Op (p :: i -> i -> *) (a :: i) (b :: i) = Op { getOp :: p b a }
 
 -- Op :: Prof^op -> Prof
--- type instance Dom Op       = Prof
--- type instance Cod Op       = Prof
+type instance Dom Op       = Pronat 
+type instance Cod Op       = Pronat
 type instance Dom (Op p)   = Op (Dom p)
 type instance Cod (Op p)   = Nat (Op (Dom p)) (->)
 type instance Dom (Op p a) = Op (Dom p)
@@ -188,7 +203,8 @@ type instance Dom2 (Op p)  = Op (Dom p)
 type instance Cod2 (Op p)  = (->)
 type instance Cod (Op p a) = (->)
 
-instance Contravariant Op 
+instance Discrete' Op where ob = Sub Dict
+
 instance Category p => Discrete' (Op p) where ob = Sub Dict
 instance Category p => Contravariant' (Op p) where contramap pab = Nat (. pab)
 instance Category p => Profunctor' (Op p) where dimap (Op f) (Op g) (Op h) = Op (dimap g f h)
@@ -201,6 +217,31 @@ instance Category p => Category' (Op p) where
   observe (Op f) = case observe f of
     Dict -> Dict
 
--- op :: (Functor' (Ob p), Contravariant' (Ob p), p ~ Dom p, p ~ Dom2 p, Category' p) => Dict (Category (Op p))
 op :: Category p => Dict (Category (Op p))
 op = Dict
+
+--------------------------------------------------------------------------------
+-- * Pronat
+--------------------------------------------------------------------------------
+
+-- 2-morphisms in Prof are natural in both arguments, but the former is contravariant and the latter is covariant in our 'backwards' encoding
+data Pronat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j -> *) (g :: i -> j -> *) where
+  Pronat :: (Profunctor' f, Dom f ~ p, Dom2 f ~ q, Profunctor' g, Dom g ~ p, Dom2 g ~ q) => { runPronat :: forall a b. (Ob p a, Ob q b) => f a b -> g a b } -> Pronat p q f g
+
+type instance Dom  (Pronat p q) = Pronat p q
+type instance Cod  (Pronat p q) = Nat (Pronat p q) (->)
+type instance Dom2 (Pronat p q) = Pronat p q
+type instance Cod2 (Pronat p q) = (->)
+type instance Dom  (Pronat p q f) = Pronat p q
+type instance Cod  (Pronat p q f) = (->)
+
+type instance Dom (ProfunctorOf p q) = Pronat p q
+type instance Cod (ProfunctorOf p q) = (:-)
+
+class    (Functor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+instance (Functor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+
+data Prof (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
+  Prof :: p x b -> q a x -> Prof p q a b
+
+
