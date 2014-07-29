@@ -17,7 +17,7 @@ import Prelude (($),undefined)
 class Functor' (f :: i -> j)  where
   type Dom f :: i -> i -> *
   type Cod f :: j -> j -> *
-  ob :: Ob (Dom f) a => Dict (Ob (Cod f) (f a))
+  ob :: Ob (Dom f) a :- Ob (Cod f) (f a)
   fmap :: Dom f a b -> Cod f (f a) (f b)
 
 type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where
@@ -29,16 +29,17 @@ type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
 type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
 
-fmap1 :: forall p a b c. (Bifunctor p, Ob (Dom p) c) => Dom2 p a b -> Cod2 p (p c a) (p c b)
-fmap1 f = case bi :: Ob (Dom p) c :- (Functor' (p c), Cod (p c) ~ NatCod (Cod p), Dom (p c) ~ NatDom (Cod p)) of
+fmap1 :: forall p a b c. (Functor p, Ob (Dom p) c, Ob (Cod p) ~ FunctorOf (NatDom (Cod p)) (NatCod (Cod p))) => Dom2 p a b -> Cod2 p (p c a) (p c b)
+fmap1 f = case ob :: Ob (Dom p) c :- FunctorOf (Dom2 p) (Cod2 p) (p c) of
   Sub Dict -> fmap f where
 
-class (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k) where
-  bi :: Ob (Dom p) a :- (Functor' (p a), Cod (p a) ~ NatCod (Cod p), Dom (p a) ~ NatDom (Cod p))
-  bimap :: Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
-  bimap f g = case observe f of
-    Dict -> case observe g of
-      Dict -> runNat (fmap f) . fmap1 g
+class (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k)
+instance  (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k)
+
+bimap :: Bifunctor' p => Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
+bimap f g = case observe f of
+  Dict -> case observe g of
+    Dict -> runNat (fmap f) . fmap1 g
 
 --------------------------------------------------------------------------------
 -- * Contravariance
@@ -105,7 +106,7 @@ instance Vacuous c a
 instance Functor' (Vacuous c) where
   type Dom (Vacuous c) = c
   type Cod (Vacuous c) = (:-)
-  ob = Dict
+  ob = Sub Dict
   fmap _ = Sub Dict
 
 --------------------------------------------------------------------------------
@@ -115,18 +116,14 @@ instance Functor' (Vacuous c) where
 instance Functor' (:-) where
   type Dom (:-) = Op (:-)
   type Cod (:-) = Nat (:-) (->) -- copresheaves
-  ob = Dict
+  ob = Sub Dict
   fmap (Op f) = Nat (. f)
 
 instance Functor' ((:-) b) where
   type Dom ((:-) a) = (:-)
   type Cod ((:-) a) = (->)
-  ob = Dict
+  ob = Sub Dict
   fmap = (.)
-
-instance Bifunctor' (:-) where
-  bi = Sub Dict
-  bimap (Op f) g h = g . h . f
 
 instance Category' (:-) where
   type Ob (:-) = Vacuous (:-)
@@ -144,18 +141,14 @@ constraint = Dict
 instance Functor' (->) where 
   type Dom (->) = Op (->)
   type Cod (->) = Nat (->) (->)
-  ob = Dict
+  ob = Sub Dict
   fmap (Op f) = Nat (. f)
 
 instance Functor' ((->)a) where
   type Dom ((->) a) = (->)
   type Cod ((->) a) = (->)
-  ob = Dict
+  ob = Sub Dict
   fmap = (.)
-
-instance Bifunctor' (->) where
-  bi = Sub Dict
-  bimap (Op f) g h = g . h . f
 
 instance Category' (->) where
   type Ob (->) = Vacuous (->)
@@ -173,17 +166,13 @@ hask = Dict
 instance Category p => Functor' (Op p) where
   type Dom (Op p) = Op (Op p)
   type Cod (Op p) = Nat (Op p) (->)
-  ob = Dict
+  ob = Sub Dict
   fmap (Op f) = Nat (. f)
-
-instance Category p => Bifunctor' (Op p) where
-  bi = Sub Dict
-  bimap (Op (Op f)) g (Op h) = Op $ bimap g f h
 
 instance Category p => Functor' (Op p a) where
   type Dom (Op p a) = Op p
   type Cod (Op p a) = (->)
-  ob = Dict 
+  ob = Sub Dict 
   fmap = (.)
 
 instance Category p => Category' (Op p) where
@@ -216,32 +205,26 @@ instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 instance Functor' (FunctorOf p q) where
   type Dom (FunctorOf p q) = Nat p q
   type Cod (FunctorOf p q) = (:-)
-  ob = Dict
+  ob = Sub Dict
   fmap Nat{} = Sub Dict
 
 instance (Category' p, Category q) => Functor' (Nat p q) where
   type Dom (Nat p q) = Op (Nat p q)
   type Cod (Nat p q) = Nat (Nat p q) (->)
-  ob = Dict
+  ob = Sub Dict
   fmap (Op f) = Nat (. f)
-
-instance (Category' p, Category q) => Bifunctor' (Nat p q) where
-  bi = Sub Dict
-  bimap (Op (Nat f)) (Nat g) (Nat h) = Nat (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Nat p q a) where
   type Dom (Nat p q f) = Nat p q
   type Cod (Nat p q f) = (->)
-  ob = Dict
+  ob = Sub Dict
   fmap = (.)
 
 instance (Category' p, Category' q) => Category' (Nat p q) where
    type Ob (Nat p q) = FunctorOf p q
    id = Nat id1 where
      id1 :: forall f x. (Functor' f, Dom f ~ p, Cod f ~ q, Ob p x) => q (f x) (f x)
-     id1 = id \\ (ob1 :: Ob p x :- Ob q (f x))
-     ob1 :: Functor' f => Ob (Dom f) x :- Ob (Cod f) (f x)
-     ob1 = Sub ob
+     id1 = id \\ (ob :: Ob p x :- Ob q (f x))
    observe Nat{} = Dict
    Nat f . Nat g = Nat (f . g)
 
@@ -265,23 +248,19 @@ instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf
 instance Functor' (ProfunctorOf p q) where
   type Dom (ProfunctorOf p q) = Prof p q
   type Cod (ProfunctorOf p q) = (:-)
-  ob = Dict
+  ob = Sub Dict
   fmap Prof{} = Sub Dict
 
 instance (Category' p, Category q) => Functor' (Prof p q) where
   type Dom (Prof p q) = Op (Prof p q)
   type Cod (Prof p q) = Nat (Prof p q) (->)
-  ob = Dict
+  ob = Sub Dict
   fmap (Op f) = Nat (. f)
-
-instance (Category' p, Category q) => Bifunctor' (Prof p q) where
-  bi = Sub Dict
-  bimap (Op (Prof f)) (Prof g) (Prof h) = Prof (bimap (Op f) g h)
 
 instance (Category' p, Category q) => Functor' (Prof p q a) where
   type Dom (Prof p q f) = Prof p q
   type Cod (Prof p q f) = (->)
-  ob = Dict
+  ob = Sub Dict
   fmap = (.)
 
 instance (Category' p, Category' q) => Category' (Prof p q) where
@@ -325,20 +304,16 @@ class (Cosemigroup p m, Tensor p) => Comonoid p m where
 -- * (,)
 --------------------------------------------------------------------------------
 
-instance Bifunctor' (,) where
-  bi = Sub Dict
-  bimap f g (a,b) = (f a, g b)
-  
 instance Functor' (,) where
   type Dom (,) = (->)
   type Cod (,) = Nat (->) (->)
-  ob = Dict
+  ob = Sub Dict
   fmap f = Nat $ \(a,b) -> (f a, b)
 
 instance Functor' ((,) a) where
   type Dom ((,) a) = (->)
   type Cod ((,) a) = (->)
-  ob = Dict
+  ob = Sub Dict
   fmap f (a,b) = (a, f b)
 
 instance Semitensor (,) where
@@ -362,25 +337,19 @@ class Category e => Composed e where
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  ob = Dict
+  ob = Sub Dict
   --fmap f = Nat $ Nat $ _Compose $ case observe f of
   --  Dict -> undefined -- TODO
-
-instance (Category c, Category d, Composed e) => Bifunctor' (Compose c d e) where
-  bi = Sub Dict
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
   type Cod (Compose c d e f) = Nat c e
-  ob = Dict
-
-instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Bifunctor' (Compose c d e f) where
-  bi = Sub Dict
+  ob = Sub Dict
 
 instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
   type Dom (Compose c d e f g) = c
   type Cod (Compose c d e f g) = e
-  ob = composedOb
+  ob = Sub composedOb
 
 
 -- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
