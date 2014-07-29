@@ -1,4 +1,4 @@
-{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds #-}
+{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes #-}
 module Univariant where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
@@ -21,7 +21,7 @@ class Functor' f where
   ob :: Ob (Dom f) a => Dict (Ob (Cod f) (f a))
   fmap :: Dom f a b -> Cod f (f a) (f b)
 
-class Bifunctor' p where
+class Functor' p => Bifunctor' p where
   ob2 :: (Ob (Dom p) a, Ob (Dom2 p) b) => Dict (Ob (Cod2 p) (p a b))
   bimap :: Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 
@@ -52,7 +52,7 @@ instance (Contra p, Bifunctor' p) => Profunctor' p
 dimap :: Profunctor' p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 dimap = bimap . Op
 
-type Iso s t a b = forall p. Profunctor' p => Cod2 p (p a b) (p s t)
+type Iso c d e s t a b = forall p. (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
 
 --------------------------------------------------------------------------------
 -- * Category
@@ -244,20 +244,20 @@ nat :: (Category p, Category q) => Dict (Category (Nat p q))
 nat = Dict
 
 --------------------------------------------------------------------------------
--- * Pronat
+-- * Prof
 --------------------------------------------------------------------------------
 
-data Pronat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j -> *) (g :: i -> j -> *) where
-  Pronat :: (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Profunctor g, Dom g ~ Op p, Dom2 g ~ q, Cod2 f ~ (->), Cod2 g ~ (->)) => { runPronat :: forall a b. (Ob p a, Ob q b) => f a b -> g a b } -> Pronat p q f g
+data Prof (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j -> *) (g :: i -> j -> *) where
+  Prof :: (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Profunctor g, Dom g ~ Op p, Dom2 g ~ q, Cod2 f ~ (->), Cod2 g ~ (->)) => { runProf :: forall a b. (Ob p a, Ob q b) => f a b -> g a b } -> Prof p q f g
 
-type instance Dom  (Pronat p q)   = Op (Pronat p q)
-type instance Cod  (Pronat p q)   = Nat (Pronat p q) (->)
-type instance Dom2 (Pronat p q)   = Pronat p q
-type instance Cod2 (Pronat p q)   = (->)
-type instance Dom  (Pronat p q f) = Pronat p q
-type instance Cod  (Pronat p q f) = (->)
+type instance Dom  (Prof p q)   = Op (Prof p q)
+type instance Cod  (Prof p q)   = Nat (Prof p q) (->)
+type instance Dom2 (Prof p q)   = Prof p q
+type instance Cod2 (Prof p q)   = (->)
+type instance Dom  (Prof p q f) = Prof p q
+type instance Cod  (Prof p q f) = (->)
 
-type instance Dom (ProfunctorOf p q) = Pronat p q
+type instance Dom (ProfunctorOf p q) = Prof p q
 type instance Cod (ProfunctorOf p q) = (:-)
 
 class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
@@ -265,30 +265,82 @@ instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf
 
 instance Functor' (ProfunctorOf p q) where
   ob = Dict
-  fmap Pronat{} = Sub Dict
+  fmap Prof{} = Sub Dict
 
-instance (Category' p, Category q) => Functor' (Pronat p q) where
+instance (Category' p, Category q) => Functor' (Prof p q) where
   ob = Dict
   fmap (Op f) = Nat (. f)
 
-instance (Category' p, Category q) => Bifunctor' (Pronat p q) where
+instance (Category' p, Category q) => Bifunctor' (Prof p q) where
   ob2 = Dict
-  bimap (Op (Pronat f)) (Pronat g) (Pronat h) = Pronat (bimap (Op f) g h)
+  bimap (Op (Prof f)) (Prof g) (Prof h) = Prof (bimap (Op f) g h)
 
-instance (Category' p, Category q) => Functor' (Pronat p q a) where
+instance (Category' p, Category q) => Functor' (Prof p q a) where
   ob = Dict
   fmap = (.)
 
-instance (Category' p, Category' q) => Category' (Pronat p q) where
-   type Ob (Pronat p q) = ProfunctorOf p q
-   id = Pronat id
-   observe Pronat{} = Dict
-   Pronat f . Pronat g = Pronat (f . g)
+instance (Category' p, Category' q) => Category' (Prof p q) where
+   type Ob (Prof p q) = ProfunctorOf p q
+   id = Prof id
+   observe Prof{} = Dict
+   Prof f . Prof g = Prof (f . g)
 
-pronat :: (Category p, Category q) => Dict (Category (Pronat p q))
-pronat = Dict
+prof :: (Category p, Category q) => Dict (Category (Prof p q))
+prof = Dict
 
-data Prof (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
-  Prof :: p x b -> q a x -> Prof p q a b
+--------------------------------------------------------------------------------
+-- * Monoidal Tensors
+--------------------------------------------------------------------------------
+
+class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
+  associate :: Iso (Dom p) (Dom p) (Dom p) (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
+
+type family I (p :: i -> i -> i) :: i
+
+class Semitensor p => Tensor p where
+  lambda :: Iso (Dom p) (Dom p) (Dom p) (p (I p) a) (p (I p) a') a a'
+  rho    :: Iso (Dom p) (Dom p) (Dom p) (p a (I p)) (p a' (I p)) a a'
+
+class (Tensor p, Tensor q) => Monoid p q r
+
+--------------------------------------------------------------------------------
+-- * (,)
+--------------------------------------------------------------------------------
+
+type instance Dom (,) = (->)
+type instance Cod (,) = Nat (->) (->)
+type instance Dom2 (,) = (->)
+type instance Cod2 (,) = (->)
+type instance Dom ((,) a) = (->)
+type instance Cod ((,) a) = (->)
+
+instance Bifunctor' (,) where
+  ob2 = Dict
+  bimap f g (a,b) = (f a, g b)
+  
+instance Functor' (,) where
+  ob = Dict
+  fmap f = Nat $ \(a,b) -> (f a, b)
+
+instance Functor' ((,) a) where
+  ob = Dict
+  fmap f (a,b) = (a, f b)
+
+instance Semitensor (,) where
+  associate = dimap (\((a,b),c) -> (a,(b,c))) (\(a,(b,c)) -> ((a,b),c))
 
 
+
+-- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
+
+{-
+data Procompose (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
+  Procompose :: p x b -> q a x -> Procompose p q a b
+
+  
+associateProcompose :: Iso (Procompose (Procompose p q) r) (Procompose (Procompose p' q') r')
+                           (Procompose p (Procompose q r)) (Procompose p' (Procompose q' r'))
+associateProcompose = dimap
+  (Prof $ \ (Procompose (Procompose a b) c) -> Procompose a (Procompose b c))
+  (Prof $ \ (Procompose a (Procompose b c)) -> Procompose (Procompose a b) c)
+-}
