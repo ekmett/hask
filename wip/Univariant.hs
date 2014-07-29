@@ -162,7 +162,6 @@ hask = Dict
 -- * Op
 --------------------------------------------------------------------------------
 
--- Op :: Prof^op -> Prof
 type instance Dom (Op p)   = Op (Op p)
 type instance Cod (Op p)   = Nat (Op p) (->)
 type instance Dom (Op p a) = Op p
@@ -286,5 +285,10 @@ instance (Category' p, Category' q) => Category' (Pronat p q) where
    observe Pronat{} = Dict
    Pronat f . Pronat g = Pronat (f . g)
 
+pronat :: (Category p, Category q) => Dict (Category (Pronat p q))
+pronat = Dict
+
 data Prof (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
   Prof :: p x b -> q a x -> Prof p q a b
+
+
