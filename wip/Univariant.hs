@@ -17,15 +17,17 @@ import Prelude (($),undefined)
 class Functor' (f :: i -> j)  where
   type Dom f :: i -> i -> *
   type Cod f :: j -> j -> *
-  ob :: Ob (Dom f) a :- Ob (Cod f) (f a)
   fmap :: Dom f a b -> Cod f (f a) (f b)
+
+ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
+ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of Dict -> Dict
 
 type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where
   NatDom (Nat p q) = p
 
 type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
   NatCod (Nat p q) = q
-  
+
 type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
 
@@ -62,8 +64,8 @@ instance (Contra f, Functor' f) => Contravariant' f
 contramap :: Contravariant' f => Opd f b a -> Cod f (f a) (f b)
 contramap = fmap . Op
 
-class (Contra p, Bifunctor' p) => Profunctor' p 
-instance (Contra p, Bifunctor' p) => Profunctor' p 
+class (Contra p, Bifunctor' p) => Profunctor' p
+instance (Contra p, Bifunctor' p) => Profunctor' p
 
 dimap :: Profunctor' p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 dimap = bimap . Op
@@ -106,7 +108,6 @@ instance Vacuous c a
 instance Functor' (Vacuous c) where
   type Dom (Vacuous c) = c
   type Cod (Vacuous c) = (:-)
-  ob = Sub Dict
   fmap _ = Sub Dict
 
 --------------------------------------------------------------------------------
@@ -116,13 +117,11 @@ instance Functor' (Vacuous c) where
 instance Functor' (:-) where
   type Dom (:-) = Op (:-)
   type Cod (:-) = Nat (:-) (->) -- copresheaves
-  ob = Sub Dict
   fmap (Op f) = Nat (. f)
 
 instance Functor' ((:-) b) where
   type Dom ((:-) a) = (:-)
   type Cod ((:-) a) = (->)
-  ob = Sub Dict
   fmap = (.)
 
 instance Category' (:-) where
@@ -138,16 +137,14 @@ constraint = Dict
 -- * Hask
 --------------------------------------------------------------------------------
 
-instance Functor' (->) where 
+instance Functor' (->) where
   type Dom (->) = Op (->)
   type Cod (->) = Nat (->) (->)
-  ob = Sub Dict
   fmap (Op f) = Nat (. f)
 
 instance Functor' ((->)a) where
   type Dom ((->) a) = (->)
   type Cod ((->) a) = (->)
-  ob = Sub Dict
   fmap = (.)
 
 instance Category' (->) where
@@ -166,13 +163,11 @@ hask = Dict
 instance Category p => Functor' (Op p) where
   type Dom (Op p) = Op (Op p)
   type Cod (Op p) = Nat (Op p) (->)
-  ob = Sub Dict
   fmap (Op f) = Nat (. f)
 
 instance Category p => Functor' (Op p a) where
   type Dom (Op p a) = Op p
   type Cod (Op p a) = (->)
-  ob = Sub Dict 
   fmap = (.)
 
 instance Category p => Category' (Op p) where
@@ -205,19 +200,16 @@ instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 instance Functor' (FunctorOf p q) where
   type Dom (FunctorOf p q) = Nat p q
   type Cod (FunctorOf p q) = (:-)
-  ob = Sub Dict
   fmap Nat{} = Sub Dict
 
 instance (Category' p, Category q) => Functor' (Nat p q) where
   type Dom (Nat p q) = Op (Nat p q)
   type Cod (Nat p q) = Nat (Nat p q) (->)
-  ob = Sub Dict
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Functor' (Nat p q a) where
   type Dom (Nat p q f) = Nat p q
   type Cod (Nat p q f) = (->)
-  ob = Sub Dict
   fmap = (.)
 
 instance (Category' p, Category' q) => Category' (Nat p q) where
@@ -248,19 +240,16 @@ instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf
 instance Functor' (ProfunctorOf p q) where
   type Dom (ProfunctorOf p q) = Prof p q
   type Cod (ProfunctorOf p q) = (:-)
-  ob = Sub Dict
   fmap Prof{} = Sub Dict
 
 instance (Category' p, Category q) => Functor' (Prof p q) where
   type Dom (Prof p q) = Op (Prof p q)
   type Cod (Prof p q) = Nat (Prof p q) (->)
-  ob = Sub Dict
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Functor' (Prof p q a) where
   type Dom (Prof p q f) = Prof p q
   type Cod (Prof p q f) = (->)
-  ob = Sub Dict
   fmap = (.)
 
 instance (Category' p, Category' q) => Category' (Prof p q) where
@@ -307,13 +296,11 @@ class (Cosemigroup p m, Tensor p) => Comonoid p m where
 instance Functor' (,) where
   type Dom (,) = (->)
   type Cod (,) = Nat (->) (->)
-  ob = Sub Dict
   fmap f = Nat $ \(a,b) -> (f a, b)
 
 instance Functor' ((,) a) where
   type Dom ((,) a) = (->)
   type Cod ((,) a) = (->)
-  ob = Sub Dict
   fmap f (a,b) = (a, f b)
 
 instance Semitensor (,) where
@@ -329,7 +316,7 @@ data Compose c d e f g a where
 
 class Category e => Composed e where
   composedOb :: (Category c, Category d, FunctorOf d e f, FunctorOf c d g, Ob c a) => Dict (Ob e (Compose c d e f g a))
-  _Compose :: (Dom f' ~ Cod g', Cod f' ~ e) => Iso 
+  _Compose :: (Dom f' ~ Cod g', Cod f' ~ e) => Iso
     e e e
     (Compose (Dom g) (Cod g) e f g a) (Compose (Dom g') (Cod g') e f g a')
     (f (g a))                         (f' (g' a'))
@@ -337,19 +324,16 @@ class Category e => Composed e where
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  ob = Sub Dict
   --fmap f = Nat $ Nat $ _Compose $ case observe f of
   --  Dict -> undefined -- TODO
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
   type Cod (Compose c d e f) = Nat c e
-  ob = Sub Dict
 
 instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
   type Dom (Compose c d e f g) = c
   type Cod (Compose c d e f g) = e
-  ob = Sub composedOb
 
 
 -- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
@@ -358,7 +342,7 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
 data Procompose (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
   Procompose :: p x b -> q a x -> Procompose p q a b
 
-  
+
 associateProcompose :: Iso (Procompose (Procompose p q) r) (Procompose (Procompose p' q') r')
                            (Procompose p (Procompose q r)) (Procompose p' (Procompose q' r'))
 associateProcompose = dimap
