@@ -112,7 +112,6 @@ instance Functor' (Vacuous c) where
 -- * Constraint
 --------------------------------------------------------------------------------
 
-
 instance Functor' (:-) where
   type Dom (:-) = Op (:-)
   type Cod (:-) = Nat (:-) (->) -- copresheaves
@@ -141,7 +140,6 @@ constraint = Dict
 --------------------------------------------------------------------------------
 -- * Hask
 --------------------------------------------------------------------------------
-
 
 instance Functor' (->) where 
   type Dom (->) = Op (->)
@@ -345,6 +343,45 @@ instance Functor' ((,) a) where
 
 instance Semitensor (,) where
   associate = dimap (\((a,b),c) -> (a,(b,c))) (\(a,(b,c)) -> ((a,b),c))
+
+--------------------------------------------------------------------------------
+-- * Compose
+--------------------------------------------------------------------------------
+
+-- | @Compose :: (i -> i -> *) -> (j -> j -> *) -> (* -> * -> *) -> (j -> *) -> (i -> j) -> i -> *@
+data Compose c d e f g a where
+  Compose :: (Dom f ~ Cod g) => f (g a) -> Compose (Dom g) (Cod g) (Cod f) f g a
+
+class Category e => Composed e where
+  composedOb :: (Category c, Category d, FunctorOf d e f, FunctorOf c d g, Ob c a) => Dict (Ob e (Compose c d e f g a))
+  _Compose :: (Dom f' ~ Cod g', Cod f' ~ e) => Iso 
+    e e e
+    (Compose (Dom g) (Cod g) e f g a) (Compose (Dom g') (Cod g') e f g a')
+    (f (g a))                         (f' (g' a'))
+
+instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
+  type Dom (Compose c d e) = Nat d e
+  type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
+  ob = Dict
+  --fmap f = Nat $ Nat $ _Compose $ case observe f of
+  --  Dict -> undefined -- TODO
+
+instance (Category c, Category d, Composed e) => Bifunctor' (Compose c d e) where
+  bi = Sub Dict
+
+instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
+  type Dom (Compose c d e f) = Nat c d
+  type Cod (Compose c d e f) = Nat c e
+  ob = Dict
+
+instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Bifunctor' (Compose c d e f) where
+  bi = Sub Dict
+
+instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
+  type Dom (Compose c d e f g) = c
+  type Cod (Compose c d e f g) = e
+  ob = composedOb
+
 
 -- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
 
