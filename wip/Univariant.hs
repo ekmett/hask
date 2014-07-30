@@ -453,10 +453,10 @@ _Get = dimap runGet Get
 instance Category c => Functor' (Get c) where
   type Dom (Get c) = c
   type Cod (Get c) = Nat (Op c) (Nat c (->))
-  fmap = fmap'
-    where
-      fmap' :: c a b -> Nat (Op c) (Nat c (->)) (Get c a) (Get c b)
-      fmap' f = case observe f of Dict -> Nat $ Nat $ _Get (f .)
+  fmap f = fmap' f where
+    fmap' :: c a b -> Nat (Op c) (Nat c (->)) (Get c a) (Get c b)
+    fmap' f = case observe f of
+      Dict -> Nat $ Nat $ _Get (f .)
 
 instance (Category c, Ob c r) => Functor' (Get c r) where
   type Dom (Get c r) = Op c
