@@ -661,7 +661,7 @@ instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf
 
 data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
                 (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
-  Procompose :: p x b -> q a x -> Procompose c d e p q a b
+  Procompose :: Ob d x => p x b -> q a x -> Procompose c d e p q a b
 
 instance (Category c, Category d, Category e) => Functor' (Procompose c d e) where
   type Dom (Procompose c d e) = Prof d e
@@ -676,12 +676,13 @@ instance (Category c, Category d, Category e, ProfunctorOf d e p) => Functor' (P
 instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q) => Functor' (Procompose c d e p q) where
   type Dom (Procompose c d e p q) = Op c
   type Cod (Procompose c d e p q) = Nat e (->)
-  -- fmap = todo
+  fmap f = case observe f of
+    Dict -> Nat $ \(Procompose p q) -> Procompose p (runNat (fmap f) q)
 
 instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q, Ob c a) => Functor' (Procompose c d e p q a) where
   type Dom (Procompose c d e p q a) = e
   type Cod (Procompose c d e p q a) = (->)
-  -- fmap = todo
+  fmap f (Procompose p q) = Procompose (fmap1 f p) q
 
 -- TODO
 
