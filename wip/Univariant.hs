@@ -1,4 +1,4 @@
-{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase #-}
+{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures #-}
 module Univariant where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
@@ -24,6 +24,14 @@ class Category' (p :: i -> i -> *) where
   id      :: Ob p a => p a a
   observe :: p a b -> Dict (Ob p a, Ob p b)
   (.)     :: p b c -> p a b -> p a c
+  unop :: UnOp p b a -> p a b
+  op   :: p a b -> UnOp p b a
+
+  -- default unop :: (UnOp p ~ Op p) => Opd p b a -> p a b
+  -- unop = getOp
+
+  -- default op :: (Opd p ~ Op p) => Opd p b a -> p a b
+  -- op = getOp
 
 --------------------------------------------------------------------------------
 -- * Functors
@@ -50,8 +58,8 @@ ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of Dict ->
 type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where NatDom (Nat p q) = p
 type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where NatCod (Nat p q) = q
 
-type Dom2 p = NatDom (Cod p)
-type Cod2 p = NatCod (Cod p)
+type Dom2 (p :: i -> j -> k) = (NatDom (Cod p :: (j -> k) -> (j -> k) -> *) :: j -> j -> *)
+type Cod2 (p :: i -> j -> k) = (NatCod (Cod p :: (j -> k) -> (j -> k) -> *) :: k -> k -> *)
 
 class (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
 instance  (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
@@ -77,14 +85,15 @@ type family UnOp (p :: i -> i -> *) :: i -> i -> * where
 
 type Opd f = UnOp (Dom f)
 
-class (Dom p ~ Op (Opd p)) => Contra p
-instance (Dom p ~ Op (Opd p)) => Contra p
+class (Dom p ~ UnOp (Opd p)) => Contra p
+instance (Dom p ~ UnOp (Opd p)) => Contra p
 
 class (Contra f, Functor f) => Contravariant f
 instance (Contra f, Functor f) => Contravariant f
 
 contramap :: Contravariant f => Opd f b a -> Cod f (f a) (f b)
-contramap = fmap . Op
+contramap = fmap . unop
+
 
 --------------------------------------------------------------------------------
 -- * Profunctors
@@ -94,12 +103,15 @@ class (Contra f, Bifunctor f) => Profunctor f
 instance (Contra f, Bifunctor f) => Profunctor f
 
 dimap :: Profunctor p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
-dimap = bimap . Op
+dimap = bimap . unop
 
-type Iso c d e s t a b = forall p. (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
+type Iso
+  (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
+  (s :: i) (t :: j) (a :: i) (b :: j) = forall (p :: i -> j -> k).
+  (Profunctor p, Dom p ~ UnOp c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
 
-class (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
-instance (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+class (Category' p, Profunctor p, Dom p ~ UnOp p, p ~ UnOp (UnOp p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+instance (Category' p, Profunctor p, Dom p ~ UnOp p, p ~ UnOp (UnOp p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
 
 --------------------------------------------------------------------------------
 -- * Vacuous Constraints
@@ -137,6 +149,8 @@ instance Category' (:-) where
   id = Constraint.refl
   observe _ = Dict
   (.) = Constraint.trans
+  unop = getOp
+  op = Op
 
 constraint :: Dict (Category (:-))
 constraint = Dict
@@ -160,6 +174,8 @@ instance Category' (->) where
   id x = x
   observe _ = Dict
   (.) f g x = f (g x)
+  unop = getOp
+  op = Op
 
 hask :: Dict (Category (->))
 hask = Dict
@@ -171,25 +187,27 @@ hask = Dict
 -- except the first argument is double negated: Op (Op i) -> [ Op i, Set ]
 --------------------------------------------------------------------------------
 
-instance Category p => Functor' (Op p) where
-  type Dom (Op p) = Op (Op p)
+instance (Category p, UnOp p ~ Op p) => Functor' (Op p) where
+  type Dom (Op p) = p -- Op (Op p)
   type Cod (Op p) = Nat (Op p) (->)
-  fmap (Op f) = Nat (. f)
+  fmap f = Nat (. Op f)
 
-instance Category p => Functor' (Op p a) where
+instance (Category p, UnOp p ~ Op p) => Functor' (Op p a) where
   type Dom (Op p a) = Op p
   type Cod (Op p a) = (->)
   fmap = (.)
 
-instance Category p => Category' (Op p) where
+instance (Category p, UnOp p ~ Op p) => Category' (Op p) where
   type Ob (Op p) = Ob p
   id = Op id
   Op f . Op g = Op (g . f)
   observe (Op f) = case observe f of
     Dict -> Dict
+  unop = op
+  op = getOp
 
-op :: Category p => Dict (Category (Op p))
-op = Dict
+opDict :: (Category p, UnOp p ~ Op p) => Dict (Category (Op p))
+opDict = Dict
 
 --------------------------------------------------------------------------------
 -- * Nat
@@ -203,7 +221,7 @@ data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
          } -> Nat p q f g
 
 type Copresheaves p = Nat p (->)
-type Presheaves p = Nat (Op p) (->)
+type Presheaves p = Nat (UnOp p) (->)
 
 class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
@@ -230,6 +248,8 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
      id1 = id \\ (ob :: Ob p x :- Ob q (f x))
    observe Nat{} = Dict
    Nat f . Nat g = Nat (f . g)
+   unop = getOp
+   op = Op
 
 nat :: (Category p, Category q) => Dict (Category (Nat p q))
 nat = Dict
@@ -483,7 +503,7 @@ instance (Category c, Category d, Category e) => f (g a) :=> Compose c d e f g a
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
+  -- fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
@@ -510,8 +530,8 @@ associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Com
 
 type Prof c d e = Nat (Op c) (Nat d e)
 
-class    (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
-instance (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
+class    (Profunctor f, Dom f ~ UnOp p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
+instance (Profunctor f, Dom f ~ UnOp p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
 
 -- TODO: strip off f just to get basic unenriched profunctors to work
 
