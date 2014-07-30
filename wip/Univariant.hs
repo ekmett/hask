@@ -16,6 +16,9 @@ import Unsafe.Coerce (unsafeCoerce)
 -- * Categories (Part 1)
 --------------------------------------------------------------------------------
 
+-- | The <http://ncatlab.org/nlab/show/Yoneda+embedding Yoneda embedding>.
+--
+-- Yoneda_C :: C -> [ C^op, Set ]
 newtype Yoneda (p :: i -> i -> *) (a :: i) (b :: i) = Op { getOp :: p b a }
 
 type family Op (p :: i -> i -> *) :: i -> i -> * where
@@ -25,6 +28,11 @@ type family Op (p :: i -> i -> *) :: i -> i -> * where
 -- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
 --
 -- You should produce instances of 'Category'' and consume instances of 'Category'.
+--
+-- All of our categories are "locally small", and we "curry" the Hom-functor
+-- as a functor to the category of copresheaves.
+--
+-- C :: C^op -> [ C, Set ]
 class Category' (p :: i -> i -> *) where
   type Ob p :: i -> Constraint
   id :: Ob p a => p a a
@@ -55,10 +63,11 @@ class    (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
 instance (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
 
 ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
-ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of Dict -> Dict
+ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of
+  Dict -> Dict
 
 --------------------------------------------------------------------------------
--- * Bifunctors as functors to copresheaves
+-- * Bifunctors
 --------------------------------------------------------------------------------
 
 type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where NatDom (Nat p q) = p
@@ -98,6 +107,12 @@ contramap = fmap . unop
 -- * Profunctors
 --------------------------------------------------------------------------------
 
+-- | E-Enriched profunctors f : C -/-> D are represented by a functor of the form:
+--
+-- C^op -> [ D, E ]
+--
+-- The variance here matches Haskell's order, which means that the contravariant
+-- argument comes first!
 class (Contra f, Bifunctor f) => Profunctor f
 instance (Contra f, Bifunctor f) => Profunctor f
 
@@ -113,8 +128,9 @@ type Iso
 -- * Categories (Part 2)
 --------------------------------------------------------------------------------
 
-class (Category' p, Category' (Op p), Profunctor p, Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
-instance (Category' p, Category' (Op p), Profunctor p, Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+-- | The full definition for a (locally-small) category.
+class    (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+instance (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
 
 --------------------------------------------------------------------------------
 -- * Vacuous
@@ -182,9 +198,7 @@ hask :: Dict (Category (->))
 hask = Dict
 
 --------------------------------------------------------------------------------
--- * Yoneda
---
--- Yoneda :: i -> [ Op i, Set ]
+-- * Yoneda :: i -> [ Op i, Set ]
 --------------------------------------------------------------------------------
 
 instance (Category p, Op p ~ Yoneda p) => Functor' (Yoneda p) where
@@ -587,3 +601,9 @@ type Day = (Any 'Day :: (i -> i -> *) -> (j -> j -> *) -> (i -> j) -> (i -> j) -
 
 -- data Day (c :: i -> i -> *) (d :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) :: * where
 --   Day :: forall b
+
+class Category p => Total p where
+  total :: Nat (Op p) (->) (Op p a) (Op p b) -> p a b
+
+instance (Category p, Op p ~ Yoneda p) => Total (Yoneda p) where
+  total = _heh
