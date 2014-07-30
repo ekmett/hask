@@ -452,7 +452,7 @@ instance Category c => Functor' (Get c) where
 instance (Category c, Ob c r) => Functor' (Get c r) where
   type Dom (Get c r) = Op c
   type Cod (Get c r) = Nat c (->)
-  fmap f = case observe (op f) of
+  fmap f = case observe f of
     Dict -> Nat $ _Get $ (. unop f)
 
 instance (Category c, Ob c r, Ob c a) => Functor' (Get c r a) where
@@ -480,7 +480,7 @@ instance Category c => Functor' (Beget c) where
 instance (Category c, Ob c r) => Functor' (Beget c r) where
   type Dom (Beget c r) = Op c
   type Cod (Beget c r) = Nat c (->)
-  fmap f = case observe (op f) of
+  fmap f = case observe f of
     Dict -> Nat $ _Beget id
 
 instance (Category c, Ob c r, Ob c a) => Functor' (Beget c r a) where
