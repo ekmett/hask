@@ -1,4 +1,4 @@
-{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures #-}
+{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures, EmptyCase #-}
 module Univariant where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
@@ -443,6 +443,39 @@ instance Cosemigroup Either Void  where
 
 instance Comonoid' Either Void where
   epsilon _ = id
+
+--------------------------------------------------------------------------------
+-- * The Empty category
+--------------------------------------------------------------------------------
+
+data NO = No
+
+-- the functor from the empty category to every category
+type No = (Any 'No :: (i -> i -> *) -> Void -> i)
+
+-- thee empty category
+data Empty (a :: Void) (b :: Void)
+
+instance Functor' (No c) where
+  type Dom (No c) = Empty 
+  type Cod (No c) = c
+  fmap f = case f of {}
+
+instance Functor' Empty where
+  type Dom Empty = Op Empty
+  type Cod Empty = Nat Empty (->)
+  fmap f = case f of {}
+
+instance No (:-) a => Functor' (Empty a) where
+  type Dom (Empty a) = Empty
+  type Cod (Empty a) = (->)
+  fmap f = case f of {}
+
+instance Category' Empty where
+  type Ob Empty = No (:-)
+  id = undefined
+  f . _ = case f of {}
+  observe f = case f of {}
 
 --------------------------------------------------------------------------------
 -- * Get (Lens)
