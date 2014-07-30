@@ -492,16 +492,46 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
   type Cod (Compose c d e f g) = e
   fmap f = _Compose $ fmap $ fmap f
 
--- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
+--------------------------------------------------------------------------------
+-- * Profunctor Composition
+--------------------------------------------------------------------------------
+
+type Prof c d = Nat (Op c) (Nat d (->))
+
+class    (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+instance (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+
+data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
+                (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
+  Procompose :: p x b -> q a x -> Procompose c d e p q a b
+
+instance (Category c, Category d, Category e) => Functor' (Procompose c d e) where
+  type Dom (Procompose c d e) = Prof d e
+  type Cod (Procompose c d e) = Nat (Prof c d) (Prof c e)
+  -- fmap = todo
+
+instance (Category c, Category d, Category e, ProfunctorOf d e f) => Functor' (Procompose c d e f) where
+  type Dom (Procompose c d e f) = Prof c d
+  type Cod (Procompose c d e f) = Prof c e
+  -- fmap = todo
+
+instance (Category c, Category d, Category e, ProfunctorOf d e f, ProfunctorOf c d g) => Functor' (Procompose c d e f g) where
+  type Dom (Procompose c d e f g) = Op c
+  type Cod (Procompose c d e f g) = Nat e (->)
+  -- fmap = todo
+
+instance (Category c, Category d, Category e, ProfunctorOf d e f, ProfunctorOf c d g, Ob c a) => Functor' (Procompose c d e f g a) where
+  type Dom (Procompose c d e f g a) = e
+  type Cod (Procompose c d e f g a) = (->)
+  -- fmap = todo
+
+-- TODO
 
 {-
-data Procompose (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
-  Procompose :: p x b -> q a x -> Procompose p q a b
-
-
-associateProcompose :: Iso (Procompose (Procompose p q) r) (Procompose (Procompose p' q') r')
-                           (Procompose p (Procompose q r)) (Procompose p' (Procompose q' r'))
+associateProcompose :: Iso (Prof c e) (Prof c e) (->)
+  (Procompose c d f (Procompose d e f p q) r) (Procompose c' d' f' (Procompose d' e' f' p' q') r')
+  (Procompose c e f p (Procompose c d e q r)) (Procompose c' e' f' p' (Procompose c' d' e' q' r'))
 associateProcompose = dimap
-  (Prof $ \ (Procompose (Procompose a b) c) -> Procompose a (Procompose b c))
-  (Prof $ \ (Procompose a (Procompose b c)) -> Procompose (Procompose a b) c)
+  (Nat $ Nat $ \ (Procompose (Procompose a b) c) -> Procompose a (Procompose b c))
+  (Nat $ Nat $ \ (Procompose a (Procompose b c)) -> Procompose (Procompose a b) c)
 -}
