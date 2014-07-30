@@ -316,10 +316,14 @@ data Compose c d e f g a where
 
 class Category e => Composed e where
   composedOb :: (Category c, Category d, FunctorOf d e f, FunctorOf c d g, Ob c a) => Dict (Ob e (Compose c d e f g a))
-  _Compose :: (Dom f' ~ Cod g', Cod f' ~ e, Functor f, Dom f ~ Dom f', Cod f ~ Cod f', Functor g, Dom g ~ Dom g', Cod g ~ Cod g') => Iso
+  _Compose :: (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, FunctorOf c d g') => Iso
     e e (->)
     (Compose c d e f g a) (Compose c d e f' g' a')
     (f (g a))             (f' (g' a'))
+
+instance Composed (->) where
+  composedOb = Dict
+  _Compose = dimap (\(Compose fga) -> fga) Compose
 
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
@@ -327,7 +331,7 @@ instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   fmap (Nat f) = Nat $ Nat $ fmap' f
     where
       fmap' :: forall f f' g a. (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, Ob c a) => (forall ga. Ob d ga => e (f ga) (f' ga)) -> e (Compose c d e f g a) (Compose c d e f' g a)
-      fmap' f = case ob :: Ob c a :- Ob d (g a) of Sub Dict -> _Compose f
+      fmap' n = case ob :: Ob c a :- Ob d (g a) of Sub Dict -> _Compose n
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
