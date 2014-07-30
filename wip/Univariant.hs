@@ -484,7 +484,10 @@ _Beget = dimap runBeget Beget
 instance Category c => Functor' (Beget c) where
   type Dom (Beget c) = Op c
   type Cod (Beget c) = Nat (Op c) (Nat c (->))
-  -- fmap (Yoneda f) = Nat $ Nat $ _Beget (. f) -- TODO
+  fmap f = fmap' f where
+    fmap' :: Op c a b -> Nat (Op c) (Nat c (->)) (Beget c a) (Beget c b)
+    fmap' f = case observe f of
+      Dict -> Nat $ Nat $ _Beget (. op f)
 
 instance (Category c, Ob c r) => Functor' (Beget c r) where
   type Dom (Beget c r) = Op c
