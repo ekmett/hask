@@ -268,6 +268,9 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
    Nat f . Nat g = Nat (f . g)
    unop = getOp
 
+nat :: (Category p ,Category q, FunctorOf p q f, FunctorOf p q g) => (forall a. Ob p a => Proxy a -> q (f a) (g a)) -> Nat p q f g
+nat k = Nat (k Proxy)
+
 natDict :: (Category p, Category q) => Dict (Category (Nat p q))
 natDict = Dict
 
