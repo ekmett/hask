@@ -640,50 +640,47 @@ instance (Category p, Category q) => Category' (Product p q) where
 type instance NF (Product (p :: i -> i -> *) (q :: j -> j -> *)) (a :: (i,j)) = '(NF p (Fst a), NF q (Snd a))
 
 instance
-  ( Category p, Ob p (Fst a), Ob q (Snd a), Equivalent p (Fst a) (Fst b)
-  , Category q, Ob p (Fst b), Ob q (Snd b), Equivalent q (Snd a) (Snd b)
-  ) => Equivalent (Product (p :: i -> i -> *) (q :: j -> j -> *) :: (i,j) -> (i,j) -> *) (a :: (i,j)) (b :: (i,j)) where
-   -- equivalent = Product equivalent equivalent 
+  ( Category p, Ob p (Fst a), Ob p (Fst b), Equivalent p (Fst a) (Fst b)
+  , Category q, Ob q (Snd a), Ob q (Snd b), Equivalent q (Snd a) (Snd b)
+  ) => Equivalent (Product p q) a b where
+
+  equivalent = Product equivalent equivalent 
+
+  equivSym = case equivSym :: Dict (Equivalent p (Fst b) (Fst a)) of
+    Dict -> case equivSym :: Dict (Equivalent q (Snd b) (Snd a)) of
+      Dict -> Dict
 
 --------------------------------------------------------------------------------
 -- * Profunctor Composition
 --------------------------------------------------------------------------------
 
-type Prof c d e = Nat (Op c) (Nat d e)
+type Prof c d = Nat (Op c) (Nat d (->))
 
-class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
-instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
+class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
 
--- TODO: strip off f just to get basic unenriched profunctors to work
-
-{-
-data PROCOMPOSE = Procompose
-type Procompose = (Any 'Procompose :: (i -> i -> l) -> (j -> j -> l) -> (k -> k -> l) -> (l -> l -> l) ->
-                                      (j -> k -> l) -> (i -> j -> l) -> i -> k -> l
--}
-
-data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *) (f :: * -> * -> *)
+data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
                 (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
-  Procompose :: p x b -> q a x -> Procompose c d e f p q a b
+  Procompose :: p x b -> q a x -> Procompose c d e p q a b
 
-instance (Category c, Category d, Category e, Category f) => Functor' (Procompose c d e f) where
-  type Dom (Procompose c d e f) = Prof d e f
-  type Cod (Procompose c d e f) = Nat (Prof c d f) (Prof c e f)
+instance (Category c, Category d, Category e) => Functor' (Procompose c d e) where
+  type Dom (Procompose c d e) = Prof d e
+  type Cod (Procompose c d e) = Nat (Prof c d) (Prof c e)
   -- fmap = todo
 
-instance (Category c, Category d, Category e, Category f, ProfunctorOf d e f p) => Functor' (Procompose c d e f p) where
-  type Dom (Procompose c d e f p) = Prof c d f
-  type Cod (Procompose c d e f p) = Prof c e f
+instance (Category c, Category d, Category e, ProfunctorOf d e p) => Functor' (Procompose c d e p) where
+  type Dom (Procompose c d e p) = Prof c d
+  type Cod (Procompose c d e p) = Prof c e
   -- fmap = todo
 
-instance (Category c, Category d, Category e, Category f, ProfunctorOf d e f p, ProfunctorOf c d f q) => Functor' (Procompose c d e f p q) where
-  type Dom (Procompose c d e f p q) = Op c
-  type Cod (Procompose c d e f p q) = Nat e f
+instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q) => Functor' (Procompose c d e p q) where
+  type Dom (Procompose c d e p q) = Op c
+  type Cod (Procompose c d e p q) = Nat e (->)
   -- fmap = todo
 
-instance (Category c, Category d, Category e, Category f, ProfunctorOf d e f p, ProfunctorOf c d f q, Ob c a) => Functor' (Procompose c d e f p q a) where
-  type Dom (Procompose c d e f p q a) = e
-  type Cod (Procompose c d e f p q a) = f
+instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q, Ob c a) => Functor' (Procompose c d e p q a) where
+  type Dom (Procompose c d e p q a) = e
+  type Cod (Procompose c d e p q a) = (->)
   -- fmap = todo
 
 -- TODO
