@@ -16,7 +16,7 @@ import Unsafe.Coerce (unsafeCoerce)
 -- * Categories (Part 1)
 --------------------------------------------------------------------------------
 
-newtype Yoneda (p :: i -> i -> *) (a :: i) (b :: i) = Yoneda { getYoneda :: p b a }
+newtype Yoneda (p :: i -> i -> *) (a :: i) (b :: i) = Op { getOp :: p b a }
 
 type family Op (p :: i -> i -> *) :: i -> i -> * where
   Op (Yoneda p) = p
@@ -33,11 +33,11 @@ class Category' (p :: i -> i -> *) where
 
   op :: Op p b a -> p a b
   default op :: Op p ~ Yoneda p => Op p b a -> p a b
-  op = getYoneda
+  op = getOp
 
   unop :: p b a -> Op p a b
   default unop :: Op p ~ Yoneda p => p b a -> Op p a b
-  unop = Yoneda
+  unop = Op
 
 --------------------------------------------------------------------------------
 -- * Functors
@@ -140,7 +140,7 @@ instance (Ob c ~ Vacuous c) => Functor' (Vacuous c) where
 instance Functor' (:-) where
   type Dom (:-) = Op (:-)
   type Cod (:-) = Nat (:-) (->) -- copresheaves
-  fmap (Yoneda f) = Nat (. f)
+  fmap (Op f) = Nat (. f)
 
 instance Functor' ((:-) b) where
   type Dom ((:-) a) = (:-)
@@ -152,7 +152,7 @@ instance Category' (:-) where
   id = Constraint.refl
   observe _ = Dict
   (.) = Constraint.trans
-  op = getYoneda
+  op = getOp
 
 constraint :: Dict (Category (:-))
 constraint = Dict
@@ -164,7 +164,7 @@ constraint = Dict
 instance Functor' (->) where
   type Dom (->) = Op (->)
   type Cod (->) = Nat (->) (->)
-  fmap (Yoneda f) = Nat (. f)
+  fmap (Op f) = Nat (. f)
 
 instance Functor' ((->)a) where
   type Dom ((->) a) = (->)
@@ -176,7 +176,7 @@ instance Category' (->) where
   id x = x
   observe _ = Dict
   (.) f g x = f (g x)
-  op = getYoneda
+  op = getOp
 
 hask :: Dict (Category (->))
 hask = Dict
@@ -190,7 +190,7 @@ hask = Dict
 instance (Category p, Op p ~ Yoneda p) => Functor' (Yoneda p) where
   type Dom (Yoneda p) = p
   type Cod (Yoneda p) = Nat (Yoneda p) (->)
-  fmap f = Nat (. Yoneda f)
+  fmap f = Nat (. Op f)
 
 instance (Category p, Op p ~ Yoneda p) => Functor' (Yoneda p a) where
   type Dom (Yoneda p a) = Yoneda p
@@ -199,12 +199,12 @@ instance (Category p, Op p ~ Yoneda p) => Functor' (Yoneda p a) where
 
 instance (Category p, Op p ~ Yoneda p) => Category' (Yoneda p) where
   type Ob (Yoneda p) = Ob p
-  id = Yoneda id
-  Yoneda f . Yoneda g = Yoneda (g . f)
-  observe (Yoneda f) = case observe f of
+  id = Op id
+  Op f . Op g = Op (g . f)
+  observe (Op f) = case observe f of
     Dict -> Dict
-  op = Yoneda
-  unop = getYoneda
+  op = Op
+  unop = getOp
 
 opDict :: (Category p, Op p ~ Yoneda p) => Dict (Category (Yoneda p))
 opDict = Dict
@@ -234,7 +234,7 @@ instance Functor' (FunctorOf p q) where
 instance (Category' p, Category q) => Functor' (Nat p q) where
   type Dom (Nat p q) = Op (Nat p q)
   type Cod (Nat p q) = Nat (Nat p q) (->)
-  fmap (Yoneda f) = Nat (. f)
+  fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Functor' (Nat p q a) where
   type Dom (Nat p q f) = Nat p q
@@ -248,7 +248,7 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
      id1 = id \\ (ob :: Ob p x :- Ob q (f x))
    observe Nat{} = Dict
    Nat f . Nat g = Nat (f . g)
-   op = getYoneda
+   op = getOp
 
 natDict :: (Category p, Category q) => Dict (Category (Nat p q))
 natDict = Dict
@@ -455,7 +455,7 @@ _Beget = dimap runBeget Beget
 
 instance Category c => Functor' (Beget c) where
   type Dom (Beget c) = Op c
-  type Cod (Beget c) = Nat (Yoneda c) (Nat c (->))
+  type Cod (Beget c) = Nat (Op c) (Nat c (->))
   -- fmap (Yoneda f) = Nat $ Nat $ _Beget (. f) -- TODO
 
 instance (Category c, Ob c r) => Functor' (Beget c r) where
