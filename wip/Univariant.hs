@@ -450,7 +450,10 @@ _Get = dimap runGet Get
 instance Category c => Functor' (Get c) where
   type Dom (Get c) = c
   type Cod (Get c) = Nat (Op c) (Nat c (->))
-  -- fmap f = Nat $ Nat $ _Get (f .) -- TODO
+  fmap = fmap'
+    where
+      fmap' :: c a b -> Nat (Op c) (Nat c (->)) (Get c a) (Get c b)
+      fmap' f = case observe f of Dict -> Nat $ Nat $ _Get (f .)
 
 instance (Category c, Ob c r) => Functor' (Get c r) where
   type Dom (Get c r) = Op c
@@ -583,8 +586,8 @@ type instance Fst '(a,b) = a
 type family Snd (q :: (i,j)) :: j
 type instance Snd '(a,b) = b
 
-class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
-instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
+class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j))
+instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j))
 
 instance (Category p, Category q) => Functor' (Product p q) where
   -- Yoneda (Product (Op p) (Op q))
@@ -606,7 +609,7 @@ instance (Category p, Category q) => Category' (Product p q) where
 type instance NF (Product (p :: i -> i -> *) (q :: j -> j -> *)) (a :: (i,j)) = '(NF p (Fst a), NF q (Snd a))
 
 {-
-instance 
+instance
   ( Category p, Ob p (Fst a), Ob q (Snd a), Equivalent p (Fst a) (Fst b)
   , Category q, Ob p (Fst b), Ob q (Snd b), Equivalent q (Snd a) (Snd b)
   ) => Equivalent (Product (p :: i -> i -> *) (q :: j -> j -> *) :: (i,j) -> (i,j) -> *) (a :: (i,j)) (b :: (i,j)) where
