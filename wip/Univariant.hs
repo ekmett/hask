@@ -632,13 +632,11 @@ instance (Category p, Category q) => Category' (Product p q) where
 
 type instance NF (Product (p :: i -> i -> *) (q :: j -> j -> *)) (a :: (i,j)) = '(NF p (Fst a), NF q (Snd a))
 
-{-
 instance
   ( Category p, Ob p (Fst a), Ob q (Snd a), Equivalent p (Fst a) (Fst b)
   , Category q, Ob p (Fst b), Ob q (Snd b), Equivalent q (Snd a) (Snd b)
   ) => Equivalent (Product (p :: i -> i -> *) (q :: j -> j -> *) :: (i,j) -> (i,j) -> *) (a :: (i,j)) (b :: (i,j)) where
-  -- equivalent = Product equivalent equivalent
--}
+   -- equivalent = Product equivalent equivalent 
 
 --------------------------------------------------------------------------------
 -- * Profunctor Composition
