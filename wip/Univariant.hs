@@ -31,7 +31,7 @@ type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
 type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
 
-fmap1 :: forall p a b c. (Functor p, Ob (Dom p) c, Ob (Cod p) ~ FunctorOf (NatDom (Cod p)) (NatCod (Cod p))) => Dom2 p a b -> Cod2 p (p c a) (p c b)
+fmap1 :: forall p a b c. (Functor p, Ob (Dom p) c, Cod p ~ Nat (Dom2 p) (Cod2 p)) => Dom2 p a b -> Cod2 p (p c a) (p c b)
 fmap1 f = case ob :: Ob (Dom p) c :- FunctorOf (Dom2 p) (Cod2 p) (p c) of
   Sub Dict -> fmap f where
 
@@ -78,10 +78,9 @@ type Iso c d e s t a b = forall p. (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2
 
 class Category' (p :: i -> i -> *) where
   type Ob p :: i -> Constraint
-  id  :: Ob p a => p a a
+  id      :: Ob p a => p a a
   observe :: p a b -> Dict (Ob p a, Ob p b)
-  (.) :: p b c -> p a b -> p a c
-  -- equiv  :: Coercible a b => p a b
+  (.)     :: p b c -> p a b -> p a c
 
 --------------------------------------------------------------------------------
 -- * Circular Definition, See Definition, Circular
@@ -105,7 +104,12 @@ instance (Category' p, Profunctor' p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~
 class Vacuous (c :: i -> i -> *) (a :: i)
 instance Vacuous c a
 
-instance Functor' (Vacuous c) where
+instance Functor' Dict where
+  type Dom Dict = (:-)
+  type Cod Dict = (->)
+  fmap f Dict = case f of Sub g -> g
+
+instance (Ob c ~ Vacuous c) => Functor' (Vacuous c) where
   type Dom (Vacuous c) = c
   type Cod (Vacuous c) = (:-)
   fmap _ = Sub Dict
@@ -224,44 +228,6 @@ nat :: (Category p, Category q) => Dict (Category (Nat p q))
 nat = Dict
 
 --------------------------------------------------------------------------------
--- * Prof
---------------------------------------------------------------------------------
-
-data Prof (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j -> *) (g :: i -> j -> *) where
-  Prof :: ( ProfunctorOf p q f
-          , ProfunctorOf p q g
-          ) => {
-            runProf :: forall a b. (Ob p a, Ob q b) => f a b -> g a b
-          } -> Prof p q f g
-
-class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
-instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
-
-instance Functor' (ProfunctorOf p q) where
-  type Dom (ProfunctorOf p q) = Prof p q
-  type Cod (ProfunctorOf p q) = (:-)
-  fmap Prof{} = Sub Dict
-
-instance (Category' p, Category q) => Functor' (Prof p q) where
-  type Dom (Prof p q) = Op (Prof p q)
-  type Cod (Prof p q) = Nat (Prof p q) (->)
-  fmap (Op f) = Nat (. f)
-
-instance (Category' p, Category q) => Functor' (Prof p q a) where
-  type Dom (Prof p q f) = Prof p q
-  type Cod (Prof p q f) = (->)
-  fmap = (.)
-
-instance (Category' p, Category' q) => Category' (Prof p q) where
-   type Ob (Prof p q) = ProfunctorOf p q
-   id = Prof id
-   observe Prof{} = Dict
-   Prof f . Prof g = Prof (f . g)
-
-prof :: (Category p, Category q) => Dict (Category (Prof p q))
-prof = Dict
-
---------------------------------------------------------------------------------
 -- * Monoidal Tensors
 --------------------------------------------------------------------------------
 
@@ -310,32 +276,46 @@ instance Semitensor (,) where
 -- * Compose
 --------------------------------------------------------------------------------
 
+{-
 -- | @Compose :: (i -> i -> *) -> (j -> j -> *) -> (* -> * -> *) -> (j -> *) -> (i -> j) -> i -> *@
-data Compose c d e f g a where
-  Compose :: (Dom f ~ Cod g) => f (g a) -> Compose (Dom g) (Cod g) (Cod f) f g a
+data Compose1 c d e f g a where
+  Compose :: (Dom f ~ Cod g, Functor g, Ob c a) => { getCompose :: f (g a) } -> Compose1 (Dom g) (Cod g) (Cod f) f g a
 
 class Category e => Composed e where
+  type Compose :: (i -> i -> *) -> (j -> j -> *) -> (k -> k -> *) -> (j -> k) -> (i -> j) -> i -> k
   composedOb :: (Category c, Category d, FunctorOf d e f, FunctorOf c d g, Ob c a) => Dict (Ob e (Compose c d e f g a))
-  _Compose :: (Dom f' ~ Cod g', Cod f' ~ e) => Iso
+  compose   :: (e ~ Cod f, Dom f ~ Cod g, Functor g, Ob (Dom g) a) => Cod f (f (g a)) (Compose c d e f g a)
+  decompose :: Compose c d e f g a ~> Copower (Dict f (g a)
+
+  _Compose :: (Dom f' ~ Cod g', Cod f ~ e, Cod f' ~ e, Functor g', Functor g, Ob c a) => Iso 
     e e e
-    (Compose (Dom g) (Cod g) e f g a) (Compose (Dom g') (Cod g') e f g a')
+    (Compose (Dom g) (Cod g) e f g a) (Compose (Dom g') (Cod g') e f' g' a')
     (f (g a))                         (f' (g' a'))
 
-instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
-  type Dom (Compose c d e) = Nat d e
-  type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  --fmap f = Nat $ Nat $ _Compose $ case observe f of
-  --  Dict -> undefined -- TODO
+instance Composed (->) where
+  type Compose = Compose1
+  composedOb = Dict
+  -- _Compose = dimap getCompose Compose
+-}
 
-instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
-  type Dom (Compose c d e f) = Nat c d
-  type Cod (Compose c d e f) = Nat c e
+{-
+instance (Category c, Category d, Composed e) => Functor' (Compose1 c d e) where
+  type Dom (Compose1 c d e) = Nat d e
+  type Cod (Compose1 c d e) = Nat (Nat c d) (Nat c e)
+  fmap f = Nat $ Nat $ \xs -> case xs of
+    Compose fga -> case f of
+      Nat f -> Compose $ f fga
 
-instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
-  type Dom (Compose c d e f g) = c
-  type Cod (Compose c d e f g) = e
+instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose1 c d e f) where
+  type Dom (Compose1 c d e f) = Nat c d
+  type Cod (Compose1 c d e f) = Nat c e
+
+instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose1 c d e f g) where
+  type Dom (Compose1 c d e f g) = c
+  type Cod (Compose1 c d e f g) = e
 
 
+-}
 -- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
 
 {-
