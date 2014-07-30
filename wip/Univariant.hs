@@ -501,8 +501,8 @@ data Product (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i, j)) (b :: (i, j)) =
 type family Fst (p :: (i,j)) :: i
 type family Snd (q :: (i,j)) :: j
 
-class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
-instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
+class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j))
+instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j))
 
 {-
 instance (Category p, Category q) => Functor' (ProductOb p q) where
@@ -570,13 +570,13 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
 instance (Composed c, c ~ c', c' ~ c'') => Semitensor (Compose c c' c'' :: (i -> i) -> (i -> i) -> (i -> i)) where
   associate = associateCompose
 
-associateCompose :: (Composed e,
-    FunctorOf e e a, FunctorOf e e b, FunctorOf e e c,
-    FunctorOf e e a', FunctorOf e e b', FunctorOf e e c')
-    => Iso (Nat e e) (Nat e e) (->)
-  (Compose e e e (Compose e e e a b) c) (Compose e e e (Compose e e e a' b') c')
-  (Compose e e e a (Compose e e e b c)) (Compose e e e a' (Compose e e e b' c'))
-associateCompose = undefined
+associateCompose :: (Category b, Category c, Composed d, Composed e,
+    FunctorOf d e f, FunctorOf c d g, FunctorOf b c h,
+    FunctorOf d e f', FunctorOf c d g', FunctorOf b c h')
+    => Iso (Nat b e) (Nat b e) (->)
+  (Compose b c e (Compose c d e f g) h) (Compose b c e (Compose c d e f' g') h')
+  (Compose b d e f (Compose b c d g h)) (Compose b d e f' (Compose b c d g' h'))
+associateCompose = dimap (Nat undefined) (Nat undefined) -- TODO
 -- associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
 --                          (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
 
