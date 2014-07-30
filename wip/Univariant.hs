@@ -67,6 +67,9 @@ ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
 ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of
   Dict -> Dict
 
+obOf :: forall f a. Functor f => Proxy f -> Proxy a -> Ob (Dom f) a :- Ob (Cod f) (f a)
+obOf Proxy Proxy = ob
+
 --------------------------------------------------------------------------------
 -- * Bifunctors
 --------------------------------------------------------------------------------
@@ -129,8 +132,8 @@ type Iso
 -- * Categories (Part 2)
 --------------------------------------------------------------------------------
 
-class    (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
-instance (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
+class    (Category' p, Profunctor p, Dom p ~ Op p, p ~ Op (Dom p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
+instance (Category' p, Profunctor p, Dom p ~ Op p, p ~ Op (Dom p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
 
 -- | The full definition for a (locally-small) category.
 class    (Category'' p, Category'' (Op p), p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
@@ -549,13 +552,24 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
 instance (Composed c, c ~ c', c' ~ c'') => Semitensor (Compose c c' c'' :: (i -> i) -> (i -> i) -> (i -> i)) where
   associate = associateCompose
 
-associateCompose :: (Category b, Category c, Composed d, Composed e,
-    FunctorOf d e f, FunctorOf c d g, FunctorOf b c h,
-    FunctorOf d e f', FunctorOf c d g', FunctorOf b c h')
-    => Iso (Nat b e) (Nat b e) (->)
+associateCompose :: forall b c d e f g h f' g' h'.
+   ( Category b, Category c, Composed d, Composed e
+   , FunctorOf d e f, FunctorOf c d g, FunctorOf b c h
+   , FunctorOf d e f', FunctorOf c d g', FunctorOf b c h'
+   ) => Iso (Nat b e) (Nat b e) (->)
   (Compose b c e (Compose c d e f g) h) (Compose b c e (Compose c d e f' g') h')
   (Compose b d e f (Compose b c d g h)) (Compose b d e f' (Compose b c d g' h'))
-associateCompose = dimap (Nat undefined) (Nat undefined) -- TODO
+associateCompose = dimap (nat hither) (Nat undefined) where
+  hither :: forall a. Ob b a => Proxy a -> e (Compose b c e (Compose c d e f g) h a) (Compose b d e f (Compose b c d g h) a)
+  hither Proxy = case obOf (Proxy :: Proxy h) (Proxy :: Proxy a) of
+   Sub Dict -> case obOf (Proxy :: Proxy g) (Proxy :: Proxy (h a)) of
+    Sub Dict -> case obOf (Proxy :: Proxy f) (Proxy :: Proxy (g (h a))) of
+     Sub Dict -> case obOf (Proxy :: Proxy (Compose b c d g h)) (Proxy :: Proxy a) of
+      Sub Dict -> case obOf (Proxy :: Proxy f) (Proxy :: Proxy (Compose b c d g h a)) of
+       Sub Dict -> case obOf (Proxy :: Proxy (Compose c d e f g)) (Proxy :: Proxy (h a)) of
+        Sub Dict -> beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose
+
+  
 -- associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
 --                          (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
 
