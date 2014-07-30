@@ -477,6 +477,9 @@ instance Composed (:-) where
 instance (Category c, Composed d) => Composed (Nat c d) where
   _Compose = unsafeCoerce -- really evil, like super-villain evil
 
+instance (Category c, Category d, Category e) => Class (f (g a)) (Compose c d e f g a) where cls = unsafeCoerceConstraint
+instance (Category c, Category d, Category e) => f (g a) :=> Compose c d e f g a where ins = unsafeCoerceConstraint
+
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
