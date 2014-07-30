@@ -11,36 +11,55 @@ import GHC.Prim (Any)
 import Prelude (($),undefined)
 import Unsafe.Coerce (unsafeCoerce)
 
+--------------------------------------------------------------------------------
+-- * Category
+--------------------------------------------------------------------------------
+
+-- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
+--
+-- You should produce instances of 'Category'' and consume instances of 'Category'.
+class Category' (p :: i -> i -> *) where
+  type Ob p :: i -> Constraint
+  id      :: Ob p a => p a a
+  observe :: p a b -> Dict (Ob p a, Ob p b)
+  (.)     :: p b c -> p a b -> p a c
 
 --------------------------------------------------------------------------------
 -- * Functors
 --------------------------------------------------------------------------------
 
+-- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
+--
+-- You should produce instances of 'Functor'' and consume instances of 'Functor'.
 class Functor' (f :: i -> j)  where
   type Dom f :: i -> i -> *
   type Cod f :: j -> j -> *
   fmap :: Dom f a b -> Cod f (f a) (f b)
 
+class    (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
+instance (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
+
 ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
 ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of Dict -> Dict
 
-type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where
-  NatDom (Nat p q) = p
+--------------------------------------------------------------------------------
+-- * Bifunctors as functors to copresheaves
+--------------------------------------------------------------------------------
 
-type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
-  NatCod (Nat p q) = q
+type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where NatDom (Nat p q) = p
+type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where NatCod (Nat p q) = q
 
 type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
 
-fmap1 :: forall p a b c. (Functor p, Ob (Dom p) c, Cod p ~ Nat (Dom2 p) (Cod2 p)) => Dom2 p a b -> Cod2 p (p c a) (p c b)
+class (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
+instance  (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
+
+fmap1 :: forall p a b c. (Bifunctor p, Ob (Dom p) c) => Dom2 p a b -> Cod2 p (p c a) (p c b)
 fmap1 f = case ob :: Ob (Dom p) c :- FunctorOf (Dom2 p) (Cod2 p) (p c) of
   Sub Dict -> fmap f where
 
-class (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k)
-instance  (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k)
-
-bimap :: Bifunctor' p => Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
+bimap :: Bifunctor p => Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 bimap f g = case observe f of
   Dict -> case observe g of
     Dict -> runNat (fmap f) . fmap1 g
@@ -60,48 +79,30 @@ type Opd f = UnOp (Dom f)
 class (Dom p ~ Op (Opd p)) => Contra p
 instance (Dom p ~ Op (Opd p)) => Contra p
 
-class (Contra f, Functor' f) => Contravariant' f
-instance (Contra f, Functor' f) => Contravariant' f
-
-contramap :: Contravariant' f => Opd f b a -> Cod f (f a) (f b)
-contramap = fmap . Op
-
-class (Contra p, Bifunctor' p) => Profunctor' p
-instance (Contra p, Bifunctor' p) => Profunctor' p
-
-dimap :: Profunctor' p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
-dimap = bimap . Op
-
-type Iso c d e s t a b = forall p. (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
-
---------------------------------------------------------------------------------
--- * Category
---------------------------------------------------------------------------------
-
-class Category' (p :: i -> i -> *) where
-  type Ob p :: i -> Constraint
-  id      :: Ob p a => p a a
-  observe :: p a b -> Dict (Ob p a, Ob p b)
-  (.)     :: p b c -> p a b -> p a c
-
---------------------------------------------------------------------------------
--- * Circular Definition, See Definition, Circular
---------------------------------------------------------------------------------
-
-class (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
-instance (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
-
 class (Contra f, Functor f) => Contravariant f
 instance (Contra f, Functor f) => Contravariant f
 
-class (Bifunctor' p, Functor' p, Category' (Cod p), Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor p
-instance (Bifunctor' p, Functor' p, Category' (Cod p), Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor p
+contramap :: Contravariant f => Opd f b a -> Cod f (f a) (f b)
+contramap = fmap . Op
+
+--------------------------------------------------------------------------------
+-- * Profunctors
+--------------------------------------------------------------------------------
 
 class (Contra f, Bifunctor f) => Profunctor f
 instance (Contra f, Bifunctor f) => Profunctor f
 
-class (Category' p, Profunctor' p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
-instance (Category' p, Profunctor' p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+dimap :: Profunctor p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
+dimap = bimap . Op
+
+type Iso c d e s t a b = forall p. (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
+
+class (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+instance (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+
+--------------------------------------------------------------------------------
+-- * Vacuous Constraints
+--------------------------------------------------------------------------------
 
 class Vacuous (c :: i -> i -> *) (a :: i)
 instance Vacuous c a
@@ -117,7 +118,7 @@ instance (Ob c ~ Vacuous c) => Functor' (Vacuous c) where
   fmap _ = Sub Dict
 
 --------------------------------------------------------------------------------
--- * Constraint
+-- * The Category of Constraints
 --------------------------------------------------------------------------------
 
 instance Functor' (:-) where
@@ -233,7 +234,7 @@ nat :: (Category p, Category q) => Dict (Category (Nat p q))
 nat = Dict
 
 --------------------------------------------------------------------------------
--- * Monoidal Tensors
+-- * Monoidal Tensors and Monoids
 --------------------------------------------------------------------------------
 
 class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
