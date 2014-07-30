@@ -559,7 +559,7 @@ associateCompose :: forall b c d e f g h f' g' h'.
    ) => Iso (Nat b e) (Nat b e) (->)
   (Compose b c e (Compose c d e f g) h) (Compose b c e (Compose c d e f' g') h')
   (Compose b d e f (Compose b c d g h)) (Compose b d e f' (Compose b c d g' h'))
-associateCompose = dimap (nat hither) (Nat undefined) where
+associateCompose = dimap (nat hither) (nat yon) where
   hither :: forall a. Ob b a => Proxy a -> e (Compose b c e (Compose c d e f g) h a) (Compose b d e f (Compose b c d g h) a)
   hither Proxy = case obOf (Proxy :: Proxy h) (Proxy :: Proxy a) of
    Sub Dict -> case obOf (Proxy :: Proxy g) (Proxy :: Proxy (h a)) of
@@ -568,10 +568,14 @@ associateCompose = dimap (nat hither) (Nat undefined) where
       Sub Dict -> case obOf (Proxy :: Proxy f) (Proxy :: Proxy (Compose b c d g h a)) of
        Sub Dict -> case obOf (Proxy :: Proxy (Compose c d e f g)) (Proxy :: Proxy (h a)) of
         Sub Dict -> beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose
-
-  
--- associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
---                          (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
+  yon :: forall a. Ob b a => Proxy a -> e (Compose b d e f' (Compose b c d g' h') a) (Compose b c e (Compose c d e f' g') h' a)
+  yon Proxy = case obOf (Proxy :: Proxy h') (Proxy :: Proxy a) of
+   Sub Dict -> case obOf (Proxy :: Proxy g') (Proxy :: Proxy (h' a)) of
+    Sub Dict -> case obOf (Proxy :: Proxy f') (Proxy :: Proxy (g' (h' a))) of
+     Sub Dict -> case obOf (Proxy :: Proxy (Compose b c d g' h')) (Proxy :: Proxy a) of
+      Sub Dict -> case obOf (Proxy :: Proxy f') (Proxy :: Proxy (Compose b c d g' h' a)) of
+       Sub Dict -> case obOf (Proxy :: Proxy (Compose c d e f' g')) (Proxy :: Proxy (h' a)) of
+        Sub Dict -> beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose
 
 --------------------------------------------------------------------------------
 -- * Coercions
