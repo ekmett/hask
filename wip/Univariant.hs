@@ -177,6 +177,9 @@ instance Category' (:-) where
 constraint :: Dict (Category (:-))
 constraint = Dict
 
+sub :: (a => Proxy a -> Dict b) -> a :- b
+sub k = Sub (k Proxy)
+
 --------------------------------------------------------------------------------
 -- * Hask
 --------------------------------------------------------------------------------
