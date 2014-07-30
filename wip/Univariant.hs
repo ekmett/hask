@@ -497,9 +497,10 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
 
 instance (Composed c, c ~ c', c' ~ c'') => Semitensor (Compose c c' c'' :: (i -> i) -> (i -> i) -> (i -> i)) where
   -- TODO
+
 {-
-  associate = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
-                    (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
+associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
+                         (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
 -}
 
 
