@@ -8,7 +8,7 @@ import Data.Proxy (Proxy(..))
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Coercion
 import Data.Void
-import GHC.Prim (Any)
+import GHC.Prim (Any, Coercible, coerce)
 import Prelude (($),undefined,Either(..))
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -23,6 +23,7 @@ newtype Yoneda (p :: i -> i -> *) (a :: i) (b :: i) = Op { getOp :: p b a }
 
 type family Op (p :: i -> i -> *) :: i -> i -> * where
   Op (Yoneda p) = p
+  -- Op (Product p q) = Product (Op p) (Op q)
   Op p = Yoneda p
 
 -- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
@@ -128,9 +129,12 @@ type Iso
 -- * Categories (Part 2)
 --------------------------------------------------------------------------------
 
+class (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
+instance (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
+
 -- | The full definition for a (locally-small) category.
-class    (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category p
-instance (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category p
+class    (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p)) => Category p
+instance (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p)) => Category p
 
 --------------------------------------------------------------------------------
 -- * Vacuous
@@ -490,43 +494,6 @@ beget l = runBeget $ l (Beget id)
 (#) = beget
 
 --------------------------------------------------------------------------------
--- * Product of Categories
---------------------------------------------------------------------------------
-
--- TODO: do this as a product of profunctors instead?
-data Product (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i, j)) (b :: (i, j)) =
-  Product (p (Fst a) (Fst b)) (q (Snd a) (Snd b))
-
-type family Fst (p :: (i,j)) :: i
-type family Snd (q :: (i,j)) :: j
-
-class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
-instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
-
-{-
-instance (Category p, Category q) => Functor' (ProductOb p q) where
-  type Dom (ProductOb p q) = Product (Dom p) (Dom q)
-  type Cod (ProductOb p q) = (:-)
-  fmap f = id \\ observe f
--}
-
-instance (Category p, Category q) => Functor' (Product p q) where
-  type Dom (Product p q) = Product (Dom p) (Dom q)
-  type Cod (Product p q) = Nat (Product (Dom2 p) (Dom2 q)) (->)
-
-instance (Category p, Category q, ProductOb p q a) => Functor' (Product p q a) where
-  type Dom (Product p q a) = Product (Dom2 p) (Dom2 q)
-  type Cod (Product p q a) = (->)
-
-instance (Category p, Category q) => Category' (Product p q) where
-  type Ob (Product p q) = ProductOb p q
-  id = Product id id
-  Product f f' . Product g g' = Product (f . g) (f' . g')
-  observe (Product f g) = case observe f of
-    Dict -> case observe g of
-      Dict -> Dict
-
---------------------------------------------------------------------------------
 -- * Compose
 --------------------------------------------------------------------------------
 
@@ -574,6 +541,68 @@ associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Com
                          (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
 -}
 
+--------------------------------------------------------------------------------
+-- * Coercions
+--------------------------------------------------------------------------------
+
+class (Category p, Ob p a, Ob p b) => Equivalent (p :: i -> i -> *) (a :: i) (b :: i) where
+  equivalent :: p a b
+
+instance Coercible a b => Equivalent (->) a b where
+  equivalent = coerce
+
+--------------------------------------------------------------------------------
+-- * Normal Forms
+--------------------------------------------------------------------------------
+
+type family NF (p :: i -> i -> *) (a :: i) :: i
+
+_NF :: (Equivalent p (NF p a) a, Equivalent q b (NF q b)) => Iso p q (->) (NF p a) (NF q b) a b
+_NF = dimap equivalent equivalent
+
+--------------------------------------------------------------------------------
+-- * Product of Categories
+--------------------------------------------------------------------------------
+
+-- TODO: do this as a product of profunctors instead?
+data Product (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i, j)) (b :: (i, j)) =
+  Product (p (Fst a) (Fst b)) (q (Snd a) (Snd b))
+
+type family Fst (p :: (i,j)) :: i
+type instance Fst '(a,b) = a
+
+type family Snd (q :: (i,j)) :: j
+type instance Snd '(a,b) = b
+
+class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
+instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
+
+instance (Category p, Category q) => Functor' (Product p q) where
+  -- Yoneda (Product (Op p) (Op q))
+  type Dom (Product p q) = Op (Product (Dom p) (Dom q))
+  type Cod (Product p q) = Nat (Product (Dom2 p) (Dom2 q)) (->)
+
+instance (Category p, Category q, ProductOb p q a) => Functor' (Product p q a) where
+  type Dom (Product p q a) = Product (Dom2 p) (Dom2 q)
+  type Cod (Product p q a) = (->)
+
+instance (Category p, Category q) => Category' (Product p q) where
+  type Ob (Product p q) = ProductOb p q
+  id = Product id id
+  Product f f' . Product g g' = Product (f . g) (f' . g')
+  observe (Product f g) = case observe f of
+    Dict -> case observe g of
+      Dict -> Dict
+
+type instance NF (Product (p :: i -> i -> *) (q :: j -> j -> *)) (a :: (i,j)) = '(NF p (Fst a), NF q (Snd a))
+
+{-
+instance 
+  ( Category p, Ob p (Fst a), Ob q (Snd a), Equivalent p (Fst a) (Fst b)
+  , Category q, Ob p (Fst b), Ob q (Snd b), Equivalent q (Snd a) (Snd b)
+  ) => Equivalent (Product (p :: i -> i -> *) (q :: j -> j -> *) :: (i,j) -> (i,j) -> *) (a :: (i,j)) (b :: (i,j)) where
+  -- equivalent = Product equivalent equivalent
+-}
 
 --------------------------------------------------------------------------------
 -- * Profunctor Composition
