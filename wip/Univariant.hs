@@ -621,13 +621,18 @@ class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j ->
 instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j))
 
 instance (Category p, Category q) => Functor' (Product p q) where
-  -- Yoneda (Product (Op p) (Op q))
-  type Dom (Product p q) = Op (Product p q) -- (Dom p) (Dom q))
+  type Dom (Product p q) = Op (Product (Opd p) (Opd q))
   type Cod (Product p q) = Nat (Product (Dom2 p) (Dom2 q)) (->)
+  fmap = fmap' where
+    fmap' :: Op (Product (Opd p) (Opd q)) a b -> Nat (Product (Dom2 p) (Dom2 q)) (->) (Product p q a) (Product p q b)
+    fmap' f = case observe f of
+      Dict -> case unop f of
+        Product f1 f2 -> Nat $ \(Product a1 a2) -> Product (a1 . f1) (a2 . f2)
 
 instance (Category p, Category q, ProductOb p q a) => Functor' (Product p q a) where
   type Dom (Product p q a) = Product (Dom2 p) (Dom2 q)
   type Cod (Product p q a) = (->)
+  fmap (Product f1 f2) = \(Product g1 g2) -> Product (f1 . g1) (f2 . g2)
 
 instance (Category p, Category q) => Category' (Product p q) where
   type Ob (Product p q) = ProductOb p q
@@ -640,11 +645,11 @@ instance (Category p, Category q) => Category' (Product p q) where
 type instance NF (Product (p :: i -> i -> *) (q :: j -> j -> *)) (a :: (i,j)) = '(NF p (Fst a), NF q (Snd a))
 
 instance
-  ( Category p, Ob p (Fst a), Ob p (Fst b), Equivalent p (Fst a) (Fst b)
-  , Category q, Ob q (Snd a), Ob q (Snd b), Equivalent q (Snd a) (Snd b)
+  ( Ob p (Fst a), Ob p (Fst b), Equivalent p (Fst a) (Fst b)
+  , Ob q (Snd a), Ob q (Snd b), Equivalent q (Snd a) (Snd b)
   ) => Equivalent (Product p q) a b where
 
-  equivalent = Product equivalent equivalent 
+  equivalent = Product equivalent equivalent
 
   equivSym = case equivSym :: Dict (Equivalent p (Fst b) (Fst a)) of
     Dict -> case equivSym :: Dict (Equivalent q (Snd b) (Snd a)) of
