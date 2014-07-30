@@ -473,9 +473,13 @@ instance No (:-) a => Functor' (Empty a) where
 
 instance Category' Empty where
   type Ob Empty = No (:-)
-  id = undefined
+  id = undefined -- no
   f . _ = case f of {}
   observe f = case f of {}
+
+instance (No (:-) a, No (:-) b) => Equivalent Empty a b where
+  equivalent = undefined -- no
+  equivSym = Dict
 
 --------------------------------------------------------------------------------
 -- * The Unit category
@@ -498,6 +502,10 @@ instance Category' Unit where
   id = Unit
   Unit . Unit = Unit
   observe _ = Dict
+
+instance Equivalent Unit a b where
+  equivalent = Unit
+  equivSym = Dict
   
 --------------------------------------------------------------------------------
 -- * Get (Lens)
