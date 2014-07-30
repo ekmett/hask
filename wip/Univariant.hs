@@ -1,4 +1,4 @@
-{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes #-}
+{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase #-}
 module Univariant where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
@@ -7,8 +7,9 @@ import Data.Constraint.Unsafe (unsafeCoerceConstraint)
 import Data.Proxy (Proxy(..))
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Coercion
+import Data.Void
 import GHC.Prim (Any)
-import Prelude (($),undefined)
+import Prelude (($),undefined,Either(..))
 import Unsafe.Coerce (unsafeCoerce)
 
 --------------------------------------------------------------------------------
@@ -268,7 +269,45 @@ class (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid
 instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid p w
 
 --------------------------------------------------------------------------------
--- * (,)
+-- * (&)
+--------------------------------------------------------------------------------
+
+class (p, q) => p & q 
+instance (p, q) => p & q
+
+instance Functor' (&) where
+  type Dom (&) = (:-)
+  type Cod (&) = Nat (:-) (:-)
+  fmap f = Nat $ Sub $ Dict \\ f
+
+instance Functor' ((&) a) where
+  type Dom ((&) a) = (:-)
+  type Cod ((&) a) = (:-)
+  fmap f = Sub $ Dict \\ f
+
+instance Semitensor (&) where
+  associate = dimap (Sub Dict) (Sub Dict)
+
+type instance I (&) = (() :: Constraint)
+
+instance Tensor' (&) where
+  lambda = dimap (Sub Dict) (Sub Dict)
+  rho    = dimap (Sub Dict) (Sub Dict)
+
+instance Semigroup (&) a where
+  mu = Sub Dict
+
+instance Monoid' (&) (() :: Constraint) where
+  eta _ = Sub Dict
+
+instance Cosemigroup (&) a where
+  delta = Sub Dict
+
+instance Comonoid' (&) a where
+  epsilon _ = Sub Dict
+
+--------------------------------------------------------------------------------
+-- * (,) and ()
 --------------------------------------------------------------------------------
 
 instance Functor' (,) where
@@ -303,7 +342,56 @@ instance Comonoid' (,) a where
   epsilon _ _ = ()
 
 --------------------------------------------------------------------------------
--- * Lens
+-- * Either and Void
+--------------------------------------------------------------------------------
+
+instance Functor' Either where
+  type Dom Either = (->)
+  type Cod Either = Nat (->) (->)
+  fmap f = Nat $ \case
+    Left a -> Left (f a)
+    Right b -> Right b
+
+instance Functor' (Either a) where
+  type Dom (Either a) = (->)
+  type Cod (Either a) = (->)
+  fmap f = \case
+    Left a -> Left a
+    Right b -> Right (f b)
+
+instance Semitensor Either where
+  associate = dimap hither yon where
+    hither (Left (Left a)) = Left a
+    hither (Left (Right b)) = Right (Left b)
+    hither (Right c) = Right (Right c)
+    yon (Left a) = Left (Left a)
+    yon (Right (Left b)) = Left (Right b)
+    yon (Right (Right c)) = Right c
+
+type instance I Either = Void
+
+instance Tensor' Either where
+  lambda = dimap (\(Right a) -> a) Right
+  rho = dimap (\(Left a) -> a) Left
+
+instance Semigroup (,) Void where
+  mu (a,_) = a
+
+instance Semigroup Either Void where
+  mu (Left a)  = a
+  mu (Right b) = b
+
+instance Monoid' Either Void where
+  eta _ = absurd
+
+instance Cosemigroup Either Void  where
+  delta = absurd
+
+instance Comonoid' Either Void where
+  epsilon _ = id
+
+--------------------------------------------------------------------------------
+-- * Get (Lens)
 --------------------------------------------------------------------------------
 
 newtype Get (c :: i -> i -> *) (r :: i) (a :: i) (b :: i) = Get { runGet :: c a r }
@@ -329,6 +417,37 @@ instance (Category c, Ob c r, Ob c a) => Functor' (Get c r a) where
 
 get :: (Category c, Ob c a) => (Get c a a a -> Get c a s s) -> c s a
 get l = runGet $ l (Get id)
+
+--------------------------------------------------------------------------------
+-- * Beget (Lens)
+--------------------------------------------------------------------------------
+
+newtype Beget (c :: i -> i -> *) (r :: i) (a :: i) (b :: i) = Beget { runBeget :: c r b }
+
+_Beget :: Iso (->) (->) (->) (Beget c r a b) (Beget c r' a' b') (c r b) (c r' b')
+_Beget = dimap runBeget Beget
+
+instance Category c => Functor' (Beget c) where
+  type Dom (Beget c) = Op c
+  type Cod (Beget c) = Nat (Op c) (Nat c (->))
+  -- fmap (Op f) = Nat $ Nat $ _Beget (. f) -- TODO
+
+instance (Category c, Ob c r) => Functor' (Beget c r) where
+  type Dom (Beget c r) = Op c
+  type Cod (Beget c r) = Nat c (->)
+  fmap (Op f) = case observe f of
+    Dict -> Nat $ _Beget id
+
+instance (Category c, Ob c r, Ob c a) => Functor' (Beget c r a) where
+  type Dom (Beget c r a) = c
+  type Cod (Beget c r a) = (->)
+  fmap f = _Beget (f .)
+
+beget :: (Category c, Ob c b) => (Beget c b b b -> Beget c b t t) -> c b t
+beget l = runBeget $ l (Beget id)
+
+(#) :: (Beget (->) b b b -> Beget (->) b t t) -> b -> t
+(#) = beget
 
 --------------------------------------------------------------------------------
 -- * Compose
