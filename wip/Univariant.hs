@@ -3,11 +3,13 @@ module Univariant where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
 import qualified Data.Constraint as Constraint
+import Data.Constraint.Unsafe (unsafeCoerceConstraint)
 import Data.Proxy (Proxy(..))
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Coercion
 import GHC.Prim (Any)
 import Prelude (($),undefined)
+import Unsafe.Coerce (unsafeCoerce)
 
 
 --------------------------------------------------------------------------------
@@ -162,6 +164,9 @@ hask = Dict
 
 --------------------------------------------------------------------------------
 -- * Op
+--
+-- Op is basically Yoneda :: i -> [ Op i, Set ]
+-- except the first argument is double negated: Op (Op i) -> [ Op i, Set ]
 --------------------------------------------------------------------------------
 
 instance Category p => Functor' (Op p) where
@@ -249,11 +254,17 @@ class Semitensor p => Semigroup p m where
 class (Semigroup p m, Tensor' p) => Monoid' p m where
   eta :: Proxy p -> Dom p (I p) m
 
+class (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Monoid' p m) => Monoid p m
+instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Monoid' p m) => Monoid p m
+
 class Semitensor p => Cosemigroup p w where
   delta :: Dom p w (p w w)
 
-class (Cosemigroup p m, Tensor p) => Comonoid p m where
-  epsilon :: Proxy p -> Dom p m (I p)
+class (Cosemigroup p w, Tensor' p) => Comonoid' p w where
+  epsilon :: Proxy p -> Dom p w (I p)
+
+class (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid p w
+instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid p w
 
 --------------------------------------------------------------------------------
 -- * (,)
@@ -272,50 +283,94 @@ instance Functor' ((,) a) where
 instance Semitensor (,) where
   associate = dimap (\((a,b),c) -> (a,(b,c))) (\(a,(b,c)) -> ((a,b),c))
 
+type instance I (,) = ()
+
+instance Tensor' (,) where
+  lambda = dimap (\ ~(_,a) -> a) ((,)())
+  rho    = dimap (\ ~(a,_) -> a) (\a -> (a,()))
+
+instance Semigroup (,) () where
+  mu ((),()) = ()
+
+instance Monoid' (,) () where
+  eta _ = id
+
+instance Cosemigroup (,) a where
+  delta a = (a,a)
+
+instance Comonoid' (,) a where
+  epsilon _ _ = ()
+
+--------------------------------------------------------------------------------
+-- * Lens
+--------------------------------------------------------------------------------
+
+newtype Get (c :: i -> i -> *) (r :: i) (a :: i) (b :: i) = Get { runGet :: c a r }
+
+_Get :: Iso (->) (->) (->) (Get c r a b) (Get c r' a' b') (c a r) (c a' r')
+_Get = dimap runGet Get
+
+instance Category c => Functor' (Get c) where
+  type Dom (Get c) = c
+  type Cod (Get c) = Nat (Op c) (Nat c (->))
+  -- fmap f = Nat $ Nat $ _Get (f .) -- TODO
+
+instance (Category c, Ob c r) => Functor' (Get c r) where
+  type Dom (Get c r) = Op c
+  type Cod (Get c r) = Nat c (->)
+  fmap (Op f) = case observe f of
+    Dict -> Nat $ _Get $ (. f)
+
+instance (Category c, Ob c r, Ob c a) => Functor' (Get c r a) where
+  type Dom (Get c r a) = c
+  type Cod (Get c r a) = (->)
+  fmap f = _Get id
+
+get :: (Category c, Ob c a) => (Get c a a a -> Get c a s s) -> c s a
+get l = runGet $ l (Get id)
+
 --------------------------------------------------------------------------------
 -- * Compose
 --------------------------------------------------------------------------------
 
-{-
--- | @Compose :: (i -> i -> *) -> (j -> j -> *) -> (* -> * -> *) -> (j -> *) -> (i -> j) -> i -> *@
-data Compose1 c d e f g a where
-  Compose :: (Dom f ~ Cod g, Functor g, Ob c a) => { getCompose :: f (g a) } -> Compose1 (Dom g) (Cod g) (Cod f) f g a
+data COMPOSE = Compose
+type Compose = (Any 'Compose :: (i -> i -> *) -> (j -> j -> *) -> (k -> k -> *) -> (j -> k) -> (i -> j) -> i -> k)
 
-class Category e => Composed e where
-  type Compose :: (i -> i -> *) -> (j -> j -> *) -> (k -> k -> *) -> (j -> k) -> (i -> j) -> i -> k
-  composedOb :: (Category c, Category d, FunctorOf d e f, FunctorOf c d g, Ob c a) => Dict (Ob e (Compose c d e f g a))
-  compose   :: (e ~ Cod f, Dom f ~ Cod g, Functor g, Ob (Dom g) a) => Cod f (f (g a)) (Compose c d e f g a)
-  decompose :: Compose c d e f g a ~> Copower (Dict f (g a)
-
-  _Compose :: (Dom f' ~ Cod g', Cod f ~ e, Cod f' ~ e, Functor g', Functor g, Ob c a) => Iso 
-    e e e
-    (Compose (Dom g) (Cod g) e f g a) (Compose (Dom g') (Cod g') e f' g' a')
-    (f (g a))                         (f' (g' a'))
+class Category e => Composed (e :: k -> k -> *) where
+  _Compose :: (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, FunctorOf c d g') => Iso
+    e e (->)
+    (Compose c d e f g a) (Compose c d e f' g' a')
+    (f (g a))             (f' (g' a'))
 
 instance Composed (->) where
-  type Compose = Compose1
-  composedOb = Dict
-  -- _Compose = dimap getCompose Compose
--}
+  _Compose = unsafeCoerce
 
-{-
-instance (Category c, Category d, Composed e) => Functor' (Compose1 c d e) where
-  type Dom (Compose1 c d e) = Nat d e
-  type Cod (Compose1 c d e) = Nat (Nat c d) (Nat c e)
-  fmap f = Nat $ Nat $ \xs -> case xs of
-    Compose fga -> case f of
-      Nat f -> Compose $ f fga
+instance Composed (:-) where
+  _Compose = unsafeCoerce
 
-instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose1 c d e f) where
-  type Dom (Compose1 c d e f) = Nat c d
-  type Cod (Compose1 c d e f) = Nat c e
+instance (Category c, Composed d) => Composed (Nat c d) where
+  _Compose = unsafeCoerce -- really evil, like super-villain evil
 
-instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose1 c d e f g) where
-  type Dom (Compose1 c d e f g) = c
-  type Cod (Compose1 c d e f g) = e
+instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
+  type Dom (Compose c d e) = Nat d e
+  type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
+  fmap (Nat f) = Nat $ Nat $ fmap' f
+    where
+      fmap' :: forall f f' g a. (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, Ob c a)
+            => (forall ga. Ob d ga => e (f ga) (f' ga)) -> e (Compose c d e f g a) (Compose c d e f' g a)
+      fmap' n = case ob :: Ob c a :- Ob d (g a) of
+        Sub Dict -> _Compose n
 
+instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
+  type Dom (Compose c d e f) = Nat c d
+  type Cod (Compose c d e f) = Nat c e
+  fmap (Nat f) = Nat $ _Compose $ fmap f
 
--}
+instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
+  type Dom (Compose c d e f g) = c
+  type Cod (Compose c d e f g) = e
+  fmap f = _Compose $ fmap $ fmap f
+
 -- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
 
 {-
