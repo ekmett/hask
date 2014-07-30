@@ -279,7 +279,8 @@ runNatById (Nat n) f = case observe f of
 --------------------------------------------------------------------------------
 
 class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
-  associate :: Iso (Dom p) (Dom p) (Dom p) (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
+  associate :: (Ob (Dom p) a, Ob (Dom p) b, Ob (Dom p) c, Ob (Dom p) a', Ob (Dom p) b', Ob (Dom p) c')
+            => Iso (Dom p) (Dom p) (->) (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
 
 type family I (p :: i -> i -> i) :: i
 
@@ -312,7 +313,7 @@ instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comon
 -- * (&)
 --------------------------------------------------------------------------------
 
-class (p, q) => p & q 
+class (p, q) => p & q
 instance (p, q) => p & q
 
 instance Functor' (&) where
@@ -554,7 +555,7 @@ instance (Category c, Category d, Category e) => f (g a) :=> Compose c d e f g a
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  -- fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
+  fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
@@ -567,12 +568,17 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
   fmap f = _Compose $ fmap $ fmap f
 
 instance (Composed c, c ~ c', c' ~ c'') => Semitensor (Compose c c' c'' :: (i -> i) -> (i -> i) -> (i -> i)) where
-  -- TODO
+  associate = associateCompose
 
-{-
-associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
-                         (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
--}
+associateCompose :: (Composed e,
+    FunctorOf e e a, FunctorOf e e b, FunctorOf e e c,
+    FunctorOf e e a', FunctorOf e e b', FunctorOf e e c')
+    => Iso (Nat e e) (Nat e e) (->)
+  (Compose e e e (Compose e e e a b) c) (Compose e e e (Compose e e e a' b') c')
+  (Compose e e e a (Compose e e e b c)) (Compose e e e a' (Compose e e e b' c'))
+associateCompose = undefined
+-- associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
+--                          (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
 
 
 --------------------------------------------------------------------------------
