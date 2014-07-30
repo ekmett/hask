@@ -129,12 +129,12 @@ type Iso
 -- * Categories (Part 2)
 --------------------------------------------------------------------------------
 
-class (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
+class    (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
 instance (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
 
 -- | The full definition for a (locally-small) category.
-class    (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
-instance (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
+class    (Category'' p, Category'' (Op p), p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
+instance (Category'' p, Category'' (Op p), p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
 
 --------------------------------------------------------------------------------
 -- * Vacuous
