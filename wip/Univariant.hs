@@ -234,6 +234,12 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
 nat :: (Category p, Category q) => Dict (Category (Nat p q))
 nat = Dict
 
+natById :: (FunctorOf p q f, FunctorOf p q g) => (forall a. p a a -> q (f a) (g a)) -> Nat p q f g
+natById f = Nat (f id)
+
+runNatById :: Nat p q f g -> p a a -> q (f a) (g a)
+runNatById (Nat n) f = case observe f of Dict -> n
+
 --------------------------------------------------------------------------------
 -- * Monoidal Tensors and Monoids
 --------------------------------------------------------------------------------
@@ -474,12 +480,7 @@ instance (Category c, Composed d) => Composed (Nat c d) where
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  fmap (Nat f) = Nat $ Nat $ fmap' f
-    where
-      fmap' :: forall f f' g a. (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, Ob c a)
-            => (forall ga. Ob d ga => e (f ga) (f' ga)) -> e (Compose c d e f g a) (Compose c d e f' g a)
-      fmap' n = case ob :: Ob c a :- Ob d (g a) of
-        Sub Dict -> _Compose n
+  fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
