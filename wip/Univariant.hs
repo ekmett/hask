@@ -316,25 +316,28 @@ data Compose c d e f g a where
 
 class Category e => Composed e where
   composedOb :: (Category c, Category d, FunctorOf d e f, FunctorOf c d g, Ob c a) => Dict (Ob e (Compose c d e f g a))
-  _Compose :: (Dom f' ~ Cod g', Cod f' ~ e) => Iso
-    e e e
-    (Compose (Dom g) (Cod g) e f g a) (Compose (Dom g') (Cod g') e f g a')
-    (f (g a))                         (f' (g' a'))
+  _Compose :: (Dom f' ~ Cod g', Cod f' ~ e, Functor f, Dom f ~ Dom f', Cod f ~ Cod f', Functor g, Dom g ~ Dom g', Cod g ~ Cod g') => Iso
+    e e (->)
+    (Compose c d e f g a) (Compose c d e f' g' a')
+    (f (g a))             (f' (g' a'))
 
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  --fmap f = Nat $ Nat $ _Compose $ case observe f of
-  --  Dict -> undefined -- TODO
+  fmap (Nat f) = Nat $ Nat $ fmap' f
+    where
+      fmap' :: forall f f' g a. (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, Ob c a) => (forall ga. Ob d ga => e (f ga) (f' ga)) -> e (Compose c d e f g a) (Compose c d e f' g a)
+      fmap' f = case ob :: Ob c a :- Ob d (g a) of Sub Dict -> _Compose f
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
   type Cod (Compose c d e f) = Nat c e
+  fmap (Nat f) = Nat $ _Compose $ fmap f
 
 instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
   type Dom (Compose c d e f g) = c
   type Cod (Compose c d e f g) = e
-
+  fmap f = _Compose (fmap (fmap f))
 
 -- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
 
