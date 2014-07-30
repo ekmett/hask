@@ -581,11 +581,18 @@ associateCompose = dimap (nat hither) (nat yon) where
 -- * Coercions
 --------------------------------------------------------------------------------
 
-class (Category p, Ob p a, Ob p b) => Equivalent (p :: i -> i -> *) (a :: i) (b :: i) where
+class Category p => Equivalent (p :: i -> i -> *) (a :: i) (b :: i) where
   equivalent :: p a b
+  equivSym :: Dict (Equivalent p b a)
+
+instance Class (Category p) (Equivalent p a b) where cls = Sub Dict
+
+instance Coercible a b :=> Equivalent (->) a b where ins = Sub Dict
 
 instance Coercible a b => Equivalent (->) a b where
   equivalent = coerce
+  equivSym = case Coercion.sym (Coercion :: Coercion a b) of
+    Coercion -> Dict
 
 --------------------------------------------------------------------------------
 -- * Normal Forms
@@ -615,7 +622,7 @@ instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j ->
 
 instance (Category p, Category q) => Functor' (Product p q) where
   -- Yoneda (Product (Op p) (Op q))
-  type Dom (Product p q) = Op (Product (Dom p) (Dom q))
+  type Dom (Product p q) = Op (Product p q) -- (Dom p) (Dom q))
   type Cod (Product p q) = Nat (Product (Dom2 p) (Dom2 q)) (->)
 
 instance (Category p, Category q, ProductOb p q a) => Functor' (Product p q a) where
