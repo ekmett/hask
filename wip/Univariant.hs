@@ -508,33 +508,41 @@ associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Com
 -- * Profunctor Composition
 --------------------------------------------------------------------------------
 
-type Prof c d = Nat (Op c) (Nat d (->))
+type Prof c d e = Nat (Op c) (Nat d e)
 
-class    (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
-instance (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+class    (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
+instance (Profunctor f, Dom f ~ p, Dom2 f ~ q, Cod2 f ~ r) => ProfunctorOf p q r f
 
-data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
+-- TODO: strip off f just to get basic unenriched profunctors to work
+
+{-
+data PROCOMPOSE = Procompose
+type Procompose = (Any 'Procompose :: (i -> i -> l) -> (j -> j -> l) -> (k -> k -> l) -> (l -> l -> l) ->
+                                      (j -> k -> l) -> (i -> j -> l) -> i -> k -> l
+-}
+
+data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *) (f :: * -> * -> *)
                 (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
-  Procompose :: p x b -> q a x -> Procompose c d e p q a b
+  Procompose :: p x b -> q a x -> Procompose c d e f p q a b
 
-instance (Category c, Category d, Category e) => Functor' (Procompose c d e) where
-  type Dom (Procompose c d e) = Prof d e
-  type Cod (Procompose c d e) = Nat (Prof c d) (Prof c e)
+instance (Category c, Category d, Category e, Category f) => Functor' (Procompose c d e f) where
+  type Dom (Procompose c d e f) = Prof d e f
+  type Cod (Procompose c d e f) = Nat (Prof c d f) (Prof c e f)
   -- fmap = todo
 
-instance (Category c, Category d, Category e, ProfunctorOf d e f) => Functor' (Procompose c d e f) where
-  type Dom (Procompose c d e f) = Prof c d
-  type Cod (Procompose c d e f) = Prof c e
+instance (Category c, Category d, Category e, Category f, ProfunctorOf d e f p) => Functor' (Procompose c d e f p) where
+  type Dom (Procompose c d e f p) = Prof c d f
+  type Cod (Procompose c d e f p) = Prof c e f
   -- fmap = todo
 
-instance (Category c, Category d, Category e, ProfunctorOf d e f, ProfunctorOf c d g) => Functor' (Procompose c d e f g) where
-  type Dom (Procompose c d e f g) = Op c
-  type Cod (Procompose c d e f g) = Nat e (->)
+instance (Category c, Category d, Category e, Category f, ProfunctorOf d e f p, ProfunctorOf c d f q) => Functor' (Procompose c d e f p q) where
+  type Dom (Procompose c d e f p q) = Op c
+  type Cod (Procompose c d e f p q) = Nat e f
   -- fmap = todo
 
-instance (Category c, Category d, Category e, ProfunctorOf d e f, ProfunctorOf c d g, Ob c a) => Functor' (Procompose c d e f g a) where
-  type Dom (Procompose c d e f g a) = e
-  type Cod (Procompose c d e f g a) = (->)
+instance (Category c, Category d, Category e, Category f, ProfunctorOf d e f p, ProfunctorOf c d f q, Ob c a) => Functor' (Procompose c d e f p q a) where
+  type Dom (Procompose c d e f p q a) = e
+  type Cod (Procompose c d e f p q a) = f
   -- fmap = todo
 
 -- TODO
@@ -547,3 +555,15 @@ associateProcompose = dimap
   (Nat $ Nat $ \ (Procompose (Procompose a b) c) -> Procompose a (Procompose b c))
   (Nat $ Nat $ \ (Procompose a (Procompose b c)) -> Procompose (Procompose a b) c)
 -}
+
+--------------------------------------------------------------------------------
+-- * Day Convolution
+--------------------------------------------------------------------------------
+
+{-
+data DAY = Day
+type Day = (Any 'Day :: (i -> i -> *) -> (j -> j -> *) -> (i -> j) -> (i -> j) -> (i -> j))
+-}
+
+-- data Day (c :: i -> i -> *) (d :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) :: * where
+--   Day :: forall b
