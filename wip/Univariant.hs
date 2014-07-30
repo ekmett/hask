@@ -133,8 +133,8 @@ class (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, 
 instance (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
 
 -- | The full definition for a (locally-small) category.
-class    (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p)) => Category p
-instance (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p)) => Category p
+class    (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
+instance (Category'' p, Category'' (Op p), Dom p ~ Op p, p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
 
 --------------------------------------------------------------------------------
 -- * Vacuous
@@ -283,7 +283,8 @@ runNatById (Nat n) f = case observe f of
 --------------------------------------------------------------------------------
 
 class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
-  associate :: Iso (Dom p) (Dom p) (Dom p) (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
+  associate :: (Ob (Dom p) a, Ob (Dom p) b, Ob (Dom p) c, Ob (Dom p) a', Ob (Dom p) b', Ob (Dom p) c')
+            => Iso (Dom p) (Dom p) (->) (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
 
 type family I (p :: i -> i -> i) :: i
 
@@ -316,7 +317,7 @@ instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comon
 -- * (&)
 --------------------------------------------------------------------------------
 
-class (p, q) => p & q 
+class (p, q) => p & q
 instance (p, q) => p & q
 
 instance Functor' (&) where
@@ -521,7 +522,7 @@ instance (Category c, Category d, Category e) => f (g a) :=> Compose c d e f g a
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  -- fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
+  fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
@@ -534,12 +535,17 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
   fmap f = _Compose $ fmap $ fmap f
 
 instance (Composed c, c ~ c', c' ~ c'') => Semitensor (Compose c c' c'' :: (i -> i) -> (i -> i) -> (i -> i)) where
-  -- TODO
+  associate = associateCompose
 
-{-
-associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
-                         (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
--}
+associateCompose :: (Category b, Category c, Composed d, Composed e,
+    FunctorOf d e f, FunctorOf c d g, FunctorOf b c h,
+    FunctorOf d e f', FunctorOf c d g', FunctorOf b c h')
+    => Iso (Nat b e) (Nat b e) (->)
+  (Compose b c e (Compose c d e f g) h) (Compose b c e (Compose c d e f' g') h')
+  (Compose b d e f (Compose b c d g h)) (Compose b d e f' (Compose b c d g' h'))
+associateCompose = dimap (Nat undefined) (Nat undefined) -- TODO
+-- associateCompose = dimap (Nat (beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose))
+--                          (Nat (beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose))
 
 --------------------------------------------------------------------------------
 -- * Coercions
