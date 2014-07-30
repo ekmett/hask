@@ -478,6 +478,28 @@ instance Category' Empty where
   observe f = case f of {}
 
 --------------------------------------------------------------------------------
+-- * The Unit category
+--------------------------------------------------------------------------------
+
+data Unit a b = Unit
+
+instance Functor' Unit where
+  type Dom Unit = Op Unit
+  type Cod Unit = Nat Unit (->)
+  fmap _ = Nat $ \_ -> Unit
+
+instance Functor' (Unit a) where
+  type Dom (Unit a) = Unit
+  type Cod (Unit a) = (->)
+  fmap _ _ = Unit
+
+instance Category' Unit where
+  type Ob Unit = Vacuous Unit
+  id = Unit
+  Unit . Unit = Unit
+  observe _ = Dict
+  
+--------------------------------------------------------------------------------
 -- * Get (Lens)
 --------------------------------------------------------------------------------
 
