@@ -3,42 +3,63 @@ module Univariant where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
 import qualified Data.Constraint as Constraint
+import Data.Constraint.Unsafe (unsafeCoerceConstraint)
 import Data.Proxy (Proxy(..))
 import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Coercion
 import GHC.Prim (Any)
 import Prelude (($),undefined)
+import Unsafe.Coerce (unsafeCoerce)
 
+--------------------------------------------------------------------------------
+-- * Category
+--------------------------------------------------------------------------------
+
+-- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
+--
+-- You should produce instances of 'Category'' and consume instances of 'Category'.
+class Category' (p :: i -> i -> *) where
+  type Ob p :: i -> Constraint
+  id      :: Ob p a => p a a
+  observe :: p a b -> Dict (Ob p a, Ob p b)
+  (.)     :: p b c -> p a b -> p a c
 
 --------------------------------------------------------------------------------
 -- * Functors
 --------------------------------------------------------------------------------
 
+-- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
+--
+-- You should produce instances of 'Functor'' and consume instances of 'Functor'.
 class Functor' (f :: i -> j)  where
   type Dom f :: i -> i -> *
   type Cod f :: j -> j -> *
   fmap :: Dom f a b -> Cod f (f a) (f b)
 
+class    (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
+instance (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
+
 ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
 ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of Dict -> Dict
 
-type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where
-  NatDom (Nat p q) = p
+--------------------------------------------------------------------------------
+-- * Bifunctors as functors to copresheaves
+--------------------------------------------------------------------------------
 
-type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
-  NatCod (Nat p q) = q
+type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where NatDom (Nat p q) = p
+type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where NatCod (Nat p q) = q
 
 type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
 
-fmap1 :: forall p a b c. (Functor p, Ob (Dom p) c, Ob (Cod p) ~ FunctorOf (NatDom (Cod p)) (NatCod (Cod p))) => Dom2 p a b -> Cod2 p (p c a) (p c b)
+class (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
+instance  (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
+
+fmap1 :: forall p a b c. (Bifunctor p, Ob (Dom p) c) => Dom2 p a b -> Cod2 p (p c a) (p c b)
 fmap1 f = case ob :: Ob (Dom p) c :- FunctorOf (Dom2 p) (Cod2 p) (p c) of
   Sub Dict -> fmap f where
 
-class (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k)
-instance  (Functor' p, Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p), Cod p ~ Nat (Dom2 p) (Cod2 p)) => Bifunctor' (p :: i -> j -> k)
-
-bimap :: Bifunctor' p => Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
+bimap :: Bifunctor p => Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 bimap f g = case observe f of
   Dict -> case observe g of
     Dict -> runNat (fmap f) . fmap1 g
@@ -58,60 +79,46 @@ type Opd f = UnOp (Dom f)
 class (Dom p ~ Op (Opd p)) => Contra p
 instance (Dom p ~ Op (Opd p)) => Contra p
 
-class (Contra f, Functor' f) => Contravariant' f
-instance (Contra f, Functor' f) => Contravariant' f
-
-contramap :: Contravariant' f => Opd f b a -> Cod f (f a) (f b)
-contramap = fmap . Op
-
-class (Contra p, Bifunctor' p) => Profunctor' p
-instance (Contra p, Bifunctor' p) => Profunctor' p
-
-dimap :: Profunctor' p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
-dimap = bimap . Op
-
-type Iso c d e s t a b = forall p. (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
-
---------------------------------------------------------------------------------
--- * Category
---------------------------------------------------------------------------------
-
-class Category' (p :: i -> i -> *) where
-  type Ob p :: i -> Constraint
-  id  :: Ob p a => p a a
-  observe :: p a b -> Dict (Ob p a, Ob p b)
-  (.) :: p b c -> p a b -> p a c
-  -- equiv  :: Coercible a b => p a b
-
---------------------------------------------------------------------------------
--- * Circular Definition, See Definition, Circular
---------------------------------------------------------------------------------
-
-class (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
-instance (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
-
 class (Contra f, Functor f) => Contravariant f
 instance (Contra f, Functor f) => Contravariant f
 
-class (Bifunctor' p, Functor' p, Category' (Cod p), Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor p
-instance (Bifunctor' p, Functor' p, Category' (Cod p), Category' (Dom p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor p
+contramap :: Contravariant f => Opd f b a -> Cod f (f a) (f b)
+contramap = fmap . Op
+
+--------------------------------------------------------------------------------
+-- * Profunctors
+--------------------------------------------------------------------------------
 
 class (Contra f, Bifunctor f) => Profunctor f
 instance (Contra f, Bifunctor f) => Profunctor f
 
-class (Category' p, Profunctor' p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
-instance (Category' p, Profunctor' p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+dimap :: Profunctor p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
+dimap = bimap . Op
+
+type Iso c d e s t a b = forall p. (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
+
+class (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+instance (Category' p, Profunctor p, Dom p ~ Op p, Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+
+--------------------------------------------------------------------------------
+-- * Vacuous Constraints
+--------------------------------------------------------------------------------
 
 class Vacuous (c :: i -> i -> *) (a :: i)
 instance Vacuous c a
 
-instance Functor' (Vacuous c) where
+instance Functor' Dict where
+  type Dom Dict = (:-)
+  type Cod Dict = (->)
+  fmap f Dict = case f of Sub g -> g
+
+instance (Ob c ~ Vacuous c) => Functor' (Vacuous c) where
   type Dom (Vacuous c) = c
   type Cod (Vacuous c) = (:-)
   fmap _ = Sub Dict
 
 --------------------------------------------------------------------------------
--- * Constraint
+-- * The Category of Constraints
 --------------------------------------------------------------------------------
 
 instance Functor' (:-) where
@@ -158,6 +165,9 @@ hask = Dict
 
 --------------------------------------------------------------------------------
 -- * Op
+--
+-- Op is basically Yoneda :: i -> [ Op i, Set ]
+-- except the first argument is double negated: Op (Op i) -> [ Op i, Set ]
 --------------------------------------------------------------------------------
 
 instance Category p => Functor' (Op p) where
@@ -230,45 +240,7 @@ runNatById :: Nat p q f g -> p a a -> q (f a) (g a)
 runNatById (Nat n) f = case observe f of Dict -> n
 
 --------------------------------------------------------------------------------
--- * Prof
---------------------------------------------------------------------------------
-
-data Prof (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j -> *) (g :: i -> j -> *) where
-  Prof :: ( ProfunctorOf p q f
-          , ProfunctorOf p q g
-          ) => {
-            runProf :: forall a b. (Ob p a, Ob q b) => f a b -> g a b
-          } -> Prof p q f g
-
-class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
-instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
-
-instance Functor' (ProfunctorOf p q) where
-  type Dom (ProfunctorOf p q) = Prof p q
-  type Cod (ProfunctorOf p q) = (:-)
-  fmap Prof{} = Sub Dict
-
-instance (Category' p, Category q) => Functor' (Prof p q) where
-  type Dom (Prof p q) = Op (Prof p q)
-  type Cod (Prof p q) = Nat (Prof p q) (->)
-  fmap (Op f) = Nat (. f)
-
-instance (Category' p, Category q) => Functor' (Prof p q a) where
-  type Dom (Prof p q f) = Prof p q
-  type Cod (Prof p q f) = (->)
-  fmap = (.)
-
-instance (Category' p, Category' q) => Category' (Prof p q) where
-   type Ob (Prof p q) = ProfunctorOf p q
-   id = Prof id
-   observe Prof{} = Dict
-   Prof f . Prof g = Prof (f . g)
-
-prof :: (Category p, Category q) => Dict (Category (Prof p q))
-prof = Dict
-
---------------------------------------------------------------------------------
--- * Monoidal Tensors
+-- * Monoidal Tensors and Monoids
 --------------------------------------------------------------------------------
 
 class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
@@ -289,11 +261,17 @@ class Semitensor p => Semigroup p m where
 class (Semigroup p m, Tensor' p) => Monoid' p m where
   eta :: Proxy p -> Dom p (I p) m
 
+class (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Monoid' p m) => Monoid p m
+instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Monoid' p m) => Monoid p m
+
 class Semitensor p => Cosemigroup p w where
   delta :: Dom p w (p w w)
 
-class (Cosemigroup p m, Tensor p) => Comonoid p m where
-  epsilon :: Proxy p -> Dom p m (I p)
+class (Cosemigroup p w, Tensor' p) => Comonoid' p w where
+  epsilon :: Proxy p -> Dom p w (I p)
+
+class (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid p w
+instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid p w
 
 --------------------------------------------------------------------------------
 -- * (,)
@@ -312,24 +290,73 @@ instance Functor' ((,) a) where
 instance Semitensor (,) where
   associate = dimap (\((a,b),c) -> (a,(b,c))) (\(a,(b,c)) -> ((a,b),c))
 
+type instance I (,) = ()
+
+instance Tensor' (,) where
+  lambda = dimap (\ ~(_,a) -> a) ((,)())
+  rho    = dimap (\ ~(a,_) -> a) (\a -> (a,()))
+
+instance Semigroup (,) () where
+  mu ((),()) = ()
+
+instance Monoid' (,) () where
+  eta _ = id
+
+instance Cosemigroup (,) a where
+  delta a = (a,a)
+
+instance Comonoid' (,) a where
+  epsilon _ _ = ()
+
+--------------------------------------------------------------------------------
+-- * Lens
+--------------------------------------------------------------------------------
+
+newtype Get (c :: i -> i -> *) (r :: i) (a :: i) (b :: i) = Get { runGet :: c a r }
+
+_Get :: Iso (->) (->) (->) (Get c r a b) (Get c r' a' b') (c a r) (c a' r')
+_Get = dimap runGet Get
+
+instance Category c => Functor' (Get c) where
+  type Dom (Get c) = c
+  type Cod (Get c) = Nat (Op c) (Nat c (->))
+  -- fmap f = Nat $ Nat $ _Get (f .) -- TODO
+
+instance (Category c, Ob c r) => Functor' (Get c r) where
+  type Dom (Get c r) = Op c
+  type Cod (Get c r) = Nat c (->)
+  fmap (Op f) = case observe f of
+    Dict -> Nat $ _Get $ (. f)
+
+instance (Category c, Ob c r, Ob c a) => Functor' (Get c r a) where
+  type Dom (Get c r a) = c
+  type Cod (Get c r a) = (->)
+  fmap f = _Get id
+
+get :: (Category c, Ob c a) => (Get c a a a -> Get c a s s) -> c s a
+get l = runGet $ l (Get id)
+
 --------------------------------------------------------------------------------
 -- * Compose
 --------------------------------------------------------------------------------
 
--- | @Compose :: (i -> i -> *) -> (j -> j -> *) -> (* -> * -> *) -> (j -> *) -> (i -> j) -> i -> *@
-data Compose c d e f g a where
-  Compose :: (Dom f ~ Cod g) => f (g a) -> Compose (Dom g) (Cod g) (Cod f) f g a
+data COMPOSE = Compose
+type Compose = (Any 'Compose :: (i -> i -> *) -> (j -> j -> *) -> (k -> k -> *) -> (j -> k) -> (i -> j) -> i -> k)
 
-class Category e => Composed e where
-  composedOb :: (Category c, Category d, FunctorOf d e f, FunctorOf c d g, Ob c a) => Dict (Ob e (Compose c d e f g a))
+class Category e => Composed (e :: k -> k -> *) where
   _Compose :: (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, FunctorOf c d g') => Iso
     e e (->)
     (Compose c d e f g a) (Compose c d e f' g' a')
     (f (g a))             (f' (g' a'))
 
 instance Composed (->) where
-  composedOb = Dict
-  _Compose = dimap (\(Compose fga) -> fga) Compose
+  _Compose = unsafeCoerce
+
+instance Composed (:-) where
+  _Compose = unsafeCoerce
+
+instance (Category c, Composed d) => Composed (Nat c d) where
+  _Compose = unsafeCoerce -- really evil, like super-villain evil
 
 instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
@@ -344,7 +371,7 @@ instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) =
 instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
   type Dom (Compose c d e f g) = c
   type Cod (Compose c d e f g) = e
-  fmap f = _Compose (fmap (fmap f))
+  fmap f = _Compose $ fmap $ fmap f
 
 -- | Profunctor composition is the composition for a relative monad; composition with the left kan extension along the (contravariant) yoneda embedding
 
