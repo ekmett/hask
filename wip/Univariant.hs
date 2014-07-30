@@ -13,8 +13,14 @@ import Prelude (($),undefined,Either(..))
 import Unsafe.Coerce (unsafeCoerce)
 
 --------------------------------------------------------------------------------
--- * Category
+-- * Categories (Part 1)
 --------------------------------------------------------------------------------
+
+newtype Yoneda (p :: i -> i -> *) (a :: i) (b :: i) = Yoneda { getYoneda :: p b a }
+
+type family Op (p :: i -> i -> *) :: i -> i -> * where
+  Op (Yoneda p) = p
+  Op p = Yoneda p
 
 -- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
 --
@@ -77,12 +83,6 @@ bimap f g = case observe f of
 -- * Contravariance
 --------------------------------------------------------------------------------
 
-newtype Yoneda (p :: i -> i -> *) (a :: i) (b :: i) = Yoneda { getYoneda :: p b a }
-
-type family Op (p :: i -> i -> *) :: i -> i -> * where
-  Op (Yoneda p) = p
-  Op p = Yoneda p
-
 type Opd f = Op (Dom f)
 
 class (Dom p ~ Op (Opd p)) => Contra p
@@ -93,7 +93,6 @@ instance (Contra f, Functor f) => Contravariant f
 
 contramap :: Contravariant f => Opd f b a -> Cod f (f a) (f b)
 contramap = fmap . op
-
 
 --------------------------------------------------------------------------------
 -- * Profunctors
@@ -110,11 +109,15 @@ type Iso
   (s :: i) (t :: j) (a :: i) (b :: j) = forall (p :: i -> j -> k).
   (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
 
+--------------------------------------------------------------------------------
+-- * Categories (Part 2)
+--------------------------------------------------------------------------------
+
 class (Category' p, Category' (Op p), Profunctor p, Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
 instance (Category' p, Category' (Op p), Profunctor p, Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
 
 --------------------------------------------------------------------------------
--- * Vacuous Constraints
+-- * Vacuous
 --------------------------------------------------------------------------------
 
 class Vacuous (c :: i -> i -> *) (a :: i)
@@ -247,14 +250,15 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
    Nat f . Nat g = Nat (f . g)
    op = getYoneda
 
-nat :: (Category p, Category q) => Dict (Category (Nat p q))
-nat = Dict
+natDict :: (Category p, Category q) => Dict (Category (Nat p q))
+natDict = Dict
 
 natById :: (FunctorOf p q f, FunctorOf p q g) => (forall a. p a a -> q (f a) (g a)) -> Nat p q f g
 natById f = Nat (f id)
 
 runNatById :: Nat p q f g -> p a a -> q (f a) (g a)
-runNatById (Nat n) f = case observe f of Dict -> n
+runNatById (Nat n) f = case observe f of
+  Dict -> n
 
 --------------------------------------------------------------------------------
 -- * Monoidal Tensors and Monoids
@@ -383,12 +387,12 @@ instance Functor' (Either a) where
 
 instance Semitensor Either where
   associate = dimap hither yon where
-    hither (Left (Left a)) = Left a
+    hither (Left (Left a))  = Left a
     hither (Left (Right b)) = Right (Left b)
-    hither (Right c) = Right (Right c)
-    yon (Left a) = Left (Left a)
-    yon (Right (Left b)) = Left (Right b)
-    yon (Right (Right c)) = Right c
+    hither (Right c)        = Right (Right c)
+    yon (Left a)            = Left (Left a)
+    yon (Right (Left b))    = Left (Right b)
+    yon (Right (Right c))   = Right c
 
 type instance I Either = Void
 
