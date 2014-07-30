@@ -31,13 +31,13 @@ class Category' (p :: i -> i -> *) where
   observe :: p a b -> Dict (Ob p a, Ob p b)
   (.) :: p b c -> p a b -> p a c
 
-  op :: Op p b a -> p a b
-  default op :: Op p ~ Yoneda p => Op p b a -> p a b
-  op = getOp
+  unop :: Op p b a -> p a b
+  default unop :: Op p ~ Yoneda p => Op p b a -> p a b
+  unop = getOp
 
-  unop :: p b a -> Op p a b
-  default unop :: Op p ~ Yoneda p => p b a -> Op p a b
-  unop = Op
+  op :: p b a -> Op p a b
+  default op :: Op p ~ Yoneda p => p b a -> Op p a b
+  op = Op
 
 --------------------------------------------------------------------------------
 -- * Functors
@@ -92,7 +92,7 @@ class (Contra f, Functor f) => Contravariant f
 instance (Contra f, Functor f) => Contravariant f
 
 contramap :: Contravariant f => Opd f b a -> Cod f (f a) (f b)
-contramap = fmap . op
+contramap = fmap . unop
 
 --------------------------------------------------------------------------------
 -- * Profunctors
@@ -102,7 +102,7 @@ class (Contra f, Bifunctor f) => Profunctor f
 instance (Contra f, Bifunctor f) => Profunctor f
 
 dimap :: Profunctor p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
-dimap = bimap . op
+dimap = bimap . unop
 
 type Iso
   (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
@@ -152,7 +152,7 @@ instance Category' (:-) where
   id = Constraint.refl
   observe _ = Dict
   (.) = Constraint.trans
-  op = getOp
+  unop = getOp
 
 constraint :: Dict (Category (:-))
 constraint = Dict
@@ -176,7 +176,7 @@ instance Category' (->) where
   id x = x
   observe _ = Dict
   (.) f g x = f (g x)
-  op = getOp
+  unop = getOp
 
 hask :: Dict (Category (->))
 hask = Dict
@@ -203,8 +203,8 @@ instance (Category p, Op p ~ Yoneda p) => Category' (Yoneda p) where
   Op f . Op g = Op (g . f)
   observe (Op f) = case observe f of
     Dict -> Dict
-  op = Op
-  unop = getOp
+  unop = Op
+  op = getOp
 
 opDict :: (Category p, Op p ~ Yoneda p) => Dict (Category (Yoneda p))
 opDict = Dict
@@ -248,7 +248,7 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
      id1 = id \\ (ob :: Ob p x :- Ob q (f x))
    observe Nat{} = Dict
    Nat f . Nat g = Nat (f . g)
-   op = getOp
+   unop = getOp
 
 natDict :: (Category p, Category q) => Dict (Category (Nat p q))
 natDict = Dict
@@ -433,8 +433,8 @@ instance Category c => Functor' (Get c) where
 instance (Category c, Ob c r) => Functor' (Get c r) where
   type Dom (Get c r) = Op c
   type Cod (Get c r) = Nat c (->)
-  fmap f = case observe (unop f) of
-    Dict -> Nat $ _Get $ (. op f)
+  fmap f = case observe (op f) of
+    Dict -> Nat $ _Get $ (. unop f)
 
 instance (Category c, Ob c r, Ob c a) => Functor' (Get c r a) where
   type Dom (Get c r a) = c
@@ -461,7 +461,7 @@ instance Category c => Functor' (Beget c) where
 instance (Category c, Ob c r) => Functor' (Beget c r) where
   type Dom (Beget c r) = Op c
   type Cod (Beget c r) = Nat c (->)
-  fmap f = case observe (unop f) of
+  fmap f = case observe (op f) of
     Dict -> Nat $ _Beget id
 
 instance (Category c, Ob c r, Ob c a) => Functor' (Beget c r a) where
