@@ -129,8 +129,8 @@ type Iso
 --------------------------------------------------------------------------------
 
 -- | The full definition for a (locally-small) category.
-class    (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
-instance (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->), Functor' (Ob p)) => Category p
+class    (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category p
+instance (Category' p, Profunctor p, Profunctor (Op p), Dom p ~ Op p, p ~ Op (Op p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category p
 
 --------------------------------------------------------------------------------
 -- * Vacuous
@@ -490,6 +490,43 @@ beget l = runBeget $ l (Beget id)
 (#) = beget
 
 --------------------------------------------------------------------------------
+-- * Product of Categories
+--------------------------------------------------------------------------------
+
+-- TODO: do this as a product of profunctors instead?
+data Product (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i, j)) (b :: (i, j)) =
+  Product (p (Fst a) (Fst b)) (q (Snd a) (Snd b))
+
+type family Fst (p :: (i,j)) :: i
+type family Snd (q :: (i,j)) :: j
+
+class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
+instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j)) 
+
+{-
+instance (Category p, Category q) => Functor' (ProductOb p q) where
+  type Dom (ProductOb p q) = Product (Dom p) (Dom q)
+  type Cod (ProductOb p q) = (:-)
+  fmap f = id \\ observe f
+-}
+
+instance (Category p, Category q) => Functor' (Product p q) where
+  type Dom (Product p q) = Product (Dom p) (Dom q)
+  type Cod (Product p q) = Nat (Product (Dom2 p) (Dom2 q)) (->)
+
+instance (Category p, Category q, ProductOb p q a) => Functor' (Product p q a) where
+  type Dom (Product p q a) = Product (Dom2 p) (Dom2 q)
+  type Cod (Product p q a) = (->)
+
+instance (Category p, Category q) => Category' (Product p q) where
+  type Ob (Product p q) = ProductOb p q
+  id = Product id id
+  Product f f' . Product g g' = Product (f . g) (f' . g')
+  observe (Product f g) = case observe f of
+    Dict -> case observe g of
+      Dict -> Dict
+
+--------------------------------------------------------------------------------
 -- * Compose
 --------------------------------------------------------------------------------
 
@@ -606,4 +643,4 @@ class Category p => Total p where
   total :: Nat (Op p) (->) (Op p a) (Op p b) -> p a b
 
 instance (Category p, Op p ~ Yoneda p) => Total (Yoneda p) where
-  total = _heh
+  total = undefined -- TODO
