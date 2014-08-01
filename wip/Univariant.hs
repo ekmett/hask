@@ -71,6 +71,21 @@ ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of
 obOf :: forall f a. Functor f => Proxy f -> Proxy a -> Ob (Dom f) a :- Ob (Cod f) (f a)
 obOf Proxy Proxy = ob
 
+data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
+  Nat :: ( FunctorOf p q f
+         , FunctorOf p q g
+         ) => {
+           runNat :: forall a. Ob p a => q (f a) (g a)
+         } -> Nat p q f g
+
+class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
+instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
+
+instance Functor' (FunctorOf p q) where
+  type Dom (FunctorOf p q) = Nat p q
+  type Cod (FunctorOf p q) = (:-)
+  fmap Nat{} = Sub Dict
+
 --------------------------------------------------------------------------------
 -- * Bifunctors
 --------------------------------------------------------------------------------
@@ -86,7 +101,7 @@ instance  (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Categor
 
 fmap1 :: forall p a b c. (Bifunctor p, Ob (Dom p) c) => Dom2 p a b -> Cod2 p (p c a) (p c b)
 fmap1 f = case ob :: Ob (Dom p) c :- FunctorOf (Dom2 p) (Cod2 p) (p c) of
-  Sub Dict -> fmap f where
+  Sub Dict -> fmap f
 
 bimap :: Bifunctor p => Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 bimap f g = case observe f of
@@ -99,13 +114,7 @@ bimap f g = case observe f of
 
 type Opd f = Op (Dom f)
 
-class (Dom p ~ Op (Opd p)) => Contra p
-instance (Dom p ~ Op (Opd p)) => Contra p
-
-class (Contra f, Functor f) => Contravariant f
-instance (Contra f, Functor f) => Contravariant f
-
-contramap :: Contravariant f => Opd f b a -> Cod f (f a) (f b)
+contramap :: Functor f => Opd f b a -> Cod f (f a) (f b)
 contramap = fmap . unop
 
 --------------------------------------------------------------------------------
@@ -118,23 +127,21 @@ contramap = fmap . unop
 --
 -- The variance here matches Haskell's order, which means that the contravariant
 -- argument comes first!
-class (Contra f, Bifunctor f) => Profunctor f
-instance (Contra f, Bifunctor f) => Profunctor f
 
-dimap :: Profunctor p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
+dimap :: Bifunctor p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 dimap = bimap . unop
 
 type Iso
   (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
   (s :: i) (t :: j) (a :: i) (b :: j) = forall (p :: i -> j -> k).
-  (Profunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
+  (Bifunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
 
 --------------------------------------------------------------------------------
 -- * Categories (Part 2)
 --------------------------------------------------------------------------------
 
-class    (Category' p, Profunctor p, Dom p ~ Op p, p ~ Op (Dom p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
-instance (Category' p, Profunctor p, Dom p ~ Op p, p ~ Op (Dom p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
+class    (Category' p, Bifunctor p, Dom p ~ Op p, p ~ Op (Dom p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
+instance (Category' p, Bifunctor p, Dom p ~ Op p, p ~ Op (Dom p), Cod p ~ Nat p (->), Dom2 p ~ p, Cod2 p ~ (->)) => Category'' p
 
 -- | The full definition for a (locally-small) category.
 class    (Category'' p, Category'' (Op p), p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
@@ -245,23 +252,8 @@ yoneda = dimap hither yon where
 -- * Nat
 --------------------------------------------------------------------------------
 
-data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
-  Nat :: ( FunctorOf p q f
-         , FunctorOf p q g
-         ) => {
-           runNat :: forall a. Ob p a => q (f a) (g a)
-         } -> Nat p q f g
-
 type Copresheaves p = Nat p (->)
 type Presheaves p = Nat (Op p) (->)
-
-class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
-instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
-
-instance Functor' (FunctorOf p q) where
-  type Dom (FunctorOf p q) = Nat p q
-  type Cod (FunctorOf p q) = (:-)
-  fmap Nat{} = Sub Dict
 
 instance (Category' p, Category q) => Functor' (Nat p q) where
   type Dom (Nat p q) = Op (Nat p q)
@@ -732,8 +724,8 @@ instance
 
 type Prof c d = Nat (Op c) (Nat d (->))
 
-class    (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
-instance (Profunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+class    (Bifunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => BifunctorOf p q f
+instance (Bifunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => BifunctorOf p q f
 
 data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
                 (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
@@ -744,18 +736,18 @@ instance (Category c, Category d, Category e) => Functor' (Procompose c d e) whe
   type Cod (Procompose c d e) = Nat (Prof c d) (Prof c e)
   -- fmap = todo
 
-instance (Category c, Category d, Category e, ProfunctorOf d e p) => Functor' (Procompose c d e p) where
+instance (Category c, Category d, Category e, BifunctorOf d e p) => Functor' (Procompose c d e p) where
   type Dom (Procompose c d e p) = Prof c d
   type Cod (Procompose c d e p) = Prof c e
   -- fmap = todo
 
-instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q) => Functor' (Procompose c d e p q) where
+instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q) => Functor' (Procompose c d e p q) where
   type Dom (Procompose c d e p q) = Op c
   type Cod (Procompose c d e p q) = Nat e (->)
   fmap f = case observe f of
     Dict -> Nat $ \(Procompose p q) -> Procompose p (runNat (fmap f) q)
 
-instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q, Ob c a) => Functor' (Procompose c d e p q a) where
+instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q, Ob c a) => Functor' (Procompose c d e p q a) where
   type Dom (Procompose c d e p q a) = e
   type Cod (Procompose c d e p q a) = (->)
   fmap f (Procompose p q) = Procompose (fmap1 f p) q
@@ -802,7 +794,7 @@ instance (,) e -| (->) e where
 swap :: (a,b) -> (b, a)
 swap (a,b) = (b,a)
   
-class (Bifunctor p, Profunctor q) => Curried (p :: k -> i -> j) (q :: i -> j -> k) | p -> q, q -> p where
+class (Bifunctor p, Bifunctor q) => Curried (p :: k -> i -> j) (q :: i -> j -> k) | p -> q, q -> p where
   curried :: Iso (->) (->) (->)
     (Dom2 p (p a b) c) (Dom2 p (p a' b') c')
     (Dom2 q a (q b c)) (Dom2 q a' (q b' c'))
