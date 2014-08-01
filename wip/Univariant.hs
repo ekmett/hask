@@ -24,15 +24,16 @@ newtype Yoneda (p :: i -> i -> *) (a :: i) (b :: i) = Op { getOp :: p b a }
 
 type family Op (p :: i -> i -> *) :: i -> i -> * where
   Op (Yoneda p) = p
-  -- Op (Product p q) = Product (Op p) (Op q)
   Op p = Yoneda p
 
 -- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
 --
 -- You should produce instances of 'Category'' and consume instances of 'Category'.
 --
--- All of our categories are "locally small", and we "curry" the Hom-functor
--- as a functor to the category of copresheaves.
+-- All of our categories are "locally small", and we curry the Hom-functor
+-- as a functor to the category of copresheaves rather than present it as a
+-- bifunctor directly. The benefit of this encoding is that a bifunctor is
+-- just a functor to a functor category!
 --
 -- C :: C^op -> [ C, Set ]
 class Category' (p :: i -> i -> *) where
@@ -53,13 +54,13 @@ class Category' (p :: i -> i -> *) where
 -- * Functors
 --------------------------------------------------------------------------------
 
--- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
---
--- You should produce instances of 'Functor'' and consume instances of 'Functor'.
 class (Category' (Dom f), Category' (Cod f)) => Functor (f :: i -> j) where
   type Dom f :: i -> i -> *
   type Cod f :: j -> j -> *
   fmap :: Dom f a b -> Cod f (f a) (f b)
+
+class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
+instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 
 ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
 ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of
@@ -75,8 +76,8 @@ data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
            runNat :: forall a. Ob p a => q (f a) (g a)
          } -> Nat p q f g
 
-class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
-instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
+type Copresheaves p = Nat p (->)
+type Presheaves p = Nat (Op p) (->)
 
 instance (Category' p, Category' q) => Functor (FunctorOf p q) where
   type Dom (FunctorOf p q) = Nat p q
@@ -87,11 +88,16 @@ instance (Category' p, Category' q) => Functor (FunctorOf p q) where
 -- * Bifunctors
 --------------------------------------------------------------------------------
 
-type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where NatDom (Nat p q) = p
-type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where NatCod (Nat p q) = q
+type family NatDom (f :: (i -> j) -> (i -> j) -> *) :: (i -> i -> *) where
+  NatDom (Nat p q) = p
 
-type Dom2 (p :: i -> j -> k) = (NatDom (Cod p :: (j -> k) -> (j -> k) -> *) :: j -> j -> *)
-type Cod2 (p :: i -> j -> k) = (NatCod (Cod p :: (j -> k) -> (j -> k) -> *) :: k -> k -> *)
+type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
+  NatCod (Nat p q) = q
+
+type Dom2 p = NatDom (Cod p)
+type Cod2 p = NatCod (Cod p)
+--type Dom2 (p :: i -> j -> k) = (NatDom (Cod p :: (j -> k) -> (j -> k) -> *) :: j -> j -> *)
+--type Cod2 (p :: i -> j -> k) = (NatCod (Cod p :: (j -> k) -> (j -> k) -> *) :: k -> k -> *)
 
 class (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
 instance  (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
@@ -105,18 +111,10 @@ bimap f g = case observe f of
   Dict -> case observe g of
     Dict -> runNat (fmap f) . fmap1 g
 
---------------------------------------------------------------------------------
--- * Contravariance
---------------------------------------------------------------------------------
-
 type Opd f = Op (Dom f)
 
 contramap :: Functor f => Opd f b a -> Cod f (f a) (f b)
 contramap = fmap . unop
-
---------------------------------------------------------------------------------
--- * Profunctors
---------------------------------------------------------------------------------
 
 -- | E-Enriched profunctors f : C -/-> D are represented by a functor of the form:
 --
@@ -145,6 +143,16 @@ class    (Category'' p, Category'' (Op p), p ~ Op (Op p), Ob p ~ Ob (Op p)) => C
 instance (Category'' p, Category'' (Op p), p ~ Op (Op p), Ob p ~ Ob (Op p)) => Category p
 
 --------------------------------------------------------------------------------
+-- * Fully Faithful Functors
+--------------------------------------------------------------------------------
+
+class Functor f => FullyFaithful f where
+  unfmap :: Cod f (f a) (f b) -> Dom f a b
+
+instance FullyFaithful Dict where
+  unfmap f = Sub $ f Dict
+
+--------------------------------------------------------------------------------
 -- * Vacuous
 --------------------------------------------------------------------------------
 
@@ -169,6 +177,9 @@ instance Functor (:-) where
   type Dom (:-) = Op (:-)
   type Cod (:-) = Nat (:-) (->) -- copresheaves
   fmap (Op f) = Nat (. f)
+
+instance FullyFaithful (:-) where
+  unfmap (Nat f) = Op (f id)
 
 instance Functor ((:-) b) where
   type Dom ((:-) a) = (:-)
@@ -196,6 +207,9 @@ instance Functor (->) where
   type Dom (->) = Op (->)
   type Cod (->) = Nat (->) (->)
   fmap (Op f) = Nat (. f)
+
+instance FullyFaithful (->) where
+  unfmap (Nat f) = Op (f id)
 
 instance Functor ((->)a) where
   type Dom ((->) a) = (->)
@@ -238,7 +252,12 @@ instance (Category p, Op p ~ Yoneda p) => Category' (Yoneda p) where
 opDict :: (Category p, Op p ~ Yoneda p) => Dict (Category (Yoneda p))
 opDict = Dict
 
-yoneda :: forall p f g a b. (Ob p a, FunctorOf p (->) g, FunctorOf p (->) (p b)) => Iso (->) (->) (->) (Nat p (->) (p a) f) (Nat p (->) (p b) g) (f a) (g b)
+yoneda :: forall p f g a b. (Ob p a, FunctorOf p (->) g, FunctorOf p (->) (p b))
+       => Iso (->) (->) (->)
+          (Nat p (->) (p a) f)
+          (Nat p (->) (p b) g)
+          (f a)
+          (g b)
 yoneda = dimap hither yon where
   hither :: Nat p (->) (p a) f -> f a
   hither (Nat f) = f id
@@ -248,9 +267,6 @@ yoneda = dimap hither yon where
 --------------------------------------------------------------------------------
 -- * Nat
 --------------------------------------------------------------------------------
-
-type Copresheaves p = Nat p (->)
-type Presheaves p = Nat (Op p) (->)
 
 instance (Category' p, Category q) => Functor (Nat p q) where
   type Dom (Nat p q) = Op (Nat p q)
@@ -463,6 +479,7 @@ instance Functor Empty where
   type Cod Empty = Nat Empty (->)
   fmap f = case f of {}
 
+
 instance No (:-) a => Functor (Empty a) where
   type Dom (Empty a) = Empty
   type Cod (Empty a) = (->)
@@ -503,7 +520,36 @@ instance Category' Unit where
 instance Equivalent Unit a b where
   equivalent = Unit
   equivSym = Dict
-  
+
+instance FullyFaithful Unit where
+  unfmap _ = Op Unit
+
+instance FullyFaithful (Unit a) where
+  unfmap _ = Unit
+
+--------------------------------------------------------------------------------
+-- * Coproducts
+--------------------------------------------------------------------------------
+
+{-
+data Coproduct (c :: i -> i -> *) (d :: j -> j -> *) (a :: Either i j) (b :: Either i j) =
+  Inl :: (Side a ~ Left x,  Side b ~ Left y)  => c x y -> Coproduct c d a b
+  Inr :: (Side a ~ Right x, Side b ~ Right y) => d x y -> Coproduct c d a b
+
+type family Side a :: Either i j
+type instance Side (Left  x) = Left  x
+type instance Side (Right x) = Right x
+
+class CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: Either i j) where
+  side :: (forall x. (Side a ~ Left x, Ob p x) => r) -> (forall y. (Side a ~ Right y, Ob p y) => r) -> r
+
+instance Ob p x => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Left x :: Either i j) where
+  side r _ = r
+
+instance Ob p y => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Right y :: Either i j) where
+  side _ r = r
+-}
+
 --------------------------------------------------------------------------------
 -- * Get (Lens)
 --------------------------------------------------------------------------------
@@ -771,6 +817,10 @@ type Day = (Any 'Day :: (i -> i -> *) -> (j -> j -> *) -> (i -> j) -> (i -> j) -
 
 -- data Day (c :: i -> i -> *) (d :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) :: * where
 --   Day :: forall b
+
+--------------------------------------------------------------------------------
+-- * Totality
+--------------------------------------------------------------------------------
 
 class Category p => Total p where
   total :: Nat (Op p) (->) (Op p a) (Op p b) -> p a b
