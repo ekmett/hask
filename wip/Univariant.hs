@@ -56,13 +56,10 @@ class Category' (p :: i -> i -> *) where
 -- | Side-conditions moved to 'Functor' to work around GHC bug #9200.
 --
 -- You should produce instances of 'Functor'' and consume instances of 'Functor'.
-class Functor' (f :: i -> j)  where
+class (Category' (Dom f), Category' (Cod f)) => Functor (f :: i -> j) where
   type Dom f :: i -> i -> *
   type Cod f :: j -> j -> *
   fmap :: Dom f a b -> Cod f (f a) (f b)
-
-class    (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
-instance (Functor' f, Category' (Dom f), Category' (Cod f)) => Functor f
 
 ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
 ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of
@@ -81,7 +78,7 @@ data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
 class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 
-instance Functor' (FunctorOf p q) where
+instance (Category' p, Category' q) => Functor (FunctorOf p q) where
   type Dom (FunctorOf p q) = Nat p q
   type Cod (FunctorOf p q) = (:-)
   fmap Nat{} = Sub Dict
@@ -154,12 +151,12 @@ instance (Category'' p, Category'' (Op p), p ~ Op (Op p), Ob p ~ Ob (Op p)) => C
 class Vacuous (c :: i -> i -> *) (a :: i)
 instance Vacuous c a
 
-instance Functor' Dict where
+instance Functor Dict where
   type Dom Dict = (:-)
   type Cod Dict = (->)
   fmap f Dict = case f of Sub g -> g
 
-instance (Ob c ~ Vacuous c) => Functor' (Vacuous c) where
+instance (Category' c, Ob c ~ Vacuous c) => Functor (Vacuous c) where
   type Dom (Vacuous c) = c
   type Cod (Vacuous c) = (:-)
   fmap _ = Sub Dict
@@ -168,12 +165,12 @@ instance (Ob c ~ Vacuous c) => Functor' (Vacuous c) where
 -- * The Category of Constraints
 --------------------------------------------------------------------------------
 
-instance Functor' (:-) where
+instance Functor (:-) where
   type Dom (:-) = Op (:-)
   type Cod (:-) = Nat (:-) (->) -- copresheaves
   fmap (Op f) = Nat (. f)
 
-instance Functor' ((:-) b) where
+instance Functor ((:-) b) where
   type Dom ((:-) a) = (:-)
   type Cod ((:-) a) = (->)
   fmap = (.)
@@ -195,12 +192,12 @@ sub k = Sub (k Proxy)
 -- * Hask
 --------------------------------------------------------------------------------
 
-instance Functor' (->) where
+instance Functor (->) where
   type Dom (->) = Op (->)
   type Cod (->) = Nat (->) (->)
   fmap (Op f) = Nat (. f)
 
-instance Functor' ((->)a) where
+instance Functor ((->)a) where
   type Dom ((->) a) = (->)
   type Cod ((->) a) = (->)
   fmap = (.)
@@ -219,12 +216,12 @@ hask = Dict
 -- * Yoneda :: i -> [ Op i, Set ]
 --------------------------------------------------------------------------------
 
-instance (Category p, Op p ~ Yoneda p) => Functor' (Yoneda p) where
+instance (Category p, Op p ~ Yoneda p) => Functor (Yoneda p) where
   type Dom (Yoneda p) = p
   type Cod (Yoneda p) = Nat (Yoneda p) (->)
   fmap f = Nat (. Op f)
 
-instance (Category p, Op p ~ Yoneda p) => Functor' (Yoneda p a) where
+instance (Category p, Op p ~ Yoneda p) => Functor (Yoneda p a) where
   type Dom (Yoneda p a) = Yoneda p
   type Cod (Yoneda p a) = (->)
   fmap = (.)
@@ -255,12 +252,12 @@ yoneda = dimap hither yon where
 type Copresheaves p = Nat p (->)
 type Presheaves p = Nat (Op p) (->)
 
-instance (Category' p, Category q) => Functor' (Nat p q) where
+instance (Category' p, Category q) => Functor (Nat p q) where
   type Dom (Nat p q) = Op (Nat p q)
   type Cod (Nat p q) = Nat (Nat p q) (->)
   fmap (Op f) = Nat (. f)
 
-instance (Category' p, Category q) => Functor' (Nat p q a) where
+instance (Category' p, Category q) => Functor (Nat p q a) where
   type Dom (Nat p q f) = Nat p q
   type Cod (Nat p q f) = (->)
   fmap = (.)
@@ -268,7 +265,7 @@ instance (Category' p, Category q) => Functor' (Nat p q a) where
 instance (Category' p, Category' q) => Category' (Nat p q) where
    type Ob (Nat p q) = FunctorOf p q
    id = Nat id1 where
-     id1 :: forall f x. (Functor' f, Dom f ~ p, Cod f ~ q, Ob p x) => q (f x) (f x)
+     id1 :: forall f x. (Functor f, Dom f ~ p, Cod f ~ q, Ob p x) => q (f x) (f x)
      id1 = id \\ (ob :: Ob p x :- Ob q (f x))
    observe Nat{} = Dict
    Nat f . Nat g = Nat (f . g)
@@ -329,12 +326,12 @@ instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comon
 class (p, q) => p & q
 instance (p, q) => p & q
 
-instance Functor' (&) where
+instance Functor (&) where
   type Dom (&) = (:-)
   type Cod (&) = Nat (:-) (:-)
   fmap f = Nat $ Sub $ Dict \\ f
 
-instance Functor' ((&) a) where
+instance Functor ((&) a) where
   type Dom ((&) a) = (:-)
   type Cod ((&) a) = (:-)
   fmap f = Sub $ Dict \\ f
@@ -364,12 +361,12 @@ instance Comonoid' (&) a where
 -- * (,) and ()
 --------------------------------------------------------------------------------
 
-instance Functor' (,) where
+instance Functor (,) where
   type Dom (,) = (->)
   type Cod (,) = Nat (->) (->)
   fmap f = Nat $ \(a,b) -> (f a, b)
 
-instance Functor' ((,) a) where
+instance Functor ((,) a) where
   type Dom ((,) a) = (->)
   type Cod ((,) a) = (->)
   fmap f (a,b) = (a, f b)
@@ -399,14 +396,14 @@ instance Comonoid' (,) a where
 -- * Either and Void
 --------------------------------------------------------------------------------
 
-instance Functor' Either where
+instance Functor Either where
   type Dom Either = (->)
   type Cod Either = Nat (->) (->)
   fmap f = Nat $ \case
     Left a -> Left (f a)
     Right b -> Right b
 
-instance Functor' (Either a) where
+instance Functor (Either a) where
   type Dom (Either a) = (->)
   type Cod (Either a) = (->)
   fmap f = \case
@@ -456,17 +453,17 @@ type No = (Any 'No :: (i -> i -> *) -> Void -> i)
 -- thee empty category
 data Empty (a :: Void) (b :: Void)
 
-instance Functor' (No c) where
+instance Category' c => Functor (No c) where
   type Dom (No c) = Empty 
   type Cod (No c) = c
   fmap f = case f of {}
 
-instance Functor' Empty where
+instance Functor Empty where
   type Dom Empty = Op Empty
   type Cod Empty = Nat Empty (->)
   fmap f = case f of {}
 
-instance No (:-) a => Functor' (Empty a) where
+instance No (:-) a => Functor (Empty a) where
   type Dom (Empty a) = Empty
   type Cod (Empty a) = (->)
   fmap f = case f of {}
@@ -487,12 +484,12 @@ instance (No (:-) a, No (:-) b) => Equivalent Empty a b where
 
 data Unit a b = Unit
 
-instance Functor' Unit where
+instance Functor Unit where
   type Dom Unit = Op Unit
   type Cod Unit = Nat Unit (->)
   fmap _ = Nat $ \_ -> Unit
 
-instance Functor' (Unit a) where
+instance Functor (Unit a) where
   type Dom (Unit a) = Unit
   type Cod (Unit a) = (->)
   fmap _ _ = Unit
@@ -516,7 +513,7 @@ newtype Get (c :: i -> i -> *) (r :: i) (a :: i) (b :: i) = Get { runGet :: c a 
 _Get :: Iso (->) (->) (->) (Get c r a b) (Get c r' a' b') (c a r) (c a' r')
 _Get = dimap runGet Get
 
-instance Category c => Functor' (Get c) where
+instance Category c => Functor (Get c) where
   type Dom (Get c) = c
   type Cod (Get c) = Nat (Op c) (Nat c (->))
   fmap f = fmap' f where
@@ -524,13 +521,13 @@ instance Category c => Functor' (Get c) where
     fmap' f = case observe f of
       Dict -> Nat $ Nat $ _Get (f .)
 
-instance (Category c, Ob c r) => Functor' (Get c r) where
+instance (Category c, Ob c r) => Functor (Get c r) where
   type Dom (Get c r) = Op c
   type Cod (Get c r) = Nat c (->)
   fmap f = case observe f of
     Dict -> Nat $ _Get $ (. unop f)
 
-instance (Category c, Ob c r, Ob c a) => Functor' (Get c r a) where
+instance (Category c, Ob c r, Ob c a) => Functor (Get c r a) where
   type Dom (Get c r a) = c
   type Cod (Get c r a) = (->)
   fmap f = _Get id
@@ -547,7 +544,7 @@ newtype Beget (c :: i -> i -> *) (r :: i) (a :: i) (b :: i) = Beget { runBeget :
 _Beget :: Iso (->) (->) (->) (Beget c r a b) (Beget c r' a' b') (c r b) (c r' b')
 _Beget = dimap runBeget Beget
 
-instance Category c => Functor' (Beget c) where
+instance Category c => Functor (Beget c) where
   type Dom (Beget c) = Op c
   type Cod (Beget c) = Nat (Op c) (Nat c (->))
   fmap f = fmap' f where
@@ -555,13 +552,13 @@ instance Category c => Functor' (Beget c) where
     fmap' f = case observe f of
       Dict -> Nat $ Nat $ _Beget (. op f)
 
-instance (Category c, Ob c r) => Functor' (Beget c r) where
+instance (Category c, Ob c r) => Functor (Beget c r) where
   type Dom (Beget c r) = Op c
   type Cod (Beget c r) = Nat c (->)
   fmap f = case observe f of
     Dict -> Nat $ _Beget id
 
-instance (Category c, Ob c r, Ob c a) => Functor' (Beget c r a) where
+instance (Category c, Ob c r, Ob c a) => Functor (Beget c r a) where
   type Dom (Beget c r a) = c
   type Cod (Beget c r a) = (->)
   fmap f = _Beget (f .)
@@ -597,17 +594,17 @@ instance (Category c, Composed d) => Composed (Nat c d) where
 instance (Category c, Category d, Category e) => Class (f (g a)) (Compose c d e f g a) where cls = unsafeCoerceConstraint
 instance (Category c, Category d, Category e) => f (g a) :=> Compose c d e f g a where ins = unsafeCoerceConstraint
 
-instance (Category c, Category d, Composed e) => Functor' (Compose c d e) where
+instance (Category c, Category d, Composed e) => Functor (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
   fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
 
-instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor' (Compose c d e f) where
+instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
   type Cod (Compose c d e f) = Nat c e
   fmap (Nat f) = Nat $ _Compose $ fmap f
 
-instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor' (Compose c d e f g) where
+instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d ~ Cod g, d ~ Dom f, c ~ Dom g) => Functor (Compose c d e f g) where
   type Dom (Compose c d e f g) = c
   type Cod (Compose c d e f g) = e
   fmap f = _Compose $ fmap $ fmap f
@@ -683,7 +680,7 @@ type instance Snd '(a,b) = b
 class    (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j))
 instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: (i,j))
 
-instance (Category p, Category q) => Functor' (Product p q) where
+instance (Category p, Category q) => Functor (Product p q) where
   type Dom (Product p q) = Op (Product (Opd p) (Opd q))
   type Cod (Product p q) = Nat (Product (Dom2 p) (Dom2 q)) (->)
   fmap = fmap' where
@@ -692,7 +689,7 @@ instance (Category p, Category q) => Functor' (Product p q) where
       Dict -> case unop f of
         Product f1 f2 -> Nat $ \(Product a1 a2) -> Product (a1 . f1) (a2 . f2)
 
-instance (Category p, Category q, ProductOb p q a) => Functor' (Product p q a) where
+instance (Category p, Category q, ProductOb p q a) => Functor (Product p q a) where
   type Dom (Product p q a) = Product (Dom2 p) (Dom2 q)
   type Cod (Product p q a) = (->)
   fmap (Product f1 f2) = \(Product g1 g2) -> Product (f1 . g1) (f2 . g2)
@@ -731,23 +728,23 @@ data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
                 (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
   Procompose :: Ob d x => p x b -> q a x -> Procompose c d e p q a b
 
-instance (Category c, Category d, Category e) => Functor' (Procompose c d e) where
+instance (Category c, Category d, Category e) => Functor (Procompose c d e) where
   type Dom (Procompose c d e) = Prof d e
   type Cod (Procompose c d e) = Nat (Prof c d) (Prof c e)
   -- fmap = todo
 
-instance (Category c, Category d, Category e, BifunctorOf d e p) => Functor' (Procompose c d e p) where
+instance (Category c, Category d, Category e, BifunctorOf d e p) => Functor (Procompose c d e p) where
   type Dom (Procompose c d e p) = Prof c d
   type Cod (Procompose c d e p) = Prof c e
   -- fmap = todo
 
-instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q) => Functor' (Procompose c d e p q) where
+instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q) => Functor (Procompose c d e p q) where
   type Dom (Procompose c d e p q) = Op c
   type Cod (Procompose c d e p q) = Nat e (->)
   fmap f = case observe f of
     Dict -> Nat $ \(Procompose p q) -> Procompose p (runNat (fmap f) q)
 
-instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q, Ob c a) => Functor' (Procompose c d e p q a) where
+instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q, Ob c a) => Functor (Procompose c d e p q a) where
   type Dom (Procompose c d e p q a) = e
   type Cod (Procompose c d e p q a) = (->)
   fmap f (Procompose p q) = Procompose (fmap1 f p) q
@@ -812,7 +809,7 @@ type Diag = (Any 'Diag :: (i -> i -> *) -> i -> (i,i))
 type instance Fst (Diag c a) = a
 type instance Snd (Diag c a) = a
 
-instance Functor' (Diag c) where
+instance Category c => Functor (Diag c) where
   type Dom (Diag c) = c
   type Cod (Diag c) = Product c c
   fmap f = Product f f
