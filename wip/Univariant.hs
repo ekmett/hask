@@ -470,7 +470,7 @@ type No = (Any 'No :: (i -> i -> *) -> Void -> i)
 data Empty (a :: Void) (b :: Void)
 
 instance Category' c => Functor (No c) where
-  type Dom (No c) = Empty 
+  type Dom (No c) = Empty
   type Cod (No c) = c
   fmap f = case f of {}
 
@@ -562,7 +562,7 @@ _Get = dimap runGet Get
 instance Category c => Functor (Get c) where
   type Dom (Get c) = c
   type Cod (Get c) = Nat (Op c) (Nat c (->))
-  fmap f = fmap' f where
+  fmap = fmap' where
     fmap' :: c a b -> Nat (Op c) (Nat c (->)) (Get c a) (Get c b)
     fmap' f = case observe f of
       Dict -> Nat $ Nat $ _Get (f .)
@@ -576,7 +576,7 @@ instance (Category c, Ob c r) => Functor (Get c r) where
 instance (Category c, Ob c r, Ob c a) => Functor (Get c r a) where
   type Dom (Get c r a) = c
   type Cod (Get c r a) = (->)
-  fmap f = _Get id
+  fmap _ = _Get id
 
 get :: (Category c, Ob c a) => (Get c a a a -> Get c a s s) -> c s a
 get l = runGet $ l (Get id)
@@ -593,7 +593,7 @@ _Beget = dimap runBeget Beget
 instance Category c => Functor (Beget c) where
   type Dom (Beget c) = Op c
   type Cod (Beget c) = Nat (Op c) (Nat c (->))
-  fmap f = fmap' f where
+  fmap = fmap' where
     fmap' :: Op c a b -> Nat (Op c) (Nat c (->)) (Beget c a) (Beget c b)
     fmap' f = case observe f of
       Dict -> Nat $ Nat $ _Beget (. op f)
@@ -777,12 +777,16 @@ data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
 instance (Category c, Category d, Category e) => Functor (Procompose c d e) where
   type Dom (Procompose c d e) = Prof d e
   type Cod (Procompose c d e) = Nat (Prof c d) (Prof c e)
-  -- fmap = todo
+  fmap = fmap' where
+    fmap' :: Prof d e a b -> Nat (Prof c d) (Prof c e) (Procompose c d e a) (Procompose c d e b)
+    fmap' (Nat n) = Nat $ Nat $ Nat $ \(Procompose p q) -> Procompose (runNat n p) q
 
 instance (Category c, Category d, Category e, ProfunctorOf d e p) => Functor (Procompose c d e p) where
   type Dom (Procompose c d e p) = Prof c d
   type Cod (Procompose c d e p) = Prof c e
-  -- fmap = todo
+  fmap = fmap' where
+    fmap' :: Prof c d a b -> Prof c e (Procompose c d e p a) (Procompose c d e p b)
+    fmap' (Nat n) = Nat $ Nat $ \(Procompose p q) -> Procompose p (runNat n q)
 
 instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q) => Functor (Procompose c d e p q) where
   type Dom (Procompose c d e p q) = Op c
@@ -840,7 +844,7 @@ instance (,) e -| (->) e where
 
 swap :: (a,b) -> (b, a)
 swap (a,b) = (b,a)
-  
+
 class (Bifunctor p, Bifunctor q) => Curried (p :: k -> i -> j) (q :: i -> j -> k) | p -> q, q -> p where
   curried :: Iso (->) (->) (->)
     (Dom2 p (p a b) c) (Dom2 p (p a' b') c')
