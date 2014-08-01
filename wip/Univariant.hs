@@ -850,6 +850,37 @@ instance Curried (,) (->) where
   curried = dimap Prelude.curry Prelude.uncurry
 
 --------------------------------------------------------------------------------
+-- * Limits
+--------------------------------------------------------------------------------
+
+{-
+data LIM = Lim
+type Lim = (Any 'Lim :: (i -> i -> *) -> (j -> j -> *) -> (i -> j) -> j)
+
+data CONST = Const
+type Const = (Any 'Const :: (i -> i -> *) -> (j -> j -> *) -> j -> i -> j)
+
+class Category c => Complete c where
+  _Const :: Iso c c c (Const j c a b) (Const j' c a' b') a a'
+  ..
+
+instance (Category j, Complete c) => Const j c -| Lim j c where
+  adj = ..
+
+instance (Category j, Complete c) => Functor (Const j c) where
+  type Dom (Const j c a) = c
+  type Cod (Const j c a) = Nat j c
+
+instance (Category j, Complete c, Ob c a) => Functor (Const j c a) where
+  type Dom (Const j c a) = j
+  type Cod (Const j c a) = c
+
+instance (Category j, Complete c) => Functor (Lim j c) where
+  type Dom (Lim j c) = Nat j c
+  type Cod (Lim j c) = c
+-}
+
+--------------------------------------------------------------------------------
 -- * Diagonal
 --------------------------------------------------------------------------------
 
