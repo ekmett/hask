@@ -131,7 +131,7 @@ dimap = bimap . unop
 type Iso
   (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
   (s :: i) (t :: j) (a :: i) (b :: j) = forall (p :: i -> j -> k).
-  (Bifunctor p, Dom p ~ Op c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
+  (Bifunctor p, Opd p ~ c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
 
 --------------------------------------------------------------------------------
 -- * Categories (Part 2)
@@ -721,8 +721,8 @@ instance
 
 type Prof c d = Nat (Op c) (Nat d (->))
 
-class    (Bifunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => BifunctorOf p q f
-instance (Bifunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => BifunctorOf p q f
+class    (Bifunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
+instance (Bifunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
 
 data Procompose (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
                 (p :: j -> k -> *) (q :: i -> j -> *) (a :: i) (b :: k) where
@@ -733,18 +733,18 @@ instance (Category c, Category d, Category e) => Functor (Procompose c d e) wher
   type Cod (Procompose c d e) = Nat (Prof c d) (Prof c e)
   -- fmap = todo
 
-instance (Category c, Category d, Category e, BifunctorOf d e p) => Functor (Procompose c d e p) where
+instance (Category c, Category d, Category e, ProfunctorOf d e p) => Functor (Procompose c d e p) where
   type Dom (Procompose c d e p) = Prof c d
   type Cod (Procompose c d e p) = Prof c e
   -- fmap = todo
 
-instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q) => Functor (Procompose c d e p q) where
+instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q) => Functor (Procompose c d e p q) where
   type Dom (Procompose c d e p q) = Op c
   type Cod (Procompose c d e p q) = Nat e (->)
   fmap f = case observe f of
     Dict -> Nat $ \(Procompose p q) -> Procompose p (runNat (fmap f) q)
 
-instance (Category c, Category d, Category e, BifunctorOf d e p, BifunctorOf c d q, Ob c a) => Functor (Procompose c d e p q a) where
+instance (Category c, Category d, Category e, ProfunctorOf d e p, ProfunctorOf c d q, Ob c a) => Functor (Procompose c d e p q a) where
   type Dom (Procompose c d e p q a) = e
   type Cod (Procompose c d e p q a) = (->)
   fmap f (Procompose p q) = Procompose (fmap1 f p) q
