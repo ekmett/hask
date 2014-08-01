@@ -311,8 +311,8 @@ class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
 type family I (p :: i -> i -> i) :: i
 
 class Semitensor p => Tensor' p where
-  lambda :: Iso (Dom p) (Dom p) (Dom p) (p (I p) a) (p (I p) a') a a'
-  rho    :: Iso (Dom p) (Dom p) (Dom p) (p a (I p)) (p a' (I p)) a a'
+  lambda :: (Ob (Dom p) a, Ob (Dom p) a') => Iso (Dom p) (Dom p) (->) (p (I p) a) (p (I p) a') a a'
+  rho    :: (Ob (Dom p) a, Ob (Dom p) a') => Iso (Dom p) (Dom p) (->) (p a (I p)) (p a' (I p)) a a'
 
 class (Monoid' p (I p), Tensor' p) => Tensor p
 instance (Monoid' p (I p), Tensor' p) => Tensor p
@@ -658,6 +658,45 @@ instance (Category c, Category d, Composed e, Functor f, Functor g, e ~ Cod f, d
 instance (Composed c, c ~ c', c' ~ c'') => Semitensor (Compose c c' c'' :: (i -> i) -> (i -> i) -> (i -> i)) where
   associate = associateCompose
 
+data ID = Id
+type Id = (Any 'Id :: (i -> i -> *) -> i -> i)
+
+class Category c => Identified (c :: i -> i -> *) where
+  _Id :: Iso c c (->) (Id c a) (Id c a') a a'
+
+instance Identified (->) where
+  _Id = unsafeCoerce
+
+instance Identified (:-) where
+  _Id = unsafeCoerce
+
+instance (Category c, Identified d) => Identified (Nat c d) where
+  _Id = unsafeCoerce
+
+instance Category c => Class a (Id c a) where cls = unsafeCoerceConstraint
+instance Category c => a :=> Id c a where ins = unsafeCoerceConstraint
+
+instance Identified c => Functor (Id c) where
+  type Dom (Id c) = c
+  type Cod (Id c) = c
+  fmap = _Id
+
+type instance I (Compose c c c) = Id c
+
+instance (Identified c, Composed c) => Semigroup (Compose c c c) (Id c) where
+  mu = dimap hither id id where
+    hither :: Nat c c (Compose c c c (Id c) (Id c)) (Id c)
+    hither = natById $ \a -> case observe (_Id a) of
+      Dict -> case observe (_Id (_Id a)) of
+        Dict -> get _Id . get _Compose
+
+instance (Identified c, Composed c) => Monoid' (Compose c c c) (Id c) where
+  eta Proxy = Nat $ _Id id
+
+instance (Identified c, Composed c) => Tensor' (Compose c c c :: (i -> i) -> (i -> i) -> (i -> i)) where
+  lambda = lambdaCompose
+  rho = rhoCompose
+
 associateCompose :: forall b c d e f g h f' g' h'.
    ( Category b, Category c, Composed d, Composed e
    , FunctorOf d e f, FunctorOf c d g, FunctorOf b c h
@@ -682,6 +721,30 @@ associateCompose = dimap (nat hither) (nat yon) where
       Sub Dict -> case obOf (Proxy :: Proxy f') (Proxy :: Proxy (Compose b c d g' h' a)) of
        Sub Dict -> case obOf (Proxy :: Proxy (Compose c d e f' g')) (Proxy :: Proxy (h' a)) of
         Sub Dict -> beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose
+
+lambdaCompose :: forall a a' c. (Identified c, Composed c, Ob (Nat c c) a, Ob (Nat c c) a')
+              => Iso (Nat c c) (Nat c c) (->) (Compose c c c (Id c) a) (Compose c c c (Id c) a') a a'
+lambdaCompose = dimap (nat hither) (nat yon) where
+  hither :: forall z. (Ob (Nat c c) a, Ob c z) => Proxy z -> c (Compose c c c (Id c) a z) (a z)
+  hither z = case obOf (Proxy :: Proxy a) z of
+    Sub Dict -> case obOf (Proxy :: Proxy (Id c)) (Proxy :: Proxy (a z)) of
+      Sub Dict -> get _Id . get _Compose
+  yon :: forall z. (Ob (Nat c c) a', Ob c z) => Proxy z -> c (a' z) (Compose c c c (Id c) a' z)
+  yon z = case obOf (Proxy :: Proxy a') z of
+    Sub Dict -> case obOf (Proxy :: Proxy (Id c)) (Proxy :: Proxy (a' z)) of
+      Sub Dict -> beget _Compose . beget _Id
+
+rhoCompose :: forall a a' c. (Identified c, Composed c, Ob (Nat c c) a, Ob (Nat c c) a')
+           => Iso (Nat c c) (Nat c c) (->) (Compose c c c a (Id c)) (Compose c c c a' (Id c)) a a'
+rhoCompose = dimap (nat hither) (nat yon) where
+  hither :: forall z. (Ob (Nat c c) a, Ob c z) => Proxy z -> c (Compose c c c a (Id c) z) (a z)
+  hither z = case obOf (Proxy :: Proxy (Id c)) z of
+    Sub Dict -> case obOf (Proxy :: Proxy a) (Proxy :: Proxy (Id c z)) of
+      Sub Dict -> fmap (get _Id) . get _Compose
+  yon :: forall z. (Ob (Nat c c) a', Ob c z) => Proxy z -> c (a' z) (Compose c c c a' (Id c) z)
+  yon z = case obOf (Proxy :: Proxy (Id c)) z of
+    Sub Dict -> case obOf (Proxy :: Proxy a') (Proxy :: Proxy (Id c z)) of
+      Sub Dict -> beget _Compose . fmap (beget _Id)
 
 --------------------------------------------------------------------------------
 -- * Coercions
