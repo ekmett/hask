@@ -24,13 +24,25 @@ null :: Fin a -> Bool
 null (Fin xs) = Prelude.null xs
 
 size :: Eq a => Fin a -> Int
-size xs = size (reduce xs)
+size xs = length $ runFin $ reduce xs
 
 elem :: Eq a => Fin a -> Fin a -> Bool
 elem xs = any (Set xs ==) . runFin
 
 set :: Fin a -> Fin a
 set xs = Fin [Set xs]
+
+unit :: Fin a
+unit = set empty
+
+(∧) :: Eq a => Fin a -> Fin a -> Fin a 
+Fin xs ∧ Fin ys = Fin $ filter (\x -> any (== x) ys) xs
+
+(∨) :: Fin a -> Fin a -> Fin a
+(∨) = (<|>)
+
+(⊆) :: Eq a => Fin a -> Fin a -> Bool
+Fin xs ⊆ Fin ys = all (\x -> any (== x) ys) xs
 
 instance Eq a => Eq (Fin a) where
   Fin xs == Fin ys = all (\x -> any (== x) ys) xs
@@ -57,18 +69,8 @@ instance MonadPlus Fin where
 instance Eq a => Eq (Monomial a) where
   Var a == Var b = a == b
   Set a == Set b = a == b
+  _     == _     = False
 
 -- countable if made up of all initial elements
-countables :: Fin a -> Maybe [a]
-countables (Fin xs) = traverse (\ case Var g -> Just g; _ -> Nothing) xs
-
-{-
--- not a traversal
-leaves :: Applicative m => ([a] -> m (Fin a)) -> Fin a -> m (Fin a)
-leaves k = fin where
-  fin xs = case counts xs of
-    Just ys -> k ys
-    Nothing -> traverse mon xs
-  mon (Set xs) = Set <$> leaves k xs
-  mon m        = pure m
--}
+countable :: Fin a -> Maybe [a]
+countable (Fin xs) = traverse (\ case Var g -> Just g; _ -> Nothing) xs
