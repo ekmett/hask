@@ -684,14 +684,16 @@ instance Identified c => Functor (Id c) where
 type instance I (Compose c c c) = Id c
 
 instance (Identified c, Composed c) => Semigroup (Compose c c c) (Id c) where
-  mu = dimap hither id id where
-    hither :: Nat c c (Compose c c c (Id c) (Id c)) (Id c)
-    hither = natById $ \a -> case observe (_Id a) of
-      Dict -> case observe (_Id (_Id a)) of
-        Dict -> get _Id . get _Compose
+  mu = dimap (get lambda) id id
 
 instance (Identified c, Composed c) => Monoid' (Compose c c c) (Id c) where
   eta Proxy = Nat $ _Id id
+
+instance (Identified c, Composed c) => Cosemigroup (Compose c c c) (Id c) where
+  delta = dimap id (beget lambda) id
+
+instance (Identified c, Composed c) => Comonoid' (Compose c c c) (Id c) where
+  epsilon Proxy = Nat $ _Id id
 
 instance (Identified c, Composed c) => Tensor' (Compose c c c :: (i -> i) -> (i -> i) -> (i -> i)) where
   lambda = lambdaCompose
@@ -745,6 +747,38 @@ rhoCompose = dimap (nat hither) (nat yon) where
   yon z = case obOf (Proxy :: Proxy (Id c)) z of
     Sub Dict -> case obOf (Proxy :: Proxy a') (Proxy :: Proxy (Id c z)) of
       Sub Dict -> beget _Compose . fmap (beget _Id)
+
+--------------------------------------------------------------------------------
+-- ** Monads
+--------------------------------------------------------------------------------
+
+class (Functor m, Dom m ~ Cod m, Monoid (Compose (Dom m) (Dom m) (Dom m)) m, Identified (Dom m), Composed (Dom m)) => Monad m where
+  return :: Ob (Dom m) a => Dom m a (m a)
+  return = runNat (eta (Proxy :: Proxy (Compose (Dom m) (Dom m) (Dom m)))) . beget _Id
+  bind :: forall a b. Ob (Dom m) b => Dom m a (m b) -> Dom m (m a) (m b)
+  bind f = case observe f of
+    Dict -> case obOf (Proxy :: Proxy m) (Proxy :: Proxy (m b)) of
+      Sub Dict -> runNat mu . beget _Compose . fmap f
+instance (Functor m, Dom m ~ Cod m, Monoid (Compose (Dom m) (Dom m) (Dom m)) m, Identified (Dom m), Composed (Dom m)) => Monad m
+
+--------------------------------------------------------------------------------
+-- * Prelude
+--------------------------------------------------------------------------------
+
+newtype PreludeFunctor f a = PF { runPF :: f a }
+
+_PreludeFunctor :: Iso (->) (->) (->) (PreludeFunctor f a) (PreludeFunctor f' a') (f a) (f' a')
+_PreludeFunctor = dimap runPF PF
+
+instance Prelude.Functor f => Functor (PreludeFunctor f) where
+  type Dom (PreludeFunctor f) = (->)
+  type Cod (PreludeFunctor f) = (->)
+  fmap = _PreludeFunctor . Prelude.fmap
+
+instance (Prelude.Functor m, Prelude.Monad m) => Semigroup (Compose (->) (->) (->)) (PreludeFunctor m) where
+   mu = Nat $ _PreludeFunctor (Prelude.>>= runPF) . get _Compose
+instance (Prelude.Functor m, Prelude.Monad m) => Monoid' (Compose (->) (->) (->)) (PreludeFunctor m) where
+  eta Proxy = Nat $ PF . Prelude.return . get _Id
 
 --------------------------------------------------------------------------------
 -- * Coercions
