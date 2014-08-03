@@ -50,6 +50,8 @@ class Category' (p :: i -> i -> *) where
   default op :: Op p ~ Yoneda p => p b a -> Op p a b
   op = Op
 
+type Endo p a = p a a
+
 --------------------------------------------------------------------------------
 -- * Functors
 --------------------------------------------------------------------------------
@@ -66,15 +68,21 @@ ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
 ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of
   Dict -> Dict
 
-obOf :: forall f a. Functor f => Proxy f -> Proxy a -> Ob (Dom f) a :- Ob (Cod f) (f a)
-obOf Proxy Proxy = ob
-
 data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
   Nat :: ( FunctorOf p q f
          , FunctorOf p q g
          ) => {
            runNat :: forall a. Ob p a => q (f a) (g a)
          } -> Nat p q f g
+
+type NatId p = Endo (Nat (Dom p) (Cod p)) p
+
+obOf :: (Category (Dom f), Category (Cod f)) => NatId f -> Endo (Dom f) a
+     -> Dict (Ob (Nat (Dom f) (Cod f)) f, Ob (Dom f) a, Ob (Cod f) (f a))
+obOf f a = case observe f of
+  Dict -> case observe a of
+    Dict -> case observe (runNatById f a) of
+      Dict -> Dict
 
 type Copresheaves p = Nat p (->)
 type Presheaves p = Nat (Op p) (->)
@@ -287,14 +295,11 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
    Nat f . Nat g = Nat (f . g)
    unop = getOp
 
-nat :: (Category p ,Category q, FunctorOf p q f, FunctorOf p q g) => (forall a. Ob p a => Proxy a -> q (f a) (g a)) -> Nat p q f g
-nat k = Nat (k Proxy)
+nat :: (Category p ,Category q, FunctorOf p q f, FunctorOf p q g) => (forall a. Endo p a -> q (f a) (g a)) -> Nat p q f g
+nat k = Nat (k id)
 
 natDict :: (Category p, Category q) => Dict (Category (Nat p q))
 natDict = Dict
-
-natById :: (FunctorOf p q f, FunctorOf p q g) => (forall a. p a a -> q (f a) (g a)) -> Nat p q f g
-natById f = Nat (f id)
 
 runNatById :: Nat p q f g -> p a a -> q (f a) (g a)
 runNatById (Nat n) f = case observe f of
@@ -321,7 +326,7 @@ class Semitensor p => Semigroup p m where
   mu :: Dom p (p m m) m
 
 class (Semigroup p m, Tensor' p) => Monoid' p m where
-  eta :: Proxy p -> Dom p (I p) m
+  eta :: NatId p -> Dom p (I p) m
 
 class (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Monoid' p m) => Monoid p m
 instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Monoid' p m) => Monoid p m
@@ -330,7 +335,7 @@ class Semitensor p => Cosemigroup p w where
   delta :: Dom p w (p w w)
 
 class (Cosemigroup p w, Tensor' p) => Comonoid' p w where
-  epsilon :: Proxy p -> Dom p w (I p)
+  epsilon :: NatId p -> Dom p w (I p)
 
 class (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid p w
 instance (Monoid' p (I p), Comonoid' p (I p), Tensor' p, Comonoid' p w) => Comonoid p w
@@ -643,7 +648,7 @@ instance (Category c, Category d, Category e) => f (g a) :=> Compose c d e f g a
 instance (Category c, Category d, Composed e) => Functor (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  fmap n@Nat{} = natById $ \g@Nat{} -> natById $ _Compose . runNatById n . runNatById g
+  fmap n@Nat{} = nat $ \g@Nat{} -> nat $ _Compose . runNatById n . runNatById g
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
@@ -687,13 +692,13 @@ instance (Identified c, Composed c) => Semigroup (Compose c c c) (Id c) where
   mu = dimap (get lambda) id id
 
 instance (Identified c, Composed c) => Monoid' (Compose c c c) (Id c) where
-  eta Proxy = Nat $ _Id id
+  eta _ = Nat $ _Id id
 
 instance (Identified c, Composed c) => Cosemigroup (Compose c c c) (Id c) where
   delta = dimap id (beget lambda) id
 
 instance (Identified c, Composed c) => Comonoid' (Compose c c c) (Id c) where
-  epsilon Proxy = Nat $ _Id id
+  epsilon _ = Nat $ _Id id
 
 instance (Identified c, Composed c) => Tensor' (Compose c c c :: (i -> i) -> (i -> i) -> (i -> i)) where
   lambda = lambdaCompose
@@ -707,46 +712,46 @@ associateCompose :: forall b c d e f g h f' g' h'.
   (Compose b c e (Compose c d e f g) h) (Compose b c e (Compose c d e f' g') h')
   (Compose b d e f (Compose b c d g h)) (Compose b d e f' (Compose b c d g' h'))
 associateCompose = dimap (nat hither) (nat yon) where
-  hither :: forall a. Ob b a => Proxy a -> e (Compose b c e (Compose c d e f g) h a) (Compose b d e f (Compose b c d g h) a)
-  hither Proxy = case obOf (Proxy :: Proxy h) (Proxy :: Proxy a) of
-   Sub Dict -> case obOf (Proxy :: Proxy g) (Proxy :: Proxy (h a)) of
-    Sub Dict -> case obOf (Proxy :: Proxy f) (Proxy :: Proxy (g (h a))) of
-     Sub Dict -> case obOf (Proxy :: Proxy (Compose b c d g h)) (Proxy :: Proxy a) of
-      Sub Dict -> case obOf (Proxy :: Proxy f) (Proxy :: Proxy (Compose b c d g h a)) of
-       Sub Dict -> case obOf (Proxy :: Proxy (Compose c d e f g)) (Proxy :: Proxy (h a)) of
-        Sub Dict -> beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose
-  yon :: forall a. Ob b a => Proxy a -> e (Compose b d e f' (Compose b c d g' h') a) (Compose b c e (Compose c d e f' g') h' a)
-  yon Proxy = case obOf (Proxy :: Proxy h') (Proxy :: Proxy a) of
-   Sub Dict -> case obOf (Proxy :: Proxy g') (Proxy :: Proxy (h' a)) of
-    Sub Dict -> case obOf (Proxy :: Proxy f') (Proxy :: Proxy (g' (h' a))) of
-     Sub Dict -> case obOf (Proxy :: Proxy (Compose b c d g' h')) (Proxy :: Proxy a) of
-      Sub Dict -> case obOf (Proxy :: Proxy f') (Proxy :: Proxy (Compose b c d g' h' a)) of
-       Sub Dict -> case obOf (Proxy :: Proxy (Compose c d e f' g')) (Proxy :: Proxy (h' a)) of
-        Sub Dict -> beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose
+  hither :: forall a. Endo b a -> e (Compose b c e (Compose c d e f g) h a) (Compose b d e f (Compose b c d g h) a)
+  hither a = case obOf (id :: NatId h) a of
+    Dict -> case obOf (id :: NatId g) (id :: Endo c (h a)) of
+     Dict -> case obOf (id :: NatId f) (id :: Endo d (g (h a))) of
+      Dict -> case obOf (id :: NatId (Compose b c d g h)) a of
+       Dict -> case obOf (id :: NatId f) (id :: Endo d (Compose b c d g h a)) of
+        Dict -> case obOf (id :: NatId (Compose c d e f g)) (id :: Endo c (h a)) of
+         Dict -> beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose
+  yon :: forall a. Endo b a -> e (Compose b d e f' (Compose b c d g' h') a) (Compose b c e (Compose c d e f' g') h' a)
+  yon a = case obOf (id :: NatId h') a of
+    Dict -> case obOf (id :: NatId g') (id :: Endo c (h' a)) of
+     Dict -> case obOf (id :: NatId f') (id :: Endo d (g' (h' a))) of
+      Dict -> case obOf (id :: NatId (Compose b c d g' h')) a of
+       Dict -> case obOf (id :: NatId f') (id :: Endo d (Compose b c d g' h' a)) of
+        Dict -> case obOf (id :: NatId (Compose c d e f' g')) (id :: Endo c (h' a)) of
+         Dict -> beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose
 
 lambdaCompose :: forall a a' c. (Identified c, Composed c, Ob (Nat c c) a, Ob (Nat c c) a')
               => Iso (Nat c c) (Nat c c) (->) (Compose c c c (Id c) a) (Compose c c c (Id c) a') a a'
 lambdaCompose = dimap (nat hither) (nat yon) where
-  hither :: forall z. (Ob (Nat c c) a, Ob c z) => Proxy z -> c (Compose c c c (Id c) a z) (a z)
-  hither z = case obOf (Proxy :: Proxy a) z of
-    Sub Dict -> case obOf (Proxy :: Proxy (Id c)) (Proxy :: Proxy (a z)) of
-      Sub Dict -> get _Id . get _Compose
-  yon :: forall z. (Ob (Nat c c) a', Ob c z) => Proxy z -> c (a' z) (Compose c c c (Id c) a' z)
-  yon z = case obOf (Proxy :: Proxy a') z of
-    Sub Dict -> case obOf (Proxy :: Proxy (Id c)) (Proxy :: Proxy (a' z)) of
-      Sub Dict -> beget _Compose . beget _Id
+  hither :: forall z. Ob (Nat c c) a => Endo c z -> c (Compose c c c (Id c) a z) (a z)
+  hither z = case obOf (id :: NatId a) z of
+    Dict -> case obOf (id :: NatId (Id c)) (id :: Endo c (a z)) of
+      Dict -> get _Id . get _Compose
+  yon :: forall z. Ob (Nat c c) a' => Endo c z -> c (a' z) (Compose c c c (Id c) a' z)
+  yon z = case obOf (id :: NatId a') z of
+    Dict -> case obOf (id :: NatId (Id c)) (id :: Endo c (a' z)) of
+      Dict -> beget _Compose . beget _Id
 
 rhoCompose :: forall a a' c. (Identified c, Composed c, Ob (Nat c c) a, Ob (Nat c c) a')
            => Iso (Nat c c) (Nat c c) (->) (Compose c c c a (Id c)) (Compose c c c a' (Id c)) a a'
 rhoCompose = dimap (nat hither) (nat yon) where
-  hither :: forall z. (Ob (Nat c c) a, Ob c z) => Proxy z -> c (Compose c c c a (Id c) z) (a z)
-  hither z = case obOf (Proxy :: Proxy (Id c)) z of
-    Sub Dict -> case obOf (Proxy :: Proxy a) (Proxy :: Proxy (Id c z)) of
-      Sub Dict -> fmap (get _Id) . get _Compose
-  yon :: forall z. (Ob (Nat c c) a', Ob c z) => Proxy z -> c (a' z) (Compose c c c a' (Id c) z)
-  yon z = case obOf (Proxy :: Proxy (Id c)) z of
-    Sub Dict -> case obOf (Proxy :: Proxy a') (Proxy :: Proxy (Id c z)) of
-      Sub Dict -> beget _Compose . fmap (beget _Id)
+  hither :: forall z. Ob (Nat c c) a => Endo c z -> c (Compose c c c a (Id c) z) (a z)
+  hither z = case obOf (id :: NatId (Id c)) z of
+    Dict -> case obOf (id :: NatId a) (id :: Endo c (Id c z)) of
+      Dict -> fmap (get _Id) . get _Compose
+  yon :: forall z. Ob (Nat c c) a' => Endo c z -> c (a' z) (Compose c c c a' (Id c) z)
+  yon z = case obOf (id :: NatId (Id c)) z of
+    Dict -> case obOf (id :: NatId a') (id :: Endo c (Id c z)) of
+      Dict -> beget _Compose . fmap (beget _Id)
 
 --------------------------------------------------------------------------------
 -- ** Monads
@@ -754,11 +759,11 @@ rhoCompose = dimap (nat hither) (nat yon) where
 
 class (Functor m, Dom m ~ Cod m, Monoid (Compose (Dom m) (Dom m) (Dom m)) m, Identified (Dom m), Composed (Dom m)) => Monad m where
   return :: Ob (Dom m) a => Dom m a (m a)
-  return = runNat (eta (Proxy :: Proxy (Compose (Dom m) (Dom m) (Dom m)))) . beget _Id
+  return = runNat (eta (id :: NatId (Compose (Dom m) (Dom m) (Dom m)))) . beget _Id
   bind :: forall a b. Ob (Dom m) b => Dom m a (m b) -> Dom m (m a) (m b)
   bind f = case observe f of
-    Dict -> case obOf (Proxy :: Proxy m) (Proxy :: Proxy (m b)) of
-      Sub Dict -> runNat mu . beget _Compose . fmap f
+    Dict -> case obOf (id :: NatId m) (id :: Endo (Cod m) (m b)) of
+      Dict -> runNat mu . beget _Compose . fmap f
 instance (Functor m, Dom m ~ Cod m, Monoid (Compose (Dom m) (Dom m) (Dom m)) m, Identified (Dom m), Composed (Dom m)) => Monad m
 
 --------------------------------------------------------------------------------
@@ -778,7 +783,7 @@ instance Prelude.Functor f => Functor (PreludeFunctor f) where
 instance (Prelude.Functor m, Prelude.Monad m) => Semigroup (Compose (->) (->) (->)) (PreludeFunctor m) where
    mu = Nat $ _PreludeFunctor (Prelude.>>= runPF) . get _Compose
 instance (Prelude.Functor m, Prelude.Monad m) => Monoid' (Compose (->) (->) (->)) (PreludeFunctor m) where
-  eta Proxy = Nat $ PF . Prelude.return . get _Id
+  eta _ = Nat $ PF . Prelude.return . get _Id
 
 --------------------------------------------------------------------------------
 -- * Coercions
