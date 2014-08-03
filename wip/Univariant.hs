@@ -9,7 +9,7 @@ import Data.Type.Coercion (Coercion(..))
 import qualified Data.Type.Coercion as Coercion
 import Data.Void
 import GHC.Prim (Any, Coercible, coerce)
-import Prelude (($),undefined,Either(..))
+import Prelude (($),undefined,Either(..),error)
 import qualified Prelude
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -537,24 +537,42 @@ instance FullyFaithful (Unit a) where
 -- * Coproducts
 --------------------------------------------------------------------------------
 
-{-
-data Coproduct (c :: i -> i -> *) (d :: j -> j -> *) (a :: Either i j) (b :: Either i j) =
-  Inl :: (Side a ~ Left x,  Side b ~ Left y)  => c x y -> Coproduct c d a b
-  Inr :: (Side a ~ Right x, Side b ~ Right y) => d x y -> Coproduct c d a b
-
-type family Side a :: Either i j
-type instance Side (Left  x) = Left  x
-type instance Side (Right x) = Right x
+data Coproduct (c :: i -> i -> *) (d :: j -> j -> *) (a :: Either i j) (b :: Either i j) where
+  Inl :: c x y -> Coproduct c d (Left x) (Left y)
+  Inr :: d x y -> Coproduct c d (Right x) (Right y)
 
 class CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: Either i j) where
-  side :: (forall x. (Side a ~ Left x, Ob p x) => r) -> (forall y. (Side a ~ Right y, Ob p y) => r) -> r
+  side :: Endo (Coproduct p q) a -> (forall x. (a ~ Left x, Ob p x) => r) -> (forall y. (a ~ Right y, Ob q y) => r) -> r
+  coproductId :: Endo (Coproduct p q) a
 
-instance Ob p x => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Left x :: Either i j) where
-  side r _ = r
+instance (Category p, Ob p x) => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Left x :: Either i j) where
+  side _ r _ = r
+  coproductId = Inl id
 
-instance Ob p y => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Right y :: Either i j) where
-  side _ r = r
--}
+instance (Category q, Ob q y) => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Right y :: Either i j) where
+  side _ _ r = r
+  coproductId = Inr id
+
+instance (Category p, Category q) => Functor (Coproduct p q) where
+  type Dom (Coproduct p q) = Op (Coproduct p q)
+  type Cod (Coproduct p q) = Nat (Coproduct p q) (->)
+  fmap (Op f) = Nat (. f)
+
+instance (Category p, Category q) => Functor (Coproduct p q a) where
+  type Dom (Coproduct p q a) = Coproduct p q
+  type Cod (Coproduct p q a) = (->)
+  fmap = (.)
+
+instance (Category p, Category q) => Category' (Coproduct p q) where
+  type Ob (Coproduct p q) = CoproductOb p q
+  id = coproductId
+  observe (Inl f) = case observe f of
+    Dict -> Dict
+  observe (Inr f) = case observe f of
+    Dict -> Dict
+  Inl f . Inl g = Inl (f . g)
+  Inr f . Inr g = Inr (f . g)
+  _ . _ = error "Type error"
 
 --------------------------------------------------------------------------------
 -- * Get (Lens)
@@ -818,16 +836,13 @@ instance (Ob p (Fst a), Ob q (Snd a)) => ProductOb (p :: i -> i -> *) (q :: j ->
 instance (Category p, Category q) => Functor (Product p q) where
   type Dom (Product p q) = Op (Product (Opd p) (Opd q))
   type Cod (Product p q) = Nat (Product (Dom2 p) (Dom2 q)) (->)
-  fmap = fmap' where
-    fmap' :: Op (Product (Opd p) (Opd q)) a b -> Nat (Product (Dom2 p) (Dom2 q)) (->) (Product p q a) (Product p q b)
-    fmap' f = case observe f of
-      Dict -> case unop f of
-        Product f1 f2 -> Nat $ \(Product a1 a2) -> Product (a1 . f1) (a2 . f2)
+  fmap f = case observe f of
+    Dict -> Nat (. unop f)
 
 instance (Category p, Category q, ProductOb p q a) => Functor (Product p q a) where
   type Dom (Product p q a) = Product (Dom2 p) (Dom2 q)
   type Cod (Product p q a) = (->)
-  fmap (Product f1 f2) = \(Product g1 g2) -> Product (f1 . g1) (f2 . g2)
+  fmap = (.)
 
 instance (Category p, Category q) => Category' (Product p q) where
   type Ob (Product p q) = ProductOb p q
