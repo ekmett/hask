@@ -81,7 +81,7 @@ obOf :: (Category (Dom f), Category (Cod f)) => NatId f -> Endo (Dom f) a
      -> Dict (Ob (Nat (Dom f) (Cod f)) f, Ob (Dom f) a, Ob (Cod f) (f a))
 obOf f a = case observe f of
   Dict -> case observe a of
-    Dict -> case observe (runNatById f a) of
+    Dict -> case observe (f ! a) of
       Dict -> Dict
 
 type Copresheaves p = Nat p (->)
@@ -295,14 +295,15 @@ instance (Category' p, Category' q) => Category' (Nat p q) where
    Nat f . Nat g = Nat (f . g)
    unop = getOp
 
-nat :: (Category p ,Category q, FunctorOf p q f, FunctorOf p q g) => (forall a. Endo p a -> q (f a) (g a)) -> Nat p q f g
+nat :: (Category p ,Category q, FunctorOf p q f, FunctorOf p q g) => (forall a. Ob p a => Endo p a -> q (f a) (g a)) -> Nat p q f g
 nat k = Nat (k id)
 
 natDict :: (Category p, Category q) => Dict (Category (Nat p q))
 natDict = Dict
 
-runNatById :: Nat p q f g -> p a a -> q (f a) (g a)
-runNatById (Nat n) f = case observe f of
+infixr 1 !
+(!) :: Nat p q f g -> p a a -> q (f a) (g a)
+Nat n ! f = case observe f of
   Dict -> n
 
 --------------------------------------------------------------------------------
@@ -648,7 +649,9 @@ instance (Category c, Category d, Category e) => f (g a) :=> Compose c d e f g a
 instance (Category c, Category d, Composed e) => Functor (Compose c d e) where
   type Dom (Compose c d e) = Nat d e
   type Cod (Compose c d e) = Nat (Nat c d) (Nat c e)
-  fmap n@Nat{} = nat $ \g@Nat{} -> nat $ _Compose . runNatById n . runNatById g
+  fmap = fmap' where
+    fmap' :: Nat d e a b -> Nat (Nat c d) (Nat c e) (Compose c d e a) (Compose c d e b)
+    fmap' n@Nat{} = nat $ \g -> nat $ \a -> _Compose $ n ! g ! a
 
 instance (Category c, Category d, Composed e, Functor f, e ~ Cod f, d ~ Dom f) => Functor (Compose c d e f) where
   type Dom (Compose c d e f) = Nat c d
@@ -711,47 +714,31 @@ associateCompose :: forall b c d e f g h f' g' h'.
    ) => Iso (Nat b e) (Nat b e) (->)
   (Compose b c e (Compose c d e f g) h) (Compose b c e (Compose c d e f' g') h')
   (Compose b d e f (Compose b c d g h)) (Compose b d e f' (Compose b c d g' h'))
-associateCompose = dimap (nat hither) (nat yon) where
-  hither :: forall a. Endo b a -> e (Compose b c e (Compose c d e f g) h a) (Compose b d e f (Compose b c d g h) a)
-  hither a = case obOf (id :: NatId h) a of
-    Dict -> case obOf (id :: NatId g) (id :: Endo c (h a)) of
-     Dict -> case obOf (id :: NatId f) (id :: Endo d (g (h a))) of
-      Dict -> case obOf (id :: NatId (Compose b c d g h)) a of
-       Dict -> case obOf (id :: NatId f) (id :: Endo d (Compose b c d g h a)) of
-        Dict -> case obOf (id :: NatId (Compose c d e f g)) (id :: Endo c (h a)) of
-         Dict -> beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose
-  yon :: forall a. Endo b a -> e (Compose b d e f' (Compose b c d g' h') a) (Compose b c e (Compose c d e f' g') h' a)
-  yon a = case obOf (id :: NatId h') a of
-    Dict -> case obOf (id :: NatId g') (id :: Endo c (h' a)) of
-     Dict -> case obOf (id :: NatId f') (id :: Endo d (g' (h' a))) of
-      Dict -> case obOf (id :: NatId (Compose b c d g' h')) a of
-       Dict -> case obOf (id :: NatId f') (id :: Endo d (Compose b c d g' h' a)) of
-        Dict -> case obOf (id :: NatId (Compose c d e f' g')) (id :: Endo c (h' a)) of
-         Dict -> beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose
+associateCompose = dimap hither yon where
+  hither = nat $ \a -> case obOf (id :: NatId f) $ (id :: NatId g) ! (id :: NatId h) ! a of
+    Dict -> case obOf (id :: NatId f) $ (id :: NatId (Compose b c d g h)) ! a of
+      Dict -> case obOf (id :: NatId (Compose c d e f g)) $ (id :: NatId h) ! a of
+        Dict -> beget _Compose . fmap (beget _Compose) . get _Compose . get _Compose
+  yon = nat $ \a -> case obOf (id :: NatId f') $ (id :: NatId g') ! (id :: NatId h') ! a of
+    Dict -> case obOf (id :: NatId f') $ (id :: NatId (Compose b c d g' h')) ! a of
+      Dict -> case obOf (id :: NatId (Compose c d e f' g')) $ (id :: NatId h') ! a of
+        Dict -> beget _Compose . beget _Compose . fmap (get _Compose) . get _Compose
 
 lambdaCompose :: forall a a' c. (Identified c, Composed c, Ob (Nat c c) a, Ob (Nat c c) a')
               => Iso (Nat c c) (Nat c c) (->) (Compose c c c (Id c) a) (Compose c c c (Id c) a') a a'
-lambdaCompose = dimap (nat hither) (nat yon) where
-  hither :: forall z. Ob (Nat c c) a => Endo c z -> c (Compose c c c (Id c) a z) (a z)
-  hither z = case obOf (id :: NatId a) z of
-    Dict -> case obOf (id :: NatId (Id c)) (id :: Endo c (a z)) of
-      Dict -> get _Id . get _Compose
-  yon :: forall z. Ob (Nat c c) a' => Endo c z -> c (a' z) (Compose c c c (Id c) a' z)
-  yon z = case obOf (id :: NatId a') z of
-    Dict -> case obOf (id :: NatId (Id c)) (id :: Endo c (a' z)) of
-      Dict -> beget _Compose . beget _Id
+lambdaCompose = dimap hither yon where
+  hither = nat $ \z -> case obOf (id :: NatId (Id c)) $ (id :: NatId a) ! z of
+    Dict -> get _Id . get _Compose
+  yon = nat $ \z -> case obOf (id :: NatId (Id c)) $ (id :: NatId a') ! z of
+    Dict -> beget _Compose . beget _Id
 
 rhoCompose :: forall a a' c. (Identified c, Composed c, Ob (Nat c c) a, Ob (Nat c c) a')
            => Iso (Nat c c) (Nat c c) (->) (Compose c c c a (Id c)) (Compose c c c a' (Id c)) a a'
-rhoCompose = dimap (nat hither) (nat yon) where
-  hither :: forall z. Ob (Nat c c) a => Endo c z -> c (Compose c c c a (Id c) z) (a z)
-  hither z = case obOf (id :: NatId (Id c)) z of
-    Dict -> case obOf (id :: NatId a) (id :: Endo c (Id c z)) of
-      Dict -> fmap (get _Id) . get _Compose
-  yon :: forall z. Ob (Nat c c) a' => Endo c z -> c (a' z) (Compose c c c a' (Id c) z)
-  yon z = case obOf (id :: NatId (Id c)) z of
-    Dict -> case obOf (id :: NatId a') (id :: Endo c (Id c z)) of
-      Dict -> beget _Compose . fmap (beget _Id)
+rhoCompose = dimap hither yon where
+  hither = nat $ \z -> case obOf (id :: NatId a) $ (id :: NatId (Id c)) ! z of
+    Dict -> fmap (get _Id) . get _Compose
+  yon = nat $ \z -> case obOf (id :: NatId a') $ (id :: NatId (Id c)) ! z of
+    Dict -> beget _Compose . fmap (beget _Id)
 
 --------------------------------------------------------------------------------
 -- ** Monads
