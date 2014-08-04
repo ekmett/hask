@@ -915,26 +915,11 @@ associateProcompose = dimap
 -}
 
 --------------------------------------------------------------------------------
--- * Day Convolution
---------------------------------------------------------------------------------
-
-{-
-data DAY = Day
-type Day = (Any 'Day :: (i -> i -> *) -> (j -> j -> *) -> (i -> j) -> (i -> j) -> (i -> j))
--}
-
--- data Day (c :: i -> i -> *) (d :: * -> * -> *) (f :: i -> *) (g :: i -> *) (a :: i) :: * where
---   Day :: forall b
-
---------------------------------------------------------------------------------
 -- * Totality
 --------------------------------------------------------------------------------
 
-class Category p => Total p where
-  total :: Nat (Op p) (->) (Op p a) (Op p b) -> p a b
-
-instance (Category p, Op p ~ Yoneda p) => Total (Yoneda p) where
-  total = undefined -- TODO
+total :: forall a b p. (Category p, Ob p a) => Nat (Op p) (->) (Op p a) (Op p b) -> p a b
+total (Nat n) = unop (n (id :: Endo (Op p) a))
 
 --------------------------------------------------------------------------------
 -- * Adjunctions
