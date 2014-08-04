@@ -1002,3 +1002,39 @@ instance Category c => Functor (Diag c) where
   type Dom (Diag c) = c
   type Cod (Diag c) = Product c c
   fmap f = Product f f
+
+--------------------------------------------------------------------------------
+-- * Day Convolution
+--------------------------------------------------------------------------------
+
+--type Copresheaf c = Nat c (->)
+
+--class (Functor f, Dom f ~ c, Cod f ~ (->)) => CopresheafOf c f
+--instance (Functor f, Dom f ~ c, Cod f ~ (->)) => CopresheafOf c f
+
+data Day (c :: i -> i -> *) (t :: i -> i -> i)
+         (f :: i -> *) (g :: i -> *) (a :: i) where
+  Day :: (Ob c x, Ob c y) => c (t x y) a -> f x -> g y -> Day c t f g a
+
+--Day convolution of copresheaves is a copresheaf
+instance (Category c, FunctorOf c (->) f, FunctorOf c (->) g) => Functor (Day c t f g) where
+  type Dom (Day c t f g) = c
+  type Cod (Day c t f g) = (->)
+  fmap fun' (Day fun fx gy) = Day (fun' . fun) fx gy
+
+--Day convolution is a bifunctor of copresheaves
+instance (Category c, FunctorOf c (->) f) => Functor (Day c t f) where
+  type Dom (Day c t f) = Nat c (->)
+  type Cod (Day c t f) = Nat c (->)
+  fmap = fmap' where
+    fmap' :: Nat c (->) g g' -> Nat c (->) (Day c t f g) (Day c t f g')
+    fmap' (Nat natg) = Nat $ \(Day fun fx gy) -> Day fun fx (natg gy)
+
+instance Category c => Functor (Day c t) where
+  type Dom (Day c t) = Nat c (->)
+  type Cod (Day c t) = Nat (Nat c (->)) (Nat c (->))
+  fmap = fmap' where
+    fmap' :: Nat c (->) f f' -> Nat (Nat c (->)) (Nat c (->)) (Day c t f) (Day c t f')
+    fmap' (Nat natf) = Nat $ Nat $ \(Day fun fx gy) -> Day fun (natf fx) gy
+
+--TODO instance Tensor t => Tensor (Day c t)
