@@ -1007,70 +1007,70 @@ instance Category c => Functor (Diag c) where
 -- * Day Convolution
 --------------------------------------------------------------------------------
 
-type Copresheaf c = Nat c (->)
-
 class FunctorOf c (->) f => CopresheafOf c f
 instance FunctorOf c (->) f => CopresheafOf c f
 
-data Day (c :: i -> i -> *) (t :: i -> i -> i)
-         (f :: i -> *) (g :: i -> *) (a :: i) where
-  Day :: (Ob c x, Ob c y) => c (t x y) a -> f x -> g y -> Day c t f g a
+data Day (t :: i -> i -> i) (f :: i -> *) (g :: i -> *) (a :: i) where
+  Day :: (Dom t ~ c, CopresheafOf c f, CopresheafOf c g, Ob c x, Ob c y)
+      => c (t x y) a -> f x -> g y -> Day t f g a
 
 --Day convolution of copresheaves is a copresheaf
-instance (Category c, CopresheafOf c f, CopresheafOf c g) => Functor (Day c t f g) where
-  type Dom (Day c t f g) = c
-  type Cod (Day c t f g) = (->)
-  fmap fun' (Day fun fx gy) = Day (fun' . fun) fx gy
+
+instance (Dom t ~ c, CopresheafOf c f, CopresheafOf c g) => Functor (Day t f g) where
+  type Dom (Day t f g) = Dom t
+  type Cod (Day t f g) = (->)
+  fmap c' (Day c fx gy) = Day (c' . c) fx gy
 
 --Day convolution is a bifunctor of copresheaves
-instance (Category c, CopresheafOf c f) => Functor (Day c t f) where
-  type Dom (Day c t f) = Copresheaf c
-  type Cod (Day c t f) = Copresheaf c
-  fmap = fmap' where
-    fmap' :: Copresheaf c g g' -> Copresheaf c (Day c t f g) (Day c t f g')
-    fmap' (Nat natg) = Nat $ \(Day fun fx gy) -> Day fun fx (natg gy)
 
-instance Category c => Functor (Day c t) where
-  type Dom (Day c t) = Copresheaf c
-  type Cod (Day c t) = Nat (Copresheaf c) (Copresheaf c)
+instance (Dom t ~ c, CopresheafOf c f) => Functor (Day t f) where
+  type Dom (Day t f) = Copresheaves (Dom t)
+  type Cod (Day t f) = Copresheaves (Dom t)
   fmap = fmap' where
-    fmap' :: Copresheaf c f f' -> Nat (Copresheaf c) (Copresheaf c) (Day c t f) (Day c t f')
-    fmap' (Nat natf) = Nat $ Nat $ \(Day fun fx gy) -> Day fun (natf fx) gy
+    fmap' :: Copresheaves c g g' -> Copresheaves c (Day t f g) (Day t f g')
+    fmap' (Nat natg) = Nat $ \(Day c fx gy) -> Day c fx (natg gy)
+
+instance (Dom t ~ c, Category c) => Functor (Day t) where
+  type Dom (Day t) = Copresheaves (Dom t)
+  type Cod (Day t) = Nat (Copresheaves (Dom t)) (Copresheaves (Dom t))
+  fmap = fmap' where
+    fmap' :: Copresheaves c f f' -> Nat (Copresheaves c) (Copresheaves c) (Day t f) (Day t f')
+    fmap' (Nat natf) = Nat $ Nat $ \(Day c fx gy) -> Day c (natf fx) gy
 
 --Day convolution on a monoidal category is associative making it a Semitensor
 --To Do: define Isos
-data Day3L (c :: i -> i -> *) (t :: i -> i -> i)
-           (f :: i -> *) (g :: i -> *) (h :: i -> *) (a :: i) where
-  Day3L :: (Ob c x, Ob c y, Ob c z) => c (t (t x y) z) a -> f x -> g y -> h z -> Day3L c t f g h a
 
-data Day3R (c :: i -> i -> *) (t :: i -> i -> i)
-           (f :: i -> *) (g :: i -> *) (h :: i -> *) (a :: i) where
-  Day3R :: (Ob c x, Ob c y, Ob c z) => c (t x (t y z)) a -> f x -> g y -> h z -> Day3R c t f g h a
+data Day3L (t :: i -> i -> i) (f :: i -> *) (g :: i -> *) (h :: i -> *) (a :: i) where
+  Day3L :: (Dom t ~ c, CopresheafOf c f, CopresheafOf c g, CopresheafOf c h, Ob c x, Ob c y, Ob c z)
+         => c (t (t x y) z) a -> f x -> g y -> h z -> Day3L t f g h a
 
-bookkeepL :: Iso (Copresheaf c) (Copresheaf c) (->)
-             (Day c t (Day c t f g) h)
-             (Day c t (Day c t f' g') h')
-             (Day3L c t f g h)
-             (Day3L c t f' g' h')
-bookkeepL = undefined
+data Day3R (t :: i -> i -> i) (f :: i -> *) (g :: i -> *) (h :: i -> *) (a :: i) where
+  Day3R :: (Dom t ~ c, CopresheafOf c f, CopresheafOf c g, CopresheafOf c h, Ob c x, Ob c y, Ob c z)
+         => c (t x (t y z)) a -> f x -> g y -> h z -> Day3R t f g h a
+
+day3L :: Iso (Copresheaves c) (Copresheaves c) (->)
+         (Day t (Day t f g) h) (Day t (Day t f' g') h')
+         (Day3L t f g h)        (Day3L t f' g' h')
+day3L = undefined
 --this should use yoneda
 
-bookkeepR :: Iso (Copresheaf c) (Copresheaf c) (->)
-             (Day c t f (Day c t g h))
-             (Day c t f' (Day c t g' h'))
-             (Day3R c t f g h)
-             (Day3R c t f' g' h')
-bookkeepR = undefined
---mirror bookkepL
+day3R :: Iso (Copresheaves c) (Copresheaves c) (->)
+         (Day t f (Day t g h)) (Day t f' (Day t g' h'))
+         (Day3R t f g h)         (Day3R t f' g' h')
+day3R = undefined
+--mirror day3L
 
-dayAssoc :: Semitensor t => Iso (Copresheaf c) (Copresheaf c) (->)
-            (Day3L c t f g h)
-            (Day3L c t f' g' h')
-            (Day3R c t f g h)
-            (Day3R c t f' g' h')
-dayAssoc = undefined
+day3 :: Semitensor t
+     => Iso (Copresheaves c) (Copresheaves c) (->)
+        (Day3L t f g h) (Day3L t f' g' h')
+        (Day3R t f g h) (Day3R t f' g' h')
+day3 = undefined
 --this should use associate
 
-instance (Category c, Semitensor t) => Semitensor (Day c t) where
---  associate = (Un bookkeepR) . dayAssoc . bookkeepL
+instance (Dom t ~ c, Category c, Semitensor t) => Semitensor (Day t) where
+--  associate = (Un day3R) . day3 . day3L
   associate = undefined
+
+--Here's the function giving me trouble. Gotta use something like it to build up day3.
+--dayHither :: (Dom t ~ c, Category c, Semitensor t) => Day3L t f g h a -> Day3R t f g h a
+--dayHither (Day3L c fx gy hz) = Day3R (c . beget associate) fx gy hz
