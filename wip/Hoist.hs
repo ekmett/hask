@@ -11,7 +11,7 @@ import Data.Constraint hiding (trans)
 import Prelude hiding ((.),id)
 
 -- | Monad transformer homomorphisms
-newtype Hom s t = Hom { runHom :: forall m a. Monad m a => s m a -> t m a }
+newtype Hom s t = Hom { runHom :: forall m a. Monad m => s m a -> t m a }
 
 instance Category Hom where
   id = Hom id
@@ -68,7 +68,7 @@ instance (Trans s, Trans t) => Trans (Tensor s t) where
 
 instance (Hoist s, Hoist t) => Hoist (Tensor s t) where
   hoist = go where
-    go :: forall m n. (Monad m, Monad n) => (m ~> n) -> Tensor s t m ~> Tensor s t n
+    go :: forall m n b. (Monad m, Monad n) => (forall a. m a -> n a) -> Tensor s t m b -> Tensor s t n b
     go mn (Tensor stm) = Tensor $ case trans :: Dict (Monad (t m)) of
       Dict -> case trans :: Dict (Monad (t n)) of
         Dict -> hoist (hoist mn) stm
@@ -106,3 +106,8 @@ associate = dimap (Hom hither) (Hom yon) where
   yon (Tensor m) = case trans :: Dict (Monad (u' m)) of
     Dict -> case trans :: Dict (Monad (t' (u' m))) of
      Dict -> Tensor (Tensor (hoist runTensor m))
+
+{-
+readerState :: Lens (StateT s) (StateT s') (ReaderT s) (ReaderT s')
+readerState = undefined
+-}
