@@ -39,19 +39,19 @@ instance Category ((~>) :: i -> i -> *) => Tensor (Prof :: (i -> i -> *) -> (i -
   rho = rhoProf
 
 instance Functor Prof where
-  fmap f = nat3 $ \(Prof p q) -> Prof (runNat2 f p) q
+  fmap f = nat3 $ \(Prof p q) -> Prof (transport2 f p) q
 
 instance Functor (Prof p) where
-  fmap f = nat2 $ \(Prof p q) -> Prof p (runNat2 f q)
+  fmap f = nat2 $ \(Prof p q) -> Prof p (transport2 f q)
 
 instance Contravariant q => Contravariant (Prof p q) where
-  contramap f = Nat $ \(Prof p q) -> Prof p (runNat (contramap f) q)
+  contramap f = Nat $ \(Prof p q) -> Prof p (transport (contramap f) q)
 
 instance Post Functor p => Functor (Prof p q a) where
   fmap f (Prof p q) = Prof (fmap1 f p) q
 
 instance Functor q => Functor (Prof p q) where
-  fmap f = Nat $ \(Prof p q) -> Prof p (runNat (fmap f) q)
+  fmap f = Nat $ \(Prof p q) -> Prof p (transport (fmap f) q)
 
 instance Post Contravariant p => Contravariant (Prof p q a) where
   contramap f (Prof p q) = Prof (contramap1 f p) q
@@ -77,10 +77,10 @@ rhoProf = dimap (nat2 $ \(Prof p k) -> lmap k p) (nat2 $ \q -> Prof q id)
 newtype ProfR p q a b = ProfR { runProfR :: forall x. p x a -> q x b }
 
 instance Contravariant ProfR where
-  contramap f = nat3 $ \(ProfR pq) -> ProfR $ \p -> pq (runNat2 f p)
+  contramap f = nat3 $ \(ProfR pq) -> ProfR $ \p -> pq (transport2 f p)
 
 instance Functor (ProfR p) where
-  fmap f = nat2 $ \(ProfR pq) -> ProfR $ \p -> runNat2 f (pq p)
+  fmap f = nat2 $ \(ProfR pq) -> ProfR $ \p -> transport2 f (pq p)
 
 instance Post Functor p => Contravariant (ProfR p q) where
   contramap f = Nat $ \(ProfR pq) -> ProfR $ \p -> pq (fmap1 f p)
@@ -103,8 +103,8 @@ jotProf :: Post Functor p => (~>) ~> ProfR p p
 jotProf = nat2 $ \f -> ProfR (fmap1 f)
 
 instance Curried Prof ProfR where
-  curry k = nat2 $ \p -> ProfR $ \q -> runNat2 k (Prof p q)
-  uncurry k = nat2 $ \(Prof p q) -> runProfR (runNat2 k p) q
+  curry k = nat2 $ \p -> ProfR $ \q -> transport2 k (Prof p q)
+  uncurry k = nat2 $ \(Prof p q) -> runProfR (transport2 k p) q
 
 -- To cocurry Prof we'd have the following universal property:
 
@@ -114,6 +114,6 @@ instance Curried Prof ProfR where
 --  uncocurry l = nat2 $ \k -> runProfL k l
 --
 --  -- but to cocurry, we'd need to be able to 'smuggle information out' in c.
---  cocurry l = nat2 $ \b -> case runNat2 l (ProfL $ \f -> case runNat2 f b of Prof p q -> _uh) of
+--  cocurry l = nat2 $ \b -> case transport2 l (ProfL $ \f -> case transport2 f b of Prof p q -> _uh) of
 --    x -> _wat
 

@@ -57,6 +57,8 @@ class Profunctor p => Strong p where
 type Lens s t a b = forall p. Strong p => p a b -> p s t
 
 -- | Monoidal tensor for the category of monad transformers
+--
+-- This performs the nesting.
 newtype Tensor (s :: (* -> *) -> * -> *) (t :: (* -> *) -> * -> *) (m :: * -> *) (a :: *) = Tensor { runTensor :: s (t m) a }
 
 instance (Trans s, Trans t) => Trans (Tensor s t) where
@@ -107,7 +109,6 @@ associate = dimap (Hom hither) (Hom yon) where
     Dict -> case trans :: Dict (Monad (t' (u' m))) of
      Dict -> Tensor (Tensor (hoist runTensor m))
 
-{-
-readerState :: Lens (StateT s) (StateT s') (ReaderT s) (ReaderT s')
-readerState = undefined
--}
+-- given a normal lens we can a lens into state
+ahoy :: (Hoist t, Hoist s, Hoist s') => Lens (Tensor t s) (Tensor t s') s s'
+ahoy = _2

@@ -36,7 +36,7 @@ class hom ~ Hom => Ended (hom :: j -> j -> *) | j -> hom where
 newtype End1 f = End { getEnd :: forall x. f x x }
 
 instance Functor End1 where
-  fmap f (End fcc) = End $ runNat2 f fcc
+  fmap f (End fcc) = End $ transport2 f fcc
 
 instance Ended (->) where
   type End = End1
@@ -45,7 +45,7 @@ instance Ended (->) where
 newtype End2 f y = End2 { getEnd2 :: forall x. f x x y }
 
 instance Functor End2 where
-  fmap f = Nat $ \(End2 fcc) -> End2 $ runNat3 f fcc
+  fmap f = Nat $ \(End2 fcc) -> End2 $ transport3 f fcc
 
 -- instance Post (Post Functor) f => Functor (End2 f) where
 
@@ -63,7 +63,7 @@ instance p Any Any => EndC (p :: i -> i -> Constraint) where
 instance Functor EndC where
   fmap f = dimap (Sub endDict) (Sub Dict) (runAny f) where
     runAny :: (p ~> q) -> p Any Any ~> q Any Any
-    runAny = runNat2
+    runAny = transport2
 
 instance Ended (:-) where
   type End = EndC
@@ -83,7 +83,7 @@ instance Coended (->) where
   coend = Coend
 
 instance Functor Coend1 where
-  fmap f (Coend fcc) = Coend $ runNat2 f fcc
+  fmap f (Coend fcc) = Coend $ transport2 f fcc
 
 data Coend2 f y where
   Coend2 :: f x x y -> Coend2 f y
@@ -93,4 +93,4 @@ instance Coended (Nat :: (i -> *) -> (i -> *) -> *) where
   coend = Nat Coend2
 
 instance Functor Coend2 where
-  fmap f = Nat $ \(Coend2 fcc) -> Coend2 $ runNat3 f fcc
+  fmap f = Nat $ \(Coend2 fcc) -> Coend2 $ transport3 f fcc

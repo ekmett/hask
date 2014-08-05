@@ -127,23 +127,23 @@ instance Functor ComposeConst1 where
   fmap f = Nat $ dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ first $ fmap1 f
 
 instance Functor (ComposeConst1 f) where
-  fmap f = dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ Nat $ composed $ fmap2 $ runNat f
+  fmap f = dimap (nat2 decomposeConst1) (nat2 ComposeConst1) $ Nat $ composed $ fmap2 $ transport f
 
 instance Functor g => Functor (ComposeConst1 f g) where
   fmap f = dimap (Nat decomposeConst1) (Nat ComposeConst1) $ composed $ fmap2 $ fmap f
 
 instance Semitensor ComposeConst1 where
   type Tensorable ComposeConst1 = Functor
-  second f = runNat (beget rcomposed) . Nat (composed (fmap2 (runNat f))) . runNat (get rcomposed)
-  associate = dimap (runNat (beget rcomposed) . Nat (composed go) . runNat (get rcomposed)) undefined where
+  second f = transport (beget rcomposed) . Nat (composed (fmap2 (transport f))) . transport (get rcomposed)
+  associate = dimap (transport (beget rcomposed) . Nat (composed go) . transport (get rcomposed)) undefined where
     go :: Lan2 Const1 (ComposeConst1 a b) (c x) ~> Lan2 Const1 a (ComposeConst1 b c x)
     go = Nat $ \(Lan2 l) -> Lan2 $ \a2zc -> undefined -- TODO
 
 type instance I ComposeConst1 = Const1
 instance Tensor ComposeConst1 where
   lambda = undefined
-  rho = dimap (nat2 $ undefined . runNat decompose . decomposeConst1) -- TODO
-              (nat2 $ \a -> ComposeConst1 $ runNat compose $ Lan2 $ \k -> runNat decompose $ runNat2 k a)
+  rho = dimap (nat2 $ undefined . transport decompose . decomposeConst1) -- TODO
+              (nat2 $ \a -> ComposeConst1 $ transport compose $ Lan2 $ \k -> transport decompose $ transport2 k a)
 
 
 instance RelComposed Const1 where

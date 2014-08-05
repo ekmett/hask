@@ -49,7 +49,7 @@ class (Category hom, hom ~ Hom) => HasAt (hom :: y -> y -> *) where
   iextend :: forall (w :: (x -> y) -> x -> y) (ak :: x -> y) (i :: x) (j :: x) (b :: y). Comonad w => (w ak j ~> b) -> w ak i ~> w (Coat b j) i
 
   iextract :: Comonad w => hom (w (Coat a i) i) a
-  iextract = coat . runNat extract
+  iextract = coat . transport extract
 
   -- There is an adjunction between the obligations of At and the problem solved by Coat
   atAdj :: forall (a :: y) (b :: y) (a' :: y) (b' :: y) (i :: x) (j :: x) (i' :: x') (j' :: x').
@@ -65,14 +65,14 @@ newtype Coat0 a i j = Coat { runCoat :: (i ~ j) => a }
 instance HasAt (->) where
   type At = At0
   at = At
-  ibind f = runNat (bind (Nat (\(At a) -> f a)))
-  ireturn a = runNat return (at a) -- we can't point-free this one currently in GHC, so we need it in the class
+  ibind f = transport (bind (Nat (\(At a) -> f a)))
+  ireturn a = transport return (at a) -- we can't point-free this one currently in GHC, so we need it in the class
   atFunctor = Dict
 
   type Coat = Coat0
   coat = runCoat
   coatMonoidal = Dict
-  iextend f = runNat (extend (Nat (\a -> Coat (f a))))
+  iextend f = transport (extend (Nat (\a -> Coat (f a))))
 
   atAdj = dimap (\aijb a -> Coat $ aijb $ At a) (\abij (At a) -> runCoat (abij a))
 
@@ -122,8 +122,8 @@ instance ((i~j)|-a) :=> CoatC a i j where ins = Sub Dict
 instance HasAt (:-) where
   type At = AtC
   at = Sub Dict
-  ibind f = runNat $ bind $ Nat $ Sub $ Dict \\ f
-  ireturn = runNat return . at
+  ibind f = transport $ bind $ Nat $ Sub $ Dict \\ f
+  ireturn = transport return . at
   atFunctor = Dict
 
   type Coat = CoatC
@@ -132,8 +132,8 @@ instance HasAt (:-) where
     ii = Sub Dict
   coatMonoidal = Dict
 
-  iextract = coat . runNat extract
-  iextend f = runNat $ extend $ Nat $ ins . curry (f . Sub Dict)
+  iextract = coat . transport extract
+  iextend f = transport $ extend $ Nat $ ins . curry (f . Sub Dict)
 
   atAdj = dimap (\a-> ins.curry(a.ins)) (\c -> uncurry (cls.c).cls)
 

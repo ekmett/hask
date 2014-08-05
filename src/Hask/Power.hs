@@ -65,8 +65,8 @@ instance Powered (Lift2 (Lift1 (->))) where
   type Power = Lift (Lift (->))
   flipped = dimap (curry $ curry $ apply . first apply . associate (fmap1 swap))
                   (curry $ curry $ apply . first apply . associate (fmap1 swap))
-  --flipped = dimap (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (runNat (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . runNat (get _Lift)) . get _Lift) . get _Lift)
-  --                (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (runNat (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . runNat (get _Lift)) . get _Lift) . get _Lift)
+  --flipped = dimap (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (transport (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . transport (get _Lift)) . get _Lift) . get _Lift)
+  --                (Nat $ beget _Lift . Nat (beget _Lift . fmap1 (transport (beget _Lift) . beget _Lift) . flip . fmap1 (get _Lift . transport (get _Lift)) . get _Lift) . get _Lift)
 
 -- Power1 :: * -> (i -> *) -> (i -> *)
 newtype Power1 v f a = Power { runPower :: v -> f a }
@@ -74,14 +74,14 @@ newtype Power1 v f a = Power { runPower :: v -> f a }
 instance Powered (Nat :: (i -> *) -> (i -> *) -> *) where
   type Power = Power1
   flipped = dimap
-     (\k v -> Nat $ \f -> runPower (runNat k f) v)
-     (\k -> Nat $ \a' -> Power $ \u' -> runNat (k u') a')
+     (\k v -> Nat $ \f -> runPower (transport k f) v)
+     (\k -> Nat $ \a' -> Power $ \u' -> transport (k u') a')
 
 instance Contravariant Power1 where
   contramap f = nat2 $ Power . lmap f . runPower
 
 instance Functor (Power1 v) where
-  fmap f = Nat $ Power . fmap1 (runNat f) . runPower
+  fmap f = Nat $ Power . fmap1 (transport f) . runPower
 
 instance Semimonoidal (Power1 v) where
   ap2 = Nat $ \(Lift (Power va, Power vb)) -> Power $ \v -> Lift (va v, vb v)

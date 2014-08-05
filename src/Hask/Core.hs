@@ -56,7 +56,7 @@ module Hask.Core
   , Scheme
 
   -- * Natural transformations
-  , Nat(Nat, runNat), nat2, nat3, nat4, runNat2, runNat3, runNat4
+  , Nat(Nat, transport), nat2, nat3, nat4, transport2, transport3, transport4
 
   -- * Functors
   , Functor(fmap), first
@@ -254,7 +254,7 @@ data family Scheme :: i -> i -> *
 
 -- * Natural transformations (by using parametricity these are very strong)
 
-newtype Nat f g = Nat { runNat :: forall a. f a ~> g a }
+newtype Nat f g = Nat { transport :: forall a. f a ~> g a }
 
 nat2 :: (forall a b. f a b ~> g a b) -> f ~> g
 nat2 f = Nat (Nat f)
@@ -265,29 +265,21 @@ nat3 f = Nat (Nat (Nat f))
 nat4 :: (forall a b c d. f a b c d ~> g a b c d) -> f ~> g
 nat4 f = Nat (Nat (Nat (Nat f)))
 
-runNat2 = runNat . runNat
-runNat3 = runNat . runNat . runNat
-runNat4 = runNat . runNat . runNat . runNat
+transport2 = transport . transport
+transport3 = transport . transport . transport
+transport4 = transport . transport . transport . transport
 
 class (h ~ Hom) => Category (h :: i -> i -> *) where
   -- type Obj :: i -> Constraint
   id     :: h a a
-  source :: h a b -> h a a
-  source _ = id
-  target :: h a b -> h b b
-  target _ = id
   (.) :: h b c -> h a b -> h a c
 
 instance Category (->) where
   id x = x
-  source _ = id
-  target _ = id
   (.) f g x = f (g x)
 
 instance Category (:-) where
   id = Sub Dict
-  source _ = Sub Dict
-  target _ = Sub Dict
   f . g = Sub $ Dict \\ f \\ g
 
 instance Category ((~>) :: j -> j -> *) => Category (Nat :: (i -> j) -> (i -> j) -> *) where
@@ -303,13 +295,13 @@ instance Functor [] where fmap = Base.fmap
 instance Functor Maybe where fmap = Base.fmap
 
 first :: Functor f => (a ~> b) -> f a c ~> f b c
-first = runNat . fmap
+first = transport . fmap
 
 class Contravariant f where
   contramap :: (b ~> a) -> f a ~> f b
 
 lmap :: Contravariant f => (a ~> b) -> f b c ~> f a c
-lmap = runNat . contramap
+lmap = transport . contramap
 
 -- * Bifunctors/profunctors through limits
 
@@ -331,7 +323,7 @@ instance Functor LimC where
 {-
   fmap f = dimap (Sub limDict &&& Sub limDict) (Sub Dict) (runAny f) where
     runAny :: (p ~> q) -> (p (Any 0) & p (Any 1)) ~> (q (Any 0) & q (Any 1))
-    runAny = runNat &&& runNat
+    runAny = transport &&& transport
 -}
 
 class (hom ~ Hom) => Composed (hom :: k -> k -> *) | k -> hom where
@@ -621,7 +613,7 @@ instance Monoid m => Monoid (Lim1 m) where
   one = oneM
 
 instance Const1 -| Lim1 where
-  adj = dimap (\f a -> Lim (runNat f (Const a))) $ \h -> Nat $ getLim . h . getConst
+  adj = dimap (\f a -> Lim (transport f (Const a))) $ \h -> Nat $ getLim . h . getConst
 
 newtype Lim2 (f :: i -> j -> *) (y :: j) = Lim2 { getLim2 :: forall x. f x y }
 -- type instance Lim = Lim2
@@ -630,12 +622,12 @@ newtype Lim3 (f :: i -> j -> k -> *) (y :: j) (z :: k) = Lim3 { getLim3 :: foral
 -- type instance Lim = Lim3
 
 instance Functor Lim2 where
-  fmap f = Nat $ \(Lim2 g) -> Lim2 (runNat (runNat f) g)
+  fmap f = Nat $ \(Lim2 g) -> Lim2 (transport (transport f) g)
 
 -- instance Monoidal Lim2 -- instantiate when Nat on 2 arguments is made Cartesian
 
 instance Const2 -| Lim2 where
-  adj = dimap (\(Nat f) -> Nat $ \ a -> Lim2 (runNat f (Const2 a))) $ \(Nat h) -> nat2 $ getLim2 . h . getConst2
+  adj = dimap (\(Nat f) -> Nat $ \ a -> Lim2 (transport f (Const2 a))) $ \(Nat h) -> nat2 $ getLim2 . h . getConst2
 
 instance Semimonoidal LimC where
   ap2 = get zipR
@@ -651,7 +643,7 @@ instance Monoid m => Monoid (LimC m) where
 instance ConstC -| LimC where
   adj = todo
 {-
-  adj = dimap (hither . runNat) (\b -> Nat $ dimap (Sub Dict) (Sub limDict) b) where
+  adj = dimap (hither . transport) (\b -> Nat $ dimap (Sub Dict) (Sub limDict) b) where
     hither :: (ConstC a Any :- f Any) -> a :- LimC f
     hither = dimap (Sub Dict) (Sub Dict)
 -}
@@ -696,7 +688,7 @@ continuous f = Lim $ compose (fmap elim f)
 
 -- all functors to k -> * are continuous
 continuous1 :: (Functor f, Complete (Dom f)) => f (l g) `Nat` Lim (Compose2 f g)
-continuous1 = Nat $ \f -> Lim2 $ runNat (compose . fmap elim) f
+continuous1 = Nat $ \f -> Lim2 $ transport (compose . fmap elim) f
 
 -- all functors to Constraint are continuous
 continuousC :: (Functor f, Complete (Dom f)) => f (l g) :- Lim (ComposeC f g)
@@ -747,13 +739,13 @@ instance Lifted (->) where
   _Lift = dimap lower Lift
 
 instance Functor Lift1 where
-  fmap f = nat3 $ _Lift $ runNat2 f
+  fmap f = nat3 $ _Lift $ transport2 f
 
 instance Functor p => Functor (Lift1 p) where
-  fmap f = nat2 $ _Lift $ first $ runNat f
+  fmap f = nat2 $ _Lift $ first $ transport f
 
 instance Contravariant p => Contravariant (Lift1 p) where
-  contramap f = nat2 $ _Lift $ lmap $ runNat f
+  contramap f = nat2 $ _Lift $ lmap $ transport f
 
 instance Post Contravariant p => Contravariant (Lift1 p f) where
   contramap (Nat f) = Nat $ _Lift (contramap1 f)
@@ -770,10 +762,10 @@ class r (p a) (q a) => LiftC r p q a
 instance r (p a) (q a) => LiftC r p q a
 
 instance Functor p => Functor (LiftC p) where
-  fmap f = nat2 $ _Lift $ first $ runNat f
+  fmap f = nat2 $ _Lift $ first $ transport f
 
 instance Contravariant p => Contravariant (LiftC p) where
-  contramap f = nat2 $ _Lift $ lmap $ runNat f
+  contramap f = nat2 $ _Lift $ lmap $ transport f
 
 instance Post Functor p => Functor (LiftC p e) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
@@ -789,13 +781,13 @@ class r (f a) (g a) b => LiftC2 r f g a b
 instance r (f a) (g a) b => LiftC2 r f g a b
 
 instance Functor LiftC2 where
-  fmap f = nat3 $ _Lift $ runNat2 f  -- nat3 $ _Lift $ undefined -- TODO _heh
+  fmap f = nat3 $ _Lift $ transport2 f  -- nat3 $ _Lift $ undefined -- TODO _heh
 
 instance Functor p => Functor (LiftC2 p) where
-  fmap f = nat2 $ _Lift $ first $ runNat f
+  fmap f = nat2 $ _Lift $ first $ transport f
 
 instance Contravariant p => Contravariant (LiftC2 p) where
-  contramap f = nat2 $ _Lift $ lmap $ runNat f
+  contramap f = nat2 $ _Lift $ lmap $ transport f
 
 instance Post Functor p => Functor (LiftC2 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
@@ -816,13 +808,13 @@ instance Lifted (Nat :: (i -> *) -> (i -> *) -> *) where
   _Lift = dimap (Nat lower2) (Nat Lift2)
 
 instance Functor Lift2 where
-  fmap f = nat3 $ _Lift $ runNat2 f
+  fmap f = nat3 $ _Lift $ transport2 f
 
 instance Functor p => Functor (Lift2 p) where
-  fmap f = nat2 $ _Lift $ first $ runNat f
+  fmap f = nat2 $ _Lift $ first $ transport f
 
 instance Contravariant p => Contravariant (Lift2 p) where
-  contramap f = nat2 $ _Lift $ lmap $ runNat f
+  contramap f = nat2 $ _Lift $ lmap $ transport f
 
 instance Post Functor p => Functor (Lift2 p f) where
   fmap (Nat f) = Nat (_Lift $ fmap1 f)
@@ -988,7 +980,7 @@ instance Contravariant (->) where
   contramap f = Nat (. f)
 
 instance Contravariant ((~>)::j->j-> *) => Contravariant (Nat::(i->j)->(i->j)-> *) where
-  contramap (Nat f) = Nat $ \g -> Nat $ lmap f $ runNat g
+  contramap (Nat f) = Nat $ \g -> Nat $ lmap f $ transport g
 
 instance Contravariant Tagged where
   contramap _ = Nat (_Tagged id)
@@ -1153,7 +1145,7 @@ instance Tensor (&) where
 
 instance Semitensor p => Semitensor (Lift1 p) where
   type Tensorable (Lift1 p) = Post (Tensorable p)
-  second f = Nat $ _Lift $ second1 $ runNat f
+  second f = Nat $ _Lift $ second1 $ transport f
   associate   = dimap
     (Nat $ _Lift $ second1 Lift . get associate1 . first (get _Lift))
     (Nat $ _Lift $ first Lift . beget associate1 . second1 (get _Lift))
@@ -1167,7 +1159,7 @@ instance Tensor p => Tensor (Lift1 p) where
 
 instance Semitensor p => Semitensor (Lift2 (p :: (i -> *) -> (i -> *) -> i -> *)) where
   type Tensorable (Lift2 p) = Post (Tensorable p)
-  second f = Nat $ _Lift $ second1 $ runNat f
+  second f = Nat $ _Lift $ second1 $ transport f
   associate   = dimap
     (Nat $ _Lift $ second1 (beget _Lift) . get associate1 . first (get _Lift))
     (Nat $ _Lift $ first (beget _Lift) . beget associate1 . second1 (get _Lift))
@@ -1182,7 +1174,7 @@ instance Tensor p => Tensor (Lift2 p) where
 
 instance Semitensor p => Semitensor (LiftC p) where
   type Tensorable (LiftC p) = Post (Tensorable p)
-  second f = Nat $ _Lift $ second1 $ runNat f
+  second f = Nat $ _Lift $ second1 $ transport f
   associate   = dimap
     (Nat $ _Lift $ second1 (beget _Lift) . get associate1 . first (get _Lift))
     (Nat $ _Lift $ first (beget _Lift) . beget associate1 . second1 (get _Lift))
@@ -1197,7 +1189,7 @@ instance Tensor p => Tensor (LiftC p) where
 
 instance Semitensor p => Semitensor (LiftC2 p) where
   type Tensorable (LiftC2 p) = Post (Tensorable p)
-  second f = Nat $ _Lift $ second1 $ runNat f
+  second f = Nat $ _Lift $ second1 $ transport f
   associate   = dimap
     (Nat $ _Lift $ second1 (beget _Lift) . get associate1 . first (get _Lift))
     (Nat $ _Lift $ first (beget _Lift) . beget associate1 . second1 (get _Lift))
@@ -1509,23 +1501,23 @@ curry1 = case limDict :: Dict (Compose (Curryable p) a x) of Dict -> curry
 
 instance Curried p q => Curried (Lift1 p) (Lift1 q) where
   type Curryable (Lift1 p) = Post (Curryable p)
-  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
-  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
+  curry f = Nat $ beget _Lift . curry1 (transport f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . transport g) . get _Lift
 
 instance Curried p q => Curried (Lift2 p) (Lift2 q) where
   type Curryable (Lift2 p) = Post (Curryable p)
-  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
-  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
+  curry f = Nat $ beget _Lift . curry1 (transport f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . transport g) . get _Lift
 
 instance Curried p q => Curried (LiftC p) (LiftC q) where
   type Curryable (LiftC p) = Post (Curryable p)
-  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
-  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
+  curry f = Nat $ beget _Lift . curry1 (transport f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . transport g) . get _Lift
 
 instance Curried p q => Curried (LiftC2 p) (LiftC2 q) where
   type Curryable (LiftC2 p) = Post (Curryable p)
-  curry f = Nat $ beget _Lift . curry1 (runNat f . beget _Lift)
-  uncurry g = Nat $ uncurry (get _Lift . runNat g) . get _Lift
+  curry f = Nat $ beget _Lift . curry1 (transport f . beget _Lift)
+  uncurry g = Nat $ uncurry (get _Lift . transport g) . get _Lift
 
 -- e.g. (Lan f g ~> h) is isomorphic to (g ~> h ∘ f)
 
@@ -2134,8 +2126,8 @@ composed = dimap decompose compose
 associateCompose = dimap (Nat (compose . fmap compose . decompose . decompose))
                          (Nat (compose . compose . fmap decompose . decompose))
 
-whiskerComposeL k = Nat $ composed $ runNat k
-whiskerComposeR k = Nat $ composed $ fmap (runNat k)
+whiskerComposeL k = Nat $ composed $ transport k
+whiskerComposeR k = Nat $ composed $ fmap (transport k)
 lambdaCompose = dimap (Nat (get _Id . decompose)) (Nat (compose . beget _Id))
 rhoCompose = dimap (Nat (fmap (get _Id) . decompose)) (Nat (compose . fmap (beget _Id)))
 
@@ -2149,7 +2141,7 @@ instance Composed (->) where
 
 instance Semitensor Compose1 where
   type Tensorable Compose1 = Functor
-  second f = Nat $ composed $ fmap (runNat f)
+  second f = Nat $ composed $ fmap (transport f)
   associate = dimap (Nat (compose . fmap compose . decompose . decompose))
                     (Nat (compose . compose . fmap decompose . decompose))
 
@@ -2162,7 +2154,7 @@ newtype Compose2 f g a b = Compose2 { getCompose2 :: f (g a) b }
 
 instance Semitensor Compose2 where
   type Tensorable Compose2 = Functor
-  second f = Nat $ composed $ fmap (runNat f)
+  second f = Nat $ composed $ fmap (transport f)
   associate = dimap (Nat (compose . fmap compose . decompose . decompose))
                     (Nat (compose . compose . fmap decompose . decompose))
 
@@ -2173,7 +2165,7 @@ instance Tensor Compose2 where
 
 instance Semitensor ComposeC where
   type Tensorable ComposeC = Functor
-  second f = Nat $ composed $ fmap (runNat f)
+  second f = Nat $ composed $ fmap (transport f)
   associate = dimap (Nat (compose . fmap compose . decompose . decompose))
                     (Nat (compose . compose . fmap decompose . decompose))
 
@@ -2188,31 +2180,31 @@ instance Composed (Nat :: (k -> *) -> (k -> *) -> *) where
   decompose = Nat getCompose2
 
 instance Functor Compose1 where
-  fmap f = nat2 $ composed $ runNat f
+  fmap f = nat2 $ composed $ transport f
 
 instance Functor Compose2 where
-  fmap f = nat2 $ composed $ runNat f
+  fmap f = nat2 $ composed $ transport f
 
 instance Functor ComposeC where
-  fmap f = nat2 $ composed $ runNat f
+  fmap f = nat2 $ composed $ transport f
 
 instance Functor f => Functor (Compose1 f) where
-  fmap f = Nat $ composed $ fmap $ runNat f
+  fmap f = Nat $ composed $ fmap $ transport f
 
 instance Functor f => Functor (Compose2 f) where
-  fmap f = Nat $ composed $ fmap $ runNat f
+  fmap f = Nat $ composed $ fmap $ transport f
 
 instance Functor f => Functor (ComposeC f) where
-  fmap f = Nat $ composed $ fmap $ runNat f
+  fmap f = Nat $ composed $ fmap $ transport f
 
 instance Contravariant f => Contravariant (Compose1 f) where
-  contramap f = Nat $ composed $ contramap $ runNat f
+  contramap f = Nat $ composed $ contramap $ transport f
 
 instance Contravariant f => Contravariant (Compose2 f) where
-  contramap f = Nat $ composed $ contramap $ runNat f
+  contramap f = Nat $ composed $ contramap $ transport f
 
 instance Contravariant f => Contravariant (ComposeC f) where
-  contramap f = Nat $ composed $ contramap $ runNat f
+  contramap f = Nat $ composed $ contramap $ transport f
 
 instance (Functor f, Functor g) => Functor (Compose1 f g) where
   fmap = composed . fmap . fmap
@@ -2322,7 +2314,7 @@ instance Functor Copower1 where
   fmap f = nat2 $ \(Copower x fa) -> Copower (f x) fa
 
 instance Functor (Copower1 x) where
-  fmap f = Nat $ \(Copower x fa) -> Copower x (runNat f fa)
+  fmap f = Nat $ \(Copower x fa) -> Copower x (transport f fa)
 
 instance Functor f => Functor (Copower1 x f) where
   fmap f (Copower x fa) = Copower x (fmap f fa)
@@ -2331,8 +2323,8 @@ instance Contravariant f => Contravariant (Copower1 x f) where
   contramap f (Copower x fa) = Copower x (contramap f fa)
 
 instance Curried Copower1 Nat where
-  curry f a = Nat $ \e -> runNat f (Copower a e)
-  uncurry f = Nat $ \(Copower a e) -> runNat (f a) e
+  curry f a = Nat $ \e -> transport f (Copower a e)
+  uncurry f = Nat $ \(Copower a e) -> transport (f a) e
 
 data Copower2 x f a b = Copower2 x (f a b)
 type instance Copower = Copower2
@@ -2341,7 +2333,7 @@ instance Functor Copower2 where
   fmap f = nat3 $ \(Copower2 x fab) -> Copower2 (f x) fab
 
 instance Functor (Copower2 x) where
-  fmap f = nat2 $ \(Copower2 x fab) -> Copower2 x (runNat2 f fab)
+  fmap f = nat2 $ \(Copower2 x fab) -> Copower2 x (transport2 f fab)
 
 instance Functor f => Functor (Copower2 x f) where
   fmap f = Nat $ \(Copower2 x fab) -> Copower2 x (first f fab)
@@ -2356,18 +2348,18 @@ instance Post Contravariant f => Contravariant (Copower2 x f a) where
   contramap f (Copower2 x fab) = Copower2 x (contramap1 f fab)
 
 instance Curried Copower2 Nat where
-  curry f a = nat2 $ \b -> runNat2 f (Copower2 a b)
-  uncurry f = nat2 $ \(Copower2 a b) -> runNat2 (f a) b
+  curry f a = nat2 $ \b -> transport2 f (Copower2 a b)
+  uncurry f = nat2 $ \(Copower2 a b) -> transport2 (f a) b
 
 -- Nat :: (i -> j -> *) -> (i -> j -> *) -> * is tensored. (Copowered over Nat :: (i -> *) -> (i -> *) -> *)
 data Copower2_1 x f a b = Copower2_1 (x a) (f a b)
 type instance Copower = Copower2_1
 
 instance Functor Copower2_1 where
-  fmap f = nat3 $ \(Copower2_1 xa fab) -> Copower2_1 (runNat f xa) fab
+  fmap f = nat3 $ \(Copower2_1 xa fab) -> Copower2_1 (transport f xa) fab
 
 instance Functor (Copower2_1 x) where
-  fmap f = nat2 $ \(Copower2_1 xa fab) -> Copower2_1 xa (runNat2 f fab)
+  fmap f = nat2 $ \(Copower2_1 xa fab) -> Copower2_1 xa (transport2 f fab)
 
 instance (Functor x, Functor f) => Functor (Copower2_1 x f) where
   fmap f = Nat $ \(Copower2_1 xa fab) -> Copower2_1 (fmap f xa) (first f fab)
@@ -2382,8 +2374,8 @@ instance Post Contravariant f => Contravariant (Copower2_1 x f a) where
   contramap f (Copower2_1 xa fab) = Copower2_1 xa (contramap1 f fab)
 
 instance Curried Copower2_1 (Lift1 Nat) where
-  curry f = Nat $ \a -> Lift $ Nat $ \b -> runNat2 f $ Copower2_1 a b
-  uncurry f = nat2 $ \(Copower2_1 a b) -> runNat (lower (runNat f a)) b
+  curry f = Nat $ \a -> Lift $ Nat $ \b -> transport2 f $ Copower2_1 a b
+  uncurry f = nat2 $ \(Copower2_1 a b) -> transport (lower (transport f a)) b
 
 class (k ~ (~>)) => Cocomplete (k :: j -> j -> *) where
   type Colim :: (i -> j) -> j
@@ -2429,12 +2421,12 @@ data Colim2 (f :: i -> j -> *) (x :: j) where
   Colim2 :: f y x -> Colim2 f x
 
 instance Functor Colim2 where
-  fmap f = Nat $ \(Colim2 g) -> Colim2 (runNat (runNat f) g)
+  fmap f = Nat $ \(Colim2 g) -> Colim2 (transport (transport f) g)
 
 instance Colim2 -| Const2 where
   adj = dimap (\(Nat f) -> nat2 $ Const2 . f . Colim2) $
                \ f -> Nat $ \ xs -> case xs of
-                 Colim2 fyx -> getConst2 $ runNat2 f fyx
+                 Colim2 fyx -> getConst2 $ transport2 f fyx
 
 instance Cocomplete (Nat :: (i -> *) -> (i -> *) -> *) where
   type Colim = Colim2
@@ -2468,8 +2460,8 @@ data Ran1 f g a = forall z. Functor z => Ran (Compose z f ~> g) (z a)
 instance Curried Compose1 Ran1 where
   type Curryable Compose1 = Functor
   curry l = Nat (Ran l)
-  uncurry l = Nat $ \ (Compose ab) -> case runNat l ab of
-    Ran czfg za -> runNat czfg (Compose za)
+  uncurry l = Nat $ \ (Compose ab) -> case transport l ab of
+    Ran czfg za -> transport czfg (Compose za)
 
 instance HasRan (->) where
   type Ran = Ran1
@@ -2477,7 +2469,7 @@ instance HasRan (->) where
   jotRan = curry (get lambdaCompose)
 
 instance Contravariant Ran1 where
-  contramap f = nat2 $ \(Ran k z) -> Ran (k . Nat (compose . fmap (runNat f) . decompose)) z
+  contramap f = nat2 $ \(Ran k z) -> Ran (k . Nat (compose . fmap (transport f) . decompose)) z
 
 instance Category (Hom :: j -> j -> *) => Functor (Ran1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \(Ran k z) -> Ran (f . k) z
@@ -2507,16 +2499,16 @@ newtype Lan1 f g a = Lan { runLan :: forall z. Functor z => (g ~> Compose z f) ~
 
 instance Cocurried Lan1 Compose1 where
   type Cocurryable Compose1 = Functor
-  cocurry l = Nat $ \b -> Compose $ runNat l (Lan $ \f -> case runNat f b of Compose z -> z)
+  cocurry l = Nat $ \b -> Compose $ transport l (Lan $ \f -> case transport f b of Compose z -> z)
   uncocurry k = Nat $ \xs -> runLan xs k
 
 instance HasLan (->) where
   type Lan = Lan1
   epsilonLan = dimap (Nat $ \l -> runLan l (beget rhoCompose))
-                     (Nat $ \f -> Lan $ \k -> runNat (get rhoCompose . k) f)
+                     (Nat $ \f -> Lan $ \k -> transport (get rhoCompose . k) f)
 
 instance Contravariant Lan1 where
-  contramap f = nat2 $ \l -> Lan $ \k -> runLan l (Nat (compose . fmap (runNat f) . decompose) . k)
+  contramap f = nat2 $ \l -> Lan $ \k -> runLan l (Nat (compose . fmap (transport f) . decompose) . k)
 
 instance Category (Hom :: j -> j -> *) => Functor (Lan1 f :: (i -> *) -> (j -> *)) where
   fmap f = Nat $ \l -> Lan $ \k -> runLan l (k . f)
@@ -2528,16 +2520,16 @@ newtype Lan2 f g a b = Lan2 { runLan2 :: forall z. Functor z => (g ~> Compose z 
 
 instance Cocurried Lan2 Compose2 where
   type Cocurryable Compose2 = Functor
-  cocurry l = nat2 $ \b -> Compose2 $ runNat2 l (Lan2 $ \f -> case runNat2 f b of Compose2 z -> z)
+  cocurry l = nat2 $ \b -> Compose2 $ transport2 l (Lan2 $ \f -> case transport2 f b of Compose2 z -> z)
   uncocurry k = nat2 $ \xs -> runLan2 xs k
 
 instance HasLan (Nat :: (i -> *) -> (i -> *) -> *)  where
   type Lan = Lan2
   epsilonLan = dimap (nat2 $ \l -> runLan2 l (beget rhoCompose))
-                     (nat2 $ \f -> Lan2 $ \k -> runNat2 (get rhoCompose . k) f)
+                     (nat2 $ \f -> Lan2 $ \k -> transport2 (get rhoCompose . k) f)
 
 instance Contravariant Lan2 where
-  contramap f = nat3 $ \l -> Lan2 $ \k -> runLan2 l (Nat (compose . fmap (runNat f) . decompose) . k)
+  contramap f = nat3 $ \l -> Lan2 $ \k -> runLan2 l (Nat (compose . fmap (transport f) . decompose) . k)
 
 instance Category (Hom :: j -> j -> *) => Functor (Lan2 f :: (i -> k -> *) -> (j -> k -> *)) where
   fmap f = nat2 $ \l -> Lan2 $ \k -> runLan2 l (k . f)

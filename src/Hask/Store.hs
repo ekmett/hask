@@ -43,4 +43,4 @@ instance Cosemimonad (Store1 s) where
   duplicate = Nat $ \(Store1 f s) -> Store1 (Nat $ Store1 f) s
 
 instance Comonad (Store1 s) where
-  extract = Nat $ \(Store1 f s) -> runNat f s
+  extract = Nat $ \(Store1 f s) -> transport f s

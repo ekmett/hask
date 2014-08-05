@@ -59,7 +59,7 @@ instance Foldable (,) where
 instance Foldable ((,) e) where foldMap = lmap snd
 
 instance Foldable Either where
-  foldMap = Nat $ \f -> Lift $ (runPower f ||| \ _ -> runNat one (Const ()))
+  foldMap = Nat $ \f -> Lift $ (runPower f ||| \ _ -> transport one (Const ()))
 
 instance Foldable (Either a) where foldMap = foldMapHask
 
@@ -73,13 +73,13 @@ instance Foldable (Lift2 (Lift1 (,)) e) where foldMap = lmap snd
 -- TODO: instance Foldable (Lift1 Either)
 instance Foldable (Lift1 Either e) where
   foldMap = Nat $ \ f -> Lift $ \case
-    Lift (Left _)  -> runNat one (Const ())
+    Lift (Left _)  -> transport one (Const ())
     Lift (Right e) -> lower f e
 
 -- TODO: instance Foldable (Lift2 (Lift1 Either))
 instance Foldable (Lift2 (Lift1 Either) e) where
   foldMap = nat2 $ \ (Lift2 (Lift f)) -> Lift2 $ Lift $ \case
-    Lift2 (Lift (Left _))  -> runNat2 one (Const2 (Const ()))
+    Lift2 (Lift (Left _))  -> transport2 one (Const2 (Const ()))
     Lift2 (Lift (Right e)) -> f e
 
 -- TODO: instance Foldable Compose1 -- we don't have sufficient Power levels
