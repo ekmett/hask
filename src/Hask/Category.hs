@@ -1,5 +1,32 @@
 {-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures #-}
-module Hask.Category where
+module Hask.Category
+  (
+  -- * Category
+    Category'(..)
+  , Category''
+  , Category
+  -- * Functors
+  -- ** Regular
+  , Functor(..)
+  , FunctorOf
+  , ob, obOf
+  , contramap
+  -- ** (Curried) Bifunctors
+  , Bifunctor
+  , fmap1
+  , bimap
+  , dimap
+  -- * Vacuous
+  , Vacuous
+  -- * Categories
+  -- ** Constraints
+  , Constraint, (:-)(Sub), Dict(..), (\\), sub
+  -- ** Op
+  , Yoneda(..), yoneda, Op
+  -- ** Nat
+  , Nat(..), NatId, Endo, nat
+  , Presheaves, Copresheaves
+  ) where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\))
 import qualified Data.Constraint as Constraint
