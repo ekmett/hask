@@ -31,10 +31,6 @@ module Hask.Category
   , NatDom, NatCod
   -- * Prelude
   , ($), Either(..)
-  -- * Bug Workaround
-#ifdef HACK
-  , Prof, Procompose(..), ProfunctorOf
-#endif
   ) where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\))
@@ -324,12 +320,3 @@ instance Functor (Either a) where
   type Cod (Either a) = (->)
   fmap _ (Left a) = Left a
   fmap f (Right b) = Right (f b)
-
-
---------------------------------------------------------------------------------
--- * Profunctor Composition
---------------------------------------------------------------------------------
-
-#ifdef HACK
-#include "Prof.include"
-#endif
