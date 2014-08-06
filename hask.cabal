@@ -38,7 +38,7 @@ library
     Hask.Category
     Hask.Category.Polynomial
     Hask.Functor.Faithful
-    Hask.Get
+    Hask.Iso
     Hask.Prof
     Hask.Tensor
 

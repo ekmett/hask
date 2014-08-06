@@ -1,21 +1,23 @@
 {-# LANGUAGE NoImplicitPrelude, KindSignatures, PolyKinds, ConstraintKinds, TypeFamilies, UndecidableInstances, DataKinds, ScopedTypeVariables, RankNTypes, AllowAmbiguousTypes, FlexibleContexts #-}
-module Hask.Get where
+module Hask.Iso
+  ( 
+  -- * Iso
+    Iso
+  -- * Get
+  , Get, _Get, get
+  -- * Beget
+  , Beget, _Beget, beget, (#)
+  -- * Yoneda 
+  , yoneda
+  ) where
 
 import Hask.Category
 
-type Iso c d e s t a b = forall p. (Bifunctor p, Opd p ~ c, Dom2 p ~ d, Cod2 p ~ e) => p a b -> p s t
+--------------------------------------------------------------------------------
+-- *  Iso
+--------------------------------------------------------------------------------
 
-yoneda :: forall p f g a b. (Ob p a, FunctorOf p (->) g, FunctorOf p (->) (p b))
-       => Iso (->) (->) (->)
-          (Nat p (->) (p a) f)
-          (Nat p (->) (p b) g)
-          (f a)
-          (g b)
-yoneda = dimap hither yon where
-  hither :: Nat p (->) (p a) f -> f a
-  hither (Nat f) = f id
-  yon :: g b -> Nat p (->) (p b) g
-  yon gb = Nat $ \pba -> fmap pba gb
+type Iso c d e s t a b = forall p. (Bifunctor p, Opd p ~ c, Dom2 p ~ d, Cod2 p ~ e) => p a b -> p s t
 
 --------------------------------------------------------------------------------
 -- *  Get (Lens)
@@ -81,3 +83,20 @@ beget l = runBeget $ l (Beget id)
 
 (#) :: (Beget (->) b b b -> Beget (->) b t t) -> b -> t
 (#) = beget
+
+--------------------------------------------------------------------------------
+-- * The Yoneda Lemma
+--------------------------------------------------------------------------------
+
+yoneda :: forall p f g a b. (Ob p a, FunctorOf p (->) g, FunctorOf p (->) (p b))
+       => Iso (->) (->) (->)
+          (Nat p (->) (p a) f)
+          (Nat p (->) (p b) g)
+          (f a)
+          (g b)
+yoneda = dimap hither yon where
+  hither :: Nat p (->) (p a) f -> f a
+  hither (Nat f) = f id
+  yon :: g b -> Nat p (->) (p b) g
+  yon gb = Nat $ \pba -> fmap pba gb
+

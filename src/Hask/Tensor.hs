@@ -10,7 +10,7 @@ module Hask.Tensor
   ) where
 
 import Hask.Category
-import Hask.Get
+import Hask.Iso
 import Data.Void
 
 --------------------------------------------------------------------------------
