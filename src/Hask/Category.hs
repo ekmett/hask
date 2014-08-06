@@ -1,4 +1,5 @@
-{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures #-}
+{-# LANGUAGE CPP, KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures #-}
+
 module Hask.Category
   (
   -- * Category
@@ -33,7 +34,9 @@ module Hask.Category
   -- * Prelude
   , ($), Either(..)
   -- * Bug Workaround
+#ifdef HACK
   , Prof, Procompose(..), ProfunctorOf
+#endif
   ) where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\))
@@ -339,6 +342,8 @@ instance Functor (Either a) where
 -- * Profunctor Composition
 --------------------------------------------------------------------------------
 
+#ifdef HACK
+
 type Prof c d = Nat (Op c) (Nat d (->))
 
 class    (Bifunctor f, Dom f ~ Op p, Dom2 f ~ q, Cod2 f ~ (->)) => ProfunctorOf p q f
@@ -383,3 +388,5 @@ associateProcompose = dimap
   (Nat $ Nat $ \ (Procompose (Procompose a b) c) -> Procompose a (Procompose b c))
   (Nat $ Nat $ \ (Procompose a (Procompose b c)) -> Procompose (Procompose a b) c)
 -}
+
+#endif

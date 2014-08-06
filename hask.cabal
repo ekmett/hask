@@ -26,6 +26,10 @@ flag Optimize
   description: Enable optimizations
   default:     False
 
+flag hack
+  default: True
+  manual: True
+
 library
   default-language: Haskell2010
 
@@ -52,3 +56,6 @@ library
 
   if flag(Optimize)
     ghc-options: -funbox-strict-fields -O2
+
+  if flag(hack)
+    cpp-options: -DHACK=1

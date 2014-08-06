@@ -1,15 +1,11 @@
-{-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures #-}
+{-# LANGUAGE CPP, KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures, NoMonoLocalBinds #-}
 module Hask.Prof 
   ( Prof, ProfunctorOf, Procompose(..)
   ) where
 
 import Hask.Category
 
-{-
-
---------------------------------------------------------------------------------
--- * Profunctor Composition
---------------------------------------------------------------------------------
+#ifndef HACK
 
 type Prof c d = Nat (Op c) (Nat d (->))
 
@@ -56,4 +52,4 @@ associateProcompose = dimap
   (Nat $ Nat $ \ (Procompose a (Procompose b c)) -> Procompose (Procompose a b) c)
 -}
 
--}
+#endif
