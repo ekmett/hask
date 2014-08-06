@@ -228,7 +228,7 @@ type instance Hom = Nat      -- @(i -> j) -> (i -> j) -> *@
 type instance Hom = (:-)     -- @Constraint -> Constraint -> *@
 type instance Hom = Unit     -- @() -> () -> *@
 type instance Hom = Empty    -- @Void -> Void -> *@
-type instance Hom = Prod     -- @(i,j) -> (i, j) -> *@
+type instance Hom = Prod     -- @(i,j) -> (i,j) -> *@
 type instance Hom = Lift Hom -- automatically support Nat-enrichment, etc.
 type instance Hom = (|-)     -- @Constraint -> Constraint -> Constraint@ the internal hom of (:-)
 
@@ -270,8 +270,7 @@ transport3 = transport . transport . transport
 transport4 = transport . transport . transport . transport
 
 class (h ~ Hom) => Category (h :: i -> i -> *) where
-  -- type Obj :: i -> Constraint
-  id     :: h a a
+  id  :: h a a
   (.) :: h b c -> h a b -> h a c
 
 instance Category (->) where
@@ -337,6 +336,7 @@ type (∘) = Compose
 -- | We can compose constraints
 class f (g a) => ComposeC f g a
 instance f (g a) => ComposeC f g a
+
 instance Class (f (g a)) (ComposeC f g a) where cls = Sub Dict
 instance f (g a) :=> ComposeC f g a where ins = Sub Dict
 
@@ -1387,7 +1387,7 @@ class (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
   eitherCHelper :: (a :- c) -> (b :- c) -> Dict c
 instance (((a |- c) & (b |- c)) |- c) => CoproductCHelper a b c where
   eitherCHelper ac bc = case (beget _Implies ac) of
-    Dict -> case (beget _Implies bc) of
+    Dict -> case beget _Implies bc of
       Dict -> get (_Implies . _Sub) (Dict :: Dict (((a |- c) & (b |- c)) |- c)) Dict
 instance Class (((a |- c) & (b |- c)) |- c) (CoproductCHelper a b c) where cls = Sub Dict
 instance (((a |- c) & (b |- c)) |- c) :=> CoproductCHelper a b c where ins = Sub Dict
@@ -1416,13 +1416,13 @@ instance Precocartesian (:-) where
   inl = inlC
     where
       inlC :: forall a b. a :- CoproductC a b
-      inlC = Sub $ Dict \\ ((ins . l) :: a :- CoproductCHelper a b Any)
+      inlC = Sub $ Dict \\ (ins . l :: a :- CoproductCHelper a b Any)
       l :: forall a b r. a :- (((a |- r) & (b |- r)) |- r)
       l = Sub $ beget _Implies $ Sub $ Dict \\ (implies :: a :- r)
   inr = inrC
     where
       inrC :: forall a b. b :- CoproductC a b
-      inrC = Sub $ Dict \\ ((ins . r) :: b :- CoproductCHelper a b Any)
+      inrC = Sub $ Dict \\ (ins . r :: b :- CoproductCHelper a b Any)
       r :: forall a b r. b :- (((a |- r) & (b |- r)) |- r)
       r = Sub $ beget _Implies $ Sub $ Dict \\ (implies :: b :- r)
   f ||| g = Sub $ eitherC f g
@@ -1441,7 +1441,7 @@ factor = fmap1 inl ||| fmap1 inr
 -- to get the inverses.
 class (Cartesian k, Cocartesian k) => Distributive (k :: i -> i -> *) | i -> k where
   distribute :: forall (a :: i) (b :: i) (c :: i) (a' :: i) (b' :: i) (c' :: i).
-             Iso ((a * b) + (a * c)) ((a' * b') + (a' * c'))
+             Iso (a * b + a * c) (a' * b' + a' * c')
                  (a * (b + c))       (a' * (b' + c'))
 
 instance Distributive (->) where
