@@ -35,6 +35,7 @@ library
     Hask.Category.Polynomial
     Hask.Functor.Faithful
     Hask.Get
+    Hask.Prof
     Hask.Tensor
 
   build-depends:
