@@ -31,6 +31,7 @@ library
 
   exposed-modules:
     Hask.Category
+    Hask.Category.Polynomial
     Hask.Faithful
     Hask.Get
     Hask.Tensor
