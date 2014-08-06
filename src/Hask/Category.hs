@@ -23,7 +23,7 @@ module Hask.Category
   -- ** Constraints
   , Constraint, (:-)(Sub), Dict(..), (\\), sub
   -- ** Op
-  , Yoneda(..), yoneda, Op
+  , Yoneda(..), yoneda, Op, Opd
   -- ** Nat
   , Nat(..), NatId, Endo, nat
   , Presheaves, Copresheaves
