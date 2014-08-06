@@ -33,11 +33,12 @@ library
     Hask.Adjunction
     Hask.Category
     Hask.Category.Polynomial
-    Hask.Functor.Composition
     Hask.Functor.Faithful
     Hask.Iso
     Hask.Prof
     Hask.Tensor
+    Hask.Tensor.Compose
+    Hask.Tensor.Day
 
   build-depends:
     base >= 4       && < 5,

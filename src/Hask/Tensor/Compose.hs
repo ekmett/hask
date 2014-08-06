@@ -1,5 +1,5 @@
 {-# LANGUAGE KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures, EmptyCase #-}
-module Hask.Functor.Composition where
+module Hask.Tensor.Compose where
 
 import Data.Constraint.Unsafe (unsafeCoerceConstraint)
 import GHC.Prim (Any)
