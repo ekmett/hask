@@ -13,6 +13,7 @@ module Hask.Category
   , contramap
   -- ** (Curried) Bifunctors
   , Bifunctor
+  , Cod2, Dom2
   , fmap1
   , bimap
   , dimap
@@ -26,6 +27,11 @@ module Hask.Category
   -- ** Nat
   , Nat(..), NatId, Endo, nat
   , Presheaves, Copresheaves
+  , NatDom, NatCod
+  -- * Lens (Iso)
+  , Iso
+  -- * Prelude
+  , ($)
   ) where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\))
