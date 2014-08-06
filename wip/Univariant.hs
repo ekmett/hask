@@ -104,8 +104,6 @@ type family NatCod (f :: (i -> j) -> (i -> j) -> *) :: (j -> j -> *) where
 
 type Dom2 p = NatDom (Cod p)
 type Cod2 p = NatCod (Cod p)
---type Dom2 (p :: i -> j -> k) = (NatDom (Cod p :: (j -> k) -> (j -> k) -> *) :: j -> j -> *)
---type Cod2 (p :: i -> j -> k) = (NatCod (Cod p :: (j -> k) -> (j -> k) -> *) :: k -> k -> *)
 
 class (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
 instance  (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Category' (Cod2 p)) => Bifunctor (p :: i -> j -> k)
