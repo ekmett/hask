@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, AllowAmbiguousTypes, LambdaCase, DefaultSignatures #-}
+{-# LANGUAGE CPP, KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, DefaultSignatures #-}
 
 module Hask.Category
   (
@@ -24,13 +24,11 @@ module Hask.Category
   -- ** Constraints
   , Constraint, (:-)(Sub), Dict(..), (\\), sub
   -- ** Op
-  , Yoneda(..), yoneda, Op, Opd
+  , Yoneda(..), Op, Opd
   -- ** Nat
   , Nat(..), NatId, Endo, nat
   , Presheaves, Copresheaves
   , NatDom, NatCod
-  -- * Lens (Iso)
-  , Iso
   -- * Prelude
   , ($), Either(..)
   -- * Bug Workaround
@@ -165,10 +163,12 @@ contramap = fmap . unop
 dimap :: Bifunctor p => Opd p b a -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 dimap = bimap . unop
 
+{-
 type Iso
   (c :: i -> i -> *) (d :: j -> j -> *) (e :: k -> k -> *)
   (s :: i) (t :: j) (a :: i) (b :: j) = forall (p :: i -> j -> k).
   (Bifunctor p, Opd p ~ c, Dom2 p ~ d, Cod2 p ~ e) => e (p a b) (p s t)
+-}
 
 --------------------------------------------------------------------------------
 -- * Categories (Part 2)
@@ -266,18 +266,6 @@ instance (Category p, Op p ~ Yoneda p) => Category' (Yoneda p) where
   unop = Op
   op = getOp
 
-yoneda :: forall p f g a b. (Ob p a, FunctorOf p (->) g, FunctorOf p (->) (p b))
-       => Iso (->) (->) (->)
-          (Nat p (->) (p a) f)
-          (Nat p (->) (p b) g)
-          (f a)
-          (g b)
-yoneda = dimap hither yon where
-  hither :: Nat p (->) (p a) f -> f a
-  hither (Nat f) = f id
-  yon :: g b -> Nat p (->) (p b) g
-  yon gb = Nat $ \pba -> fmap pba gb
-
 --------------------------------------------------------------------------------
 -- * Nat
 --------------------------------------------------------------------------------
@@ -326,16 +314,16 @@ instance Functor ((,) a) where
 instance Functor Either where
   type Dom Either = (->)
   type Cod Either = Nat (->) (->)
-  fmap f = Nat $ \case
-    Left a -> Left (f a)
-    Right b -> Right b
+  fmap f0 = Nat (go f0) where
+    go :: (a -> b) -> Either a c -> Either b c
+    go f (Left a)  = Left (f a)
+    go _ (Right b) = Right b
 
 instance Functor (Either a) where
   type Dom (Either a) = (->)
   type Cod (Either a) = (->)
-  fmap f = \case
-    Left a -> Left a
-    Right b -> Right (f b)
+  fmap _ (Left a) = Left a
+  fmap f (Right b) = Right (f b)
 
 
 --------------------------------------------------------------------------------

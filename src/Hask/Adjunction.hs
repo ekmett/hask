@@ -6,6 +6,7 @@ module Hask.Adjunction
   ) where
 
 import Hask.Category
+import Hask.Get
 import qualified Prelude
 
 --------------------------------------------------------------------------------
