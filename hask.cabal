@@ -33,6 +33,7 @@ library
     Hask.Adjunction
     Hask.Category
     Hask.Category.Polynomial
+    Hask.Functor.Composition
     Hask.Functor.Faithful
     Hask.Iso
     Hask.Prof

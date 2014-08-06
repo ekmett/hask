@@ -22,18 +22,18 @@ module Hask.Category
   , Vacuous
   -- * Categories
   -- ** Constraints
-  , Constraint, (:-)(Sub), Dict(..), (\\), sub
+  , Constraint, (:-)(Sub), Dict(..), (\\), sub, Class(cls), (:=>)(ins)
   -- ** Op
   , Yoneda(..), Op, Opd
   -- ** Nat
-  , Nat(..), NatId, Endo, nat
+  , Nat(..), NatId, Endo, nat, (!)
   , Presheaves, Copresheaves
   , NatDom, NatCod
   -- * Prelude
   , ($), Either(..)
   ) where
 
-import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\))
+import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
 import qualified Data.Constraint as Constraint
 import Data.Proxy (Proxy(..))
 import Prelude (($), Either(..))
