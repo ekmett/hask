@@ -15,7 +15,7 @@ module Hask.Category.Polynomial
 
 import Hask.Category
 import Data.Void
-import Hask.Faithful
+import Hask.Functor.Faithful
 import Prelude (error)
 
 --------------------------------------------------------------------------------

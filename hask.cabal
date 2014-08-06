@@ -30,9 +30,10 @@ library
   default-language: Haskell2010
 
   exposed-modules:
+    Hask.Adjunction
     Hask.Category
     Hask.Category.Polynomial
-    Hask.Faithful
+    Hask.Functor.Faithful
     Hask.Get
     Hask.Tensor
 

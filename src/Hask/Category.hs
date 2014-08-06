@@ -331,5 +331,3 @@ instance Functor (Either a) where
   fmap f = \case
     Left a -> Left a
     Right b -> Right (f b)
-
-

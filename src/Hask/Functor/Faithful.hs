@@ -1,6 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude, ConstraintKinds, PolyKinds #-}
 
-module Hask.Faithful where
+module Hask.Functor.Faithful where
 
 import Hask.Category
 
