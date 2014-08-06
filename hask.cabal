@@ -32,6 +32,7 @@ library
   exposed-modules:
     Hask.Category
     Hask.Faithful
+    Hask.Get
     Hask.Tensor
 
   build-depends:
