@@ -1,10 +1,16 @@
 {-# LANGUAGE RankNTypes, PolyKinds, DataKinds, ConstraintKinds, ScopedTypeVariables, KindSignatures, TypeFamilies, MultiParamTypeClasses, UndecidableInstances, GADTs, AllowAmbiguousTypes, FlexibleInstances #-}
 module Hask.Category.Polynomial
-  ( Product(..), ProductOb(..), Fst(..), Snd(..)
+  ( 
+  -- * Product Category
+    Product(..), ProductOb, Fst, Snd
+  -- * Coproduct Category
   , Coproduct(..), CoproductOb(..)
+  -- * Unit Category
   , Unit(..)
-  -- , Empty
+  -- * Empty Category
+  , Empty
   , Void, absurd
+
   ) where
 
 import Hask.Category
