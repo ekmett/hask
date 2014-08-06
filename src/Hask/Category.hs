@@ -31,13 +31,13 @@ module Hask.Category
   -- * Lens (Iso)
   , Iso
   -- * Prelude
-  , ($)
+  , ($), Either(..)
   ) where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\))
 import qualified Data.Constraint as Constraint
 import Data.Proxy (Proxy(..))
-import Prelude (($))
+import Prelude (($), Either(..))
 
 --------------------------------------------------------------------------------
 -- * Categories (Part 1)
@@ -303,3 +303,33 @@ infixr 1 !
 (!) :: Nat p q f g -> p a a -> q (f a) (g a)
 Nat n ! f = case observe f of
   Dict -> n
+
+--------------------------------------------------------------------------------
+-- * Instances
+--------------------------------------------------------------------------------
+
+instance Functor (,) where
+  type Dom (,) = (->)
+  type Cod (,) = Nat (->) (->)
+  fmap f = Nat $ \(a,b) -> (f a, b)
+
+instance Functor ((,) a) where
+  type Dom ((,) a) = (->)
+  type Cod ((,) a) = (->)
+  fmap f (a,b) = (a, f b)
+
+instance Functor Either where
+  type Dom Either = (->)
+  type Cod Either = Nat (->) (->)
+  fmap f = Nat $ \case
+    Left a -> Left (f a)
+    Right b -> Right b
+
+instance Functor (Either a) where
+  type Dom (Either a) = (->)
+  type Cod (Either a) = (->)
+  fmap f = \case
+    Left a -> Left a
+    Right b -> Right (f b)
+
+
