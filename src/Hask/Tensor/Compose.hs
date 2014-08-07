@@ -131,11 +131,13 @@ rhoCompose = dimap hither yon where
 -- ** Monads
 --------------------------------------------------------------------------------
 
-class (Functor m, Dom m ~ Cod m, Monoid (Compose (Dom m) (Dom m) (Dom m)) m, Identified (Dom m), Composed (Dom m)) => Monad m where
-  return :: Ob (Dom m) a => Dom m a (m a)
-  return = runNat (eta (id :: NatId (Compose (Dom m) (Dom m) (Dom m)))) . beget _Id
-  bind :: forall a b. Ob (Dom m) b => Dom m a (m b) -> Dom m (m a) (m b)
-  bind f = case observe f of
-    Dict -> case obOf (id :: NatId m) (id :: Endo (Cod m) (m b)) of
-      Dict -> runNat mu . beget _Compose . fmap f
+class    (Functor m, Dom m ~ Cod m, Monoid (Compose (Dom m) (Dom m) (Dom m)) m, Identified (Dom m), Composed (Dom m)) => Monad m
 instance (Functor m, Dom m ~ Cod m, Monoid (Compose (Dom m) (Dom m) (Dom m)) m, Identified (Dom m), Composed (Dom m)) => Monad m
+
+return :: forall m a. (Monad m, Ob (Dom m) a) => Dom m a (m a)
+return = runNat (eta (id :: NatId (Compose (Dom m) (Dom m) (Dom m)))) . beget _Id
+
+bind :: forall m a b. (Monad m, Ob (Dom m) b) => Dom m a (m b) -> Dom m (m a) (m b)
+bind f = case observe f of
+  Dict -> case obOf (id :: NatId m) (id :: Endo (Cod m) (m b)) of
+    Dict -> runNat mu . beget _Compose . fmap f
