@@ -1093,3 +1093,16 @@ dayR = dimap (Nat hither) (Nat yon)
 
 instance (Semitensor t, Category (Dom t)) => Semitensor (Day t)
   where associate = dayL . day3 . dayR
+
+hitherDay :: (Semitensor t, Dom t ~ c, Category c) => Day t (Day t f g) h a -> Day t f (Day t g h) a
+hitherDay (Day (c' :: c (t b z) a) (Day (c :: c (t x y) b) fx gy) hz) =
+    case semitensorClosed :: Dict (Ob c (t y z)) of
+        Dict -> case semitensorClosed :: Dict (Ob c (t x (t y z))) of
+            Dict -> Day (c' . runNat (fmap c) . beget associate) fx (Day id gy hz)
+
+yonDay :: (Semitensor t, Dom t ~ c, Category c) => Day t f (Day t g h) a -> Day t (Day t f g) h a
+yonDay (Day (c' :: c (t x b) a) fx (Day (c :: c (t y z) b) gy hz)) =
+    case semitensorClosed :: Dict (Ob c (t x y)) of
+        Dict -> case semitensorClosed :: Dict (Ob c (t y z)) of
+            Dict -> case semitensorClosed :: Dict (Ob c (t x (t y z))) of
+                Dict -> Day (c' . fmap1 c . get associate) (Day id fx gy) hz
