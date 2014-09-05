@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, DefaultSignatures #-}
+{-# LANGUAGE CPP, KindSignatures, PolyKinds, MultiParamTypeClasses, FunctionalDependencies, ConstraintKinds, NoImplicitPrelude, TypeFamilies, TypeOperators, FlexibleContexts, FlexibleInstances, UndecidableInstances, RankNTypes, GADTs, ScopedTypeVariables, DataKinds, DefaultSignatures, NoMonomorphismRestriction #-}
 
 module Hask.Category
   (
@@ -15,7 +15,7 @@ module Hask.Category
   -- ** (Curried) Bifunctors
   , Bifunctor
   , Cod2, Dom2
-  , fmap1
+  , fmap1, first
   , bimap
   , dimap
   -- * Vacuous
@@ -31,6 +31,7 @@ module Hask.Category
   , NatDom, NatCod
   -- * Prelude
   , ($), Either(..)
+  , Mu(..)
   ) where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))
@@ -63,6 +64,7 @@ type family Op (p :: i -> i -> *) :: i -> i -> * where
 -- @
 -- C :: C^op -> [ C, Set ]
 -- @
+
 class Category' (p :: i -> i -> *) where
   type Ob p :: i -> Constraint
   id :: Ob p a => p a a
@@ -138,6 +140,7 @@ instance  (Functor p, Cod p ~ Nat (Dom2 p) (Cod2 p), Category' (Dom2 p), Categor
 fmap1 :: forall p a b c. (Bifunctor p, Ob (Dom p) c) => Dom2 p a b -> Cod2 p (p c a) (p c b)
 fmap1 f = case ob :: Ob (Dom p) c :- FunctorOf (Dom2 p) (Cod2 p) (p c) of
   Sub Dict -> fmap f
+
 
 bimap :: Bifunctor p => Dom p a b -> Dom2 p c d -> Cod2 p (p a c) (p b d)
 bimap f g = case observe f of
@@ -320,3 +323,19 @@ instance Functor (Either a) where
   type Cod (Either a) = (->)
   fmap _ (Left a) = Left a
   fmap f (Right b) = Right (f b)
+
+first :: (Functor f, Cod f ~ Nat d e, Ob d c) => Dom f a b -> e (f a c) (f b c)
+first = runNat . fmap
+
+newtype Fix (f :: * -> * -> *) (a :: *) = In { out :: f (Fix f a) a }
+
+instance Functor Fix where
+  type Dom Fix = Nat (->) (Nat (->) (->))
+  type Cod Fix = Nat (->) (->)
+  fmap f = case observe f of 
+    Dict -> Nat $ \ (In mu) -> In (first (first f) (runNat (runNat f) mu))
+
+instance FunctorOf (->) (Nat (->) (->)) p => Functor (Fix p) where
+  type Dom (Fix f) = (->)
+  type Cod (Fix f) = (->)
+  fmap f (In b) = In (bimap (fmap f) f b)

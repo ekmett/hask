@@ -19,7 +19,9 @@ import Data.Void
 
 class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
   associate :: (Ob (Dom p) a, Ob (Dom p) b, Ob (Dom p) c, Ob (Dom p) a', Ob (Dom p) b', Ob (Dom p) c')
-            => Iso (Dom p) (Dom p) (->) (p (p a b) c) (p (p a' b') c') (p a (p b c)) (p a' (p b' c'))
+            => Iso (Dom p) (Dom p) (->) 
+                (p (p a b) c)     (p (p a' b') c')
+                (p a (p b c))     (p a' (p b' c'))
 
 type family I (p :: i -> i -> i) :: i
 
