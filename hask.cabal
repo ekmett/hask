@@ -11,7 +11,7 @@ homepage:      http://github.com/ekmett/categories
 bug-reports:   http://github.com/ekmett/categories/issues
 synopsis:      Categories
 copyright:     Copyright (C) 2008-2014, Edward A. Kmett
-description:   Kind-indexed category theory in Haskell
+description:   Kind-polymorphic category theory in Haskell
 build-type:    Simple
 tested-with:   GHC == 7.8.2
 extra-source-files:
