@@ -15,7 +15,6 @@ description:   Kind-polymorphic category theory in Haskell
 build-type:    Simple
 tested-with:   GHC == 7.8.2
 extra-source-files:
-  .ghci
   .gitignore
   .travis.yml
   .vim.custom
