@@ -31,7 +31,7 @@ module Hask.Category
   , NatDom, NatCod
   -- * Prelude
   , ($), Either(..)
-  , Mu(..)
+  , Fix(..)
   ) where
 
 import Data.Constraint (Constraint, (:-)(Sub), Dict(..), (\\), Class(cls), (:=>)(ins))

@@ -4,7 +4,7 @@ module Hask.Tensor.Day where
 import Hask.Category
 import Hask.Iso
 import Hask.Tensor
-import Prelude (undefined)
+import Prelude ()
 
 --------------------------------------------------------------------------------
 -- * Day Convolution
