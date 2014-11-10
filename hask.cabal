@@ -7,8 +7,8 @@ license-file:  LICENSE
 author:        Edward A. Kmett
 maintainer:    Edward A. Kmett <ekmett@gmail.com>
 stability:     experimental
-homepage:      http://github.com/ekmett/categories
-bug-reports:   http://github.com/ekmett/categories/issues
+homepage:      http://github.com/ekmett/hask
+bug-reports:   http://github.com/ekmett/hask/issues
 synopsis:      Categories
 copyright:     Copyright (C) 2008-2014, Edward A. Kmett
 description:   Kind-polymorphic category theory in Haskell
@@ -20,6 +20,11 @@ extra-source-files:
   .vim.custom
   README.markdown
   CHANGELOG.markdown
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/hask.git
+
 
 flag Optimize
   description: Enable optimizations
