@@ -2,7 +2,7 @@
 module Hask.Tensor
   ( 
   -- * Tensors
-    Semitensor(..), I, Tensor'(..), Tensor
+    Semitensor(..), I, Tensor'(..), Tensor, semitensorClosed
   -- * Monoids
   , Semigroup(..), Monoid'(..), Monoid
   -- * Comonoids (Opmonoids)
@@ -22,6 +22,11 @@ class (Bifunctor p, Dom p ~ Dom2 p, Dom p ~ Cod2 p) => Semitensor p where
             => Iso (Dom p) (Dom p) (->) 
                 (p (p a b) c)     (p (p a' b') c')
                 (p a (p b c))     (p a' (p b' c'))
+
+semitensorClosed :: forall c t x y. (Semitensor t, Category c, Dom t ~ c, Ob c x, Ob c y) => Dict (Ob c (t x y))
+semitensorClosed = case ob :: Ob c x :- FunctorOf c c (t x) of
+  Sub Dict -> case ob :: Ob c y :- Ob c (t x y) of
+    Sub Dict -> Dict
 
 type family I (p :: i -> i -> i) :: i
 
