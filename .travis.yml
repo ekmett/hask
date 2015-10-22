@@ -36,7 +36,6 @@ before_install:
       $CABAL install happy alex
       export PATH=$HOME/.cabal/bin:$PATH
     fi
-  - $CABAL install packdeps # packunused --constraint 'packunused >= 0.1.1.2'
 
 install:
   - $CABAL install --dependencies-only --enable-tests $MODE
@@ -45,8 +44,6 @@ install:
 script:
   - $CABAL build --ghc-options=-ddump-minimal-imports
   - $CABAL test --show-details=always
-  - packdeps hask.cabal
-  # - packunused
 
 notifications:
   irc:
