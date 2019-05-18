@@ -2,7 +2,6 @@
 module Hask.Tensor.Compose where
 
 import Data.Constraint.Unsafe (unsafeCoerceConstraint)
-import GHC.Prim (Any)
 import Hask.Category
 import Hask.Iso
 import Hask.Tensor
@@ -12,8 +11,11 @@ import Unsafe.Coerce (unsafeCoerce)
 -- * Compose
 --------------------------------------------------------------------------------
 
+data family Any :: k
+
 data COMPOSE = Compose
 type Compose = (Any 'Compose :: (i -> i -> *) -> (j -> j -> *) -> (k -> k -> *) -> (j -> k) -> (i -> j) -> i -> k)
+
 
 class Category e => Composed (e :: k -> k -> *) where
   _Compose :: (FunctorOf d e f, FunctorOf d e f', FunctorOf c d g, FunctorOf c d g') => Iso

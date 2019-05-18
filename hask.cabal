@@ -13,7 +13,7 @@ synopsis:      Categories
 copyright:     Copyright (C) 2008-2014, Edward A. Kmett
 description:   Kind-polymorphic category theory in Haskell
 build-type:    Simple
-tested-with:   GHC == 7.8.2
+tested-with:   GHC == 8.4.4, GHC == 8.6.4
 extra-source-files:
   .gitignore
   .travis.yml
@@ -41,13 +41,10 @@ library
     Hask.Iso
     Hask.Prof
     Hask.Tensor
-    Hask.Tensor.Compose
     Hask.Tensor.Day
 
-  -- This package currently relies and behavior that is specific
-  -- GHC version 7.8.3 (not 7.8.2 or 7.8.4 or 7.10.*)
   build-depends:
-    base == 4.7.0.1,
+    base <= 4.13,
     constraints,
     ghc-prim,
     reflection,

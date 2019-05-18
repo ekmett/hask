@@ -1,13 +1,12 @@
-{-# LANGUAGE PolyKinds, KindSignatures, MultiParamTypeClasses, FunctionalDependencies, TypeFamilies, TypeOperators #-}
-module Hask.Adjunction 
-  ( (-|)(..)
+{-# LANGUAGE ExplicitNamespaces, PolyKinds, KindSignatures, MultiParamTypeClasses, FunctionalDependencies, TypeFamilies, TypeOperators, NoImplicitPrelude #-}
+module Hask.Adjunction
+  ( type (-|)(..)
   , swap
-  , Curried(..)
+  -- , Curried(..)
   ) where
 
 import Hask.Category
 import Hask.Iso
-import qualified Prelude
 
 --------------------------------------------------------------------------------
 -- * Adjunctions
@@ -16,8 +15,8 @@ import qualified Prelude
 class (Functor f, Functor g, Dom f ~ Cod g, Cod g ~ Dom f) => (f :: j -> i) -| (g :: i -> j) | f -> g, g -> f where
   adj :: Iso (->) (->) (->) (Cod f (f a) b) (Cod f (f a') b') (Cod g a (g b)) (Cod g a' (g b'))
 
-instance (,) e -| (->) e where
-  adj = dimap (. swap) (. swap) . curried
+-- instance (,) e -| (->) e where
+--   adj = dimap (. swap) (. swap) . curried
 
 swap :: (a,b) -> (b,a)
 swap (a,b) = (b,a)
@@ -26,10 +25,10 @@ swap (a,b) = (b,a)
 -- * Currying
 --------------------------------------------------------------------------------
 
-class (Bifunctor p, Bifunctor q) => Curried (p :: k -> i -> j) (q :: i -> j -> k) | p -> q, q -> p where
-  curried :: Iso (->) (->) (->)
-    (Dom2 p (p a b) c) (Dom2 p (p a' b') c')
-    (Dom2 q a (q b c)) (Dom2 q a' (q b' c'))
+-- class (Bifunctor p, Bifunctor q) => Curried (p :: k -> i -> j) (q :: i -> j -> k) | p -> q, q -> p where
+--   curried :: Iso (->) (->) (->)
+--     (Dom2 p (p a b) c) (Dom2 p (p a' b') c')
+--     (Dom2 q a (q b c)) (Dom2 q a' (q b' c'))
 
-instance Curried (,) (->) where
-  curried = dimap Prelude.curry Prelude.uncurry
+-- instance Curried (,) (->) where
+--   curried = dimap Prelude.curry Prelude.uncurry

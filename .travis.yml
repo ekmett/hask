@@ -1,10 +1,9 @@
 language: haskell
 
-env:
-  - GHCVER=7.8.3
-  - GHCVER=head
-
 matrix:
+  include:
+    - env: GHCVER=8.4.4
+    - env: GHCVER=8.6.4
   allow_failures:
     - env: GHCVER=head
 
@@ -32,7 +31,7 @@ before_install:
 
   # Update happy when building with GHC head
   - |
-    if [ $GHCVER = "head" ] || [ $GHCVER = "7.8.3" ]; then
+    if [ $GHCVER = "head" ]; then
       $CABAL install happy alex
       export PATH=$HOME/.cabal/bin:$PATH
     fi

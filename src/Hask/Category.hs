@@ -93,6 +93,7 @@ class (Category' (Dom f), Category' (Cod f)) => Functor (f :: i -> j) where
 class (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 instance (Functor f, Dom f ~ p, Cod f ~ q) => FunctorOf p q f
 
+-- | Functors preserve @Ob@ constraints
 ob :: forall f a. Functor f => Ob (Dom f) a :- Ob (Cod f) (f a)
 ob = Sub $ case observe (fmap (id :: Dom f a a) :: Cod f (f a) (f a)) of
   Dict -> Dict
@@ -104,6 +105,7 @@ data Nat (p :: i -> i -> *) (q :: j -> j -> *) (f :: i -> j) (g :: i -> j) where
            runNat :: forall a. Ob p a => q (f a) (g a)
          } -> Nat p q f g
 
+-- | Endomorphisms of a given functor
 type NatId p = Endo (Nat (Dom p) (Cod p)) p
 
 obOf :: (Category (Dom f), Category (Cod f)) => NatId f -> Endo (Dom f) a
@@ -207,8 +209,8 @@ instance Functor (:-) where
   fmap (Op f) = Nat (. f)
 
 instance Functor ((:-) b) where
-  type Dom ((:-) a) = (:-)
-  type Cod ((:-) a) = (->)
+  type Dom ((:-) b) = (:-)
+  type Cod ((:-) b) = (->)
   fmap = (.)
 
 instance Category' (:-) where
@@ -275,8 +277,8 @@ instance (Category' p, Category q) => Functor (Nat p q) where
   fmap (Op f) = Nat (. f)
 
 instance (Category' p, Category q) => Functor (Nat p q a) where
-  type Dom (Nat p q f) = Nat p q
-  type Cod (Nat p q f) = (->)
+  type Dom (Nat p q a) = Nat p q
+  type Cod (Nat p q a) = (->)
   fmap = (.)
 
 instance (Category' p, Category' q) => Category' (Nat p q) where
@@ -336,6 +338,6 @@ instance Functor Fix where
     Dict -> Nat $ \ (In mu) -> In (first (first f) (runNat (runNat f) mu))
 
 instance FunctorOf (->) (Nat (->) (->)) p => Functor (Fix p) where
-  type Dom (Fix f) = (->)
-  type Cod (Fix f) = (->)
+  type Dom (Fix p) = (->)
+  type Cod (Fix p) = (->)
   fmap f (In b) = In (bimap (fmap f) f b)
