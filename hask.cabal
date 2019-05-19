@@ -49,8 +49,7 @@ library
     ghc-prim,
     reflection,
     transformers,
-    tagged,
-    void >= 0.5.4.2 && < 1
+    tagged
 
   hs-source-dirs: src
   ghc-options: -Wall -fno-warn-missing-signatures
