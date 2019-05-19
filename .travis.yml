@@ -43,11 +43,3 @@ install:
 script:
   - $CABAL build --ghc-options=-ddump-minimal-imports
   - $CABAL test --show-details=always
-
-notifications:
-  irc:
-    channels:
-      - "irc.freenode.org#haskell-lens"
-    skip_join: true
-    template:
-      - "\x0313hask\x03/\x0306%{branch}\x03 \x0314%{commit}\x03 %{build_url} %{message}"
