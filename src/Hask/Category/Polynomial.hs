@@ -1,6 +1,6 @@
-{-# LANGUAGE RankNTypes, PolyKinds, DataKinds, ConstraintKinds, ScopedTypeVariables, KindSignatures, TypeFamilies, MultiParamTypeClasses, UndecidableInstances, GADTs, AllowAmbiguousTypes, FlexibleInstances #-}
+{-# LANGUAGE RankNTypes, PolyKinds, DataKinds, ConstraintKinds, ScopedTypeVariables, KindSignatures, TypeFamilies, MultiParamTypeClasses, UndecidableInstances, UndecidableSuperClasses, GADTs, AllowAmbiguousTypes, FlexibleInstances, NoImplicitPrelude #-}
 module Hask.Category.Polynomial
-  ( 
+  (
   -- * Product Category
     Product(..), ProductOb, Fst, Snd
   -- * Coproduct Category
@@ -16,7 +16,6 @@ module Hask.Category.Polynomial
 import Hask.Category
 import Data.Void
 import Hask.Functor.Faithful
-import Prelude (error)
 
 --------------------------------------------------------------------------------
 -- * Products
@@ -60,18 +59,18 @@ instance (Category p, Category q) => Category' (Product p q) where
 --------------------------------------------------------------------------------
 
 data Coproduct (c :: i -> i -> *) (d :: j -> j -> *) (a :: Either i j) (b :: Either i j) where
-  Inl :: c x y -> Coproduct c d (Left x) (Left y)
-  Inr :: d x y -> Coproduct c d (Right x) (Right y)
+  Inl :: c x y -> Coproduct c d ('Left x) ('Left y)
+  Inr :: d x y -> Coproduct c d ('Right x) ('Right y)
 
 class CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (a :: Either i j) where
-  side :: Endo (Coproduct p q) a -> (forall x. (a ~ Left x, Ob p x) => r) -> (forall y. (a ~ Right y, Ob q y) => r) -> r
+  side :: Endo (Coproduct p q) a -> (forall x. (a ~ 'Left x, Ob p x) => r) -> (forall y. (a ~ 'Right y, Ob q y) => r) -> r
   coproductId :: Endo (Coproduct p q) a
 
-instance (Category p, Ob p x) => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Left x :: Either i j) where
+instance (Category p, Ob p x) => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) ('Left x :: Either i j) where
   side _ r _ = r
   coproductId = Inl id
 
-instance (Category q, Ob q y) => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) (Right y :: Either i j) where
+instance (Category q, Ob q y) => CoproductOb (p :: i -> i -> *) (q :: j -> j -> *) ('Right y :: Either i j) where
   side _ _ r = r
   coproductId = Inr id
 
@@ -94,7 +93,6 @@ instance (Category p, Category q) => Category' (Coproduct p q) where
     Dict -> Dict
   Inl f . Inl g = Inl (f . g)
   Inr f . Inr g = Inr (f . g)
-  _ . _ = error "Type error"
 
 --------------------------------------------------------------------------------
 -- * The Unit category
@@ -159,4 +157,3 @@ instance Category' Empty where
   f . _ = case f of {}
   observe f = case f of {}
 -}
-
